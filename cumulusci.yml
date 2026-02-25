@@ -1,9 +1,9 @@
 minimum_cumulusci_version: "3.78.0"
 project:
-    name: __PROJECT_LABEL__
+    name: Unbounce-Unlocked
     package:
-        name: __PROJECT_NAME__
-        name_managed: __PROJECT_LABEL__
+        name: UnbounceUnlocked
+        name_managed: Unbounce-Unlocked
         api_version: "61.0"
     dependencies:
         - github: https://github.com/Nimba-Solutions/Shulman-Core
@@ -20,14 +20,14 @@ project:
 tasks:
     robot:
         options:
-            suites: robot/__PROJECT_LABEL__/tests
+            suites: robot/Unbounce-Unlocked/tests
             options:
-                outputdir: robot/__PROJECT_LABEL__/results
+                outputdir: robot/Unbounce-Unlocked/results
 
     robot_testdoc:
         options:
-            path: robot/__PROJECT_LABEL__/tests
-            output: robot/__PROJECT_LABEL__/doc/__PROJECT_LABEL___tests.html
+            path: robot/Unbounce-Unlocked/tests
+            output: robot/Unbounce-Unlocked/doc/Unbounce-Unlocked_tests.html
 
     run_tests:
         options:
@@ -36,8 +36,8 @@ tasks:
     assign_permission_set_groups:
         class_path: cumulusci.tasks.salesforce.users.permsets.AssignPermissionSetGroups
         options:
-            api_names: __PROJECT_NAME__Admin
-            # Note: scripts/setup_new_project.py will permanently replace __PROJECT_NAME__ 
+            api_names: UnbounceUnlockedAdmin
+            # Note: scripts/setup_new_project.py will permanently replace UnbounceUnlocked 
             # with the package name (e.g., YourProjectName)
             # Transforms are not needed since tokens are replaced permanently
 

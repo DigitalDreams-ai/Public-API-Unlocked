@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Dispatch GitHub Actions workflows
-REPO="DigitalDreams-ai/__PROJECT_NAME__"
+REPO="DigitalDreams-ai/UnbounceUnlocked"
 
 # Get current branch
 BRANCH=$(git rev-parse --abbrev-ref HEAD)

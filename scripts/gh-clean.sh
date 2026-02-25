@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Clean up failed and cancelled GitHub Actions workflow runs
-REPO="DigitalDreams-ai/__PROJECT_NAME__"
+REPO="DigitalDreams-ai/UnbounceUnlocked"
 
 echo "Fetching failed workflow runs..."
 failed_ids=$(gh run list --repo "$REPO" --status failure --json databaseId -q '.[].databaseId')
