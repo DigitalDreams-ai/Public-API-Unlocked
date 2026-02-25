@@ -1,0 +1,53 @@
+minimum_cumulusci_version: "3.78.0"
+project:
+    name: __PROJECT_LABEL__
+    package:
+        name: __PROJECT_NAME__
+        name_managed: __PROJECT_LABEL__
+        api_version: "61.0"
+    dependencies:
+        - github: https://github.com/Nimba-Solutions/Shulman-Core
+    #     - version_id: 04t8b000001ZxNVAA0 # FlowActionsBasePack Version: 3.18
+    #     - version_id: 04t5G000004fz7mQAA # FlowScreenComponentsBasePack Version: 3.3.4
+    #     - version_id: 04t5G0000043xu3QAA # https://unofficialsf.com/from-josh-dayment-improved-file-upload-in-flow-screens/
+    git:
+        default_branch: "main"
+        prefix_feature: "feature/"
+        prefix_beta: "beta/"
+        prefix_release: "release/"
+    source_format: sfdx
+
+tasks:
+    robot:
+        options:
+            suites: robot/__PROJECT_LABEL__/tests
+            options:
+                outputdir: robot/__PROJECT_LABEL__/results
+
+    robot_testdoc:
+        options:
+            path: robot/__PROJECT_LABEL__/tests
+            output: robot/__PROJECT_LABEL__/doc/__PROJECT_LABEL___tests.html
+
+    run_tests:
+        options:
+            required_org_code_coverage_percent: 75
+
+    assign_permission_set_groups:
+        class_path: cumulusci.tasks.salesforce.users.permsets.AssignPermissionSetGroups
+        options:
+            api_names: __PROJECT_NAME__Admin
+            # Note: scripts/setup_new_project.py will permanently replace __PROJECT_NAME__ 
+            # with the package name (e.g., YourProjectName)
+            # Transforms are not needed since tokens are replaced permanently
+
+flows:
+    config_dev:
+        steps:
+            3.0:
+                task: assign_permission_set_groups
+
+    config_qa:
+        steps:
+            3.0:
+                task: assign_permission_set_groups
