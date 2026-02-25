@@ -105,11 +105,16 @@ def _set_dev_hub_secret(dev_hub_org, repo_slug):
     try:
         auth_url = (json.loads(raw).get("result") or {}).get("sfdxAuthUrl")
     except json.JSONDecodeError:
-        m = re.search(r"force://\\S+", raw)
+        m = re.search(r'force://[^"\s]+', raw)
         auth_url = m.group(0) if m else None
     if not auth_url:
         print("[WARNING] Could not find sfdxAuthUrl in sf output.")
         return False
+    auth_url = auth_url.strip().rstrip('"}\\]')
+    if "@https://" in auth_url:
+        auth_url = auth_url.replace("@https://", "@")
+    elif "@http://" in auth_url:
+        auth_url = auth_url.replace("@http://", "@")
     print(f"[INFO] sfdxAuthUrl preview: {_mask_secret(auth_url)}")
     gh_bin = _which("gh", "gh.exe", "gh.cmd")
     if not gh_bin:
