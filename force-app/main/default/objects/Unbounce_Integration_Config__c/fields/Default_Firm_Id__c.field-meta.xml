@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Default_Firm_Id__c</fullName>
-    <description>Default Firm ID for Unbounce intakes</description>
+    <description>Optional. Firm ID for Unbounce intakes; not used for Referred_By (these are web-form leads, not referrals from other firms).</description>
     <externalId>false</externalId>
     <label>Default Firm Id</label>
     <length>18</length>

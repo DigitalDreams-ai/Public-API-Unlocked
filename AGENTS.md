@@ -9,6 +9,8 @@ Core Salesforce metadata lives in `force-app/main/default/`:
 Documentation is in `docs/` (`docs/content` for API docs, `docs/planning` for implementation notes).  
 Automation config is in `cumulusci.yml`, `.github/workflows/`, and `scripts/`.
 
+**Stash and force-app:** `stash/force-app` holds reference metadata (e.g. Shulman API). Avoid clashing file names: no path under `force-app/` should match a path under `stash/force-app/` (same relative path, e.g. `main/default/classes/Foo.cls`). When adding metadata under `force-app/`, check that the same path does not exist under `stash/force-app/`. Currently there are no clashes.
+
 ## Build, Test, and Development Commands
 Use this sequence for daily development:
 1. Create a feature branch: `git checkout -b feature/<name>`.
