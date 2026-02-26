@@ -40,14 +40,13 @@ public class UnbounceIntakeApiTest {
 
         String intakeId = (String) response.get('intakeId');
         litify_pm__Intake__c created = [
-            SELECT Id, litify_pm__First_Name__c, litify_pm__Last_Name__c, litify_pm__Email__c, litify_pm__Source_Type__c
+            SELECT Id, litify_pm__First_Name__c, litify_pm__Last_Name__c, litify_pm__Email__c
             FROM litify_pm__Intake__c
             WHERE Id = :intakeId
         ];
         System.assertEquals('Jane', created.litify_pm__First_Name__c);
         System.assertEquals('Smith', created.litify_pm__Last_Name__c);
         System.assertEquals('jane@example.com', created.litify_pm__Email__c);
-        System.assertEquals('Unbounce', created.litify_pm__Source_Type__c);
     }
 
     @IsTest
@@ -116,7 +115,6 @@ public class UnbounceIntakeApiTest {
         System.assertEquals('John', intake.litify_pm__First_Name__c);
         System.assertEquals('Doe', intake.litify_pm__Last_Name__c);
         System.assertEquals('john@test.com', intake.litify_pm__Email__c);
-        System.assertEquals('Unbounce', intake.litify_pm__Source_Type__c);
     }
 
     @IsTest

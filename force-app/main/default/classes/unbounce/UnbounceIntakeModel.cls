@@ -32,7 +32,7 @@ public with sharing class UnbounceIntakeModel {
 
         intake.litify_pm__Description__c = getString(data, new List<String>{ 'description', 'message', 'comments', 'notes' });
         intake.litify_pm__Source__c = getString(data, new List<String>{ 'source', 'utm_source' });
-        intake.litify_pm__Source_Type__c = 'Unbounce';
+        intake.litify_pm__Source_Type__c = getString(data, new List<String>{ 'source_type', 'sourceType', 'source type' });
 
         String externalId = getString(data, new List<String>{ 'submission_id', 'submissionId', 'id', 'external_id' });
         if (String.isNotBlank(externalId)) {
