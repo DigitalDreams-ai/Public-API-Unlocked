@@ -41,13 +41,31 @@ tasks:
             # with the package name (e.g., YourProjectName)
             # Transforms are not needed since tokens are replaced permanently
 
+    assign_unbounce_api_guest:
+        class_path: cumulusci.tasks.salesforce.users.permsets.AssignPermissionSets
+        options:
+            api_names: UnbounceIntakeApi_Guest
+
+    set_unbounce_config_org_default:
+        class_path: cumulusci.tasks.apex.anon.AnonymousApexTask
+        options:
+            path: scripts/set_unbounce_config_org_default.apex
+
 flows:
     config_dev:
         steps:
             3.0:
                 task: assign_permission_set_groups
+            4.0:
+                task: assign_unbounce_api_guest
+            5.0:
+                task: set_unbounce_config_org_default
 
     config_qa:
         steps:
             3.0:
                 task: assign_permission_set_groups
+            4.0:
+                task: assign_unbounce_api_guest
+            5.0:
+                task: set_unbounce_config_org_default
