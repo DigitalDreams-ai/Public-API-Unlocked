@@ -47,10 +47,8 @@ public with sharing class UnbounceIntakeModel {
         setOptionalField(intake, 'litify_pm__UTM_Medium__c', getString(data, new List<String>{ 'utm_medium' }));
 
         String sourceType = getString(data, new List<String>{ 'source_type', 'sourceType', 'source type' });
-        if (String.isBlank(sourceType)) {
-            sourceType = 'Advertising';
-        }
-        setOptionalField(intake, 'litify_pm__Source_Type__c', sourceType);
+        // Unbounce intakes: Source Type = 'Advertising'. Set only when the org's GVS allows it (no DML error if not).
+        setPicklistFieldIfAllowed(intake, 'litify_pm__Source_Type__c', sourceType, 'Advertising');
 
         String externalId = getString(data, new List<String>{ 'gclid', 'submission_id', 'submissionId', 'id', 'external_id' });
         if (String.isNotBlank(externalId)) {
@@ -73,6 +71,28 @@ public with sharing class UnbounceIntakeModel {
             intake.put(fieldName, value);
         } catch (Exception e) {
             // Field may not exist or may be wrong type (e.g. lookup that rejects text)
+        }
+    }
+
+    /**
+     * Sets a picklist/Global Value Set field only if the value is in the field's allowed values.
+     * Used for Source Type: default 'Advertising' for Unbounce intakes when payload doesn't send it; only set if the org's GVS allows it.
+     */
+    private static void setPicklistFieldIfAllowed(litify_pm__Intake__c intake, String fieldName, String value, String defaultWhenBlank) {
+        String toSet = String.isNotBlank(value) ? value : defaultWhenBlank;
+        if (String.isBlank(toSet)) return;
+        try {
+            Schema.SObjectField field = litify_pm__Intake__c.SObjectType.getDescribe().fields.getMap().get(fieldName);
+            if (field == null) return;
+            List<Schema.PicklistEntry> entries = field.getDescribe().getPicklistValues();
+            for (Schema.PicklistEntry pe : entries) {
+                if (pe.getValue() == toSet && pe.isActive()) {
+                    intake.put(fieldName, toSet);
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            // Field may not be picklist or describe may fail
         }
     }
 
