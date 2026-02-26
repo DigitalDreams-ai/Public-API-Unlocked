@@ -32,7 +32,7 @@ public class UnbounceIntakeApiTest {
         UnbounceIntakeApi.createIntake();
         Test.stopTest();
 
-        System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + res.responseBody?.toString());
+        System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
 
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         System.assert(response.containsKey('intakeId'));
@@ -88,7 +88,7 @@ public class UnbounceIntakeApiTest {
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
-        req.headers = new Map<String, String>{ 'x-api-key' => 'test-api-key-123' };
+        req.headers.put('x-api-key', 'test-api-key-123');
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -96,7 +96,7 @@ public class UnbounceIntakeApiTest {
 
         UnbounceIntakeApi.createIntake();
 
-        System.assertEquals(201, res.statusCode, 'Expected 201 with valid API key. Body: ' + res.responseBody?.toString());
+        System.assertEquals(201, res.statusCode, 'Expected 201 with valid API key. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
     }
 
     @IsTest
@@ -136,7 +136,7 @@ public class UnbounceIntakeApiTest {
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf('{"first_name":"A","last_name":"B","email":"a@b.com"}');
-        req.headers = new Map<String, String>{ 'x-api-key' => 'wrong-key' };
+        req.headers.put('x-api-key', 'wrong-key');
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -146,6 +146,9 @@ public class UnbounceIntakeApiTest {
 
         System.assertEquals(401, res.statusCode);
     }
+
+    @IsTest
+    static void testCreateIntake_InvalidJson() {
         litify_pm__Firm__c firm = UnbounceTestDataFactory.createFirm();
         Unbounce_Config__c config = new Unbounce_Config__c(SetupOwnerId = UserInfo.getOrganizationId());
         config.Default_Firm_Id__c = firm.Id;
