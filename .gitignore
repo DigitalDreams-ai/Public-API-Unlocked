@@ -15,6 +15,7 @@ robot/Unbounce-Unlocked/results/
 .sfdx/
 .localdevserver/
 deploy-options.json
+stash/
 
 # LWC VSCode autocomplete
 **/lwc/jsconfig.json
