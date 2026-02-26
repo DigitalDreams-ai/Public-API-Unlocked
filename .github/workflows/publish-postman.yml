@@ -1,0 +1,111 @@
+name: Publish Postman Collection
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "force-app/main/default/docs/postman/Unbounce Intake API.postman_collection.json"
+      - "force-app/main/default/docs/postman/Unbounce Intake API Environment (Dev).postman_environment.json"
+      - "force-app/main/default/docs/postman/Unbounce Intake API Environment (Experience Cloud).postman_environment.json"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Publish Postman Collection
+        run: |
+          WORKSPACE_ID="${{ secrets.POSTMAN_WORKSPACE_ID }}"
+          COLLECTION_FILE="force-app/main/default/docs/postman/Unbounce Intake API.postman_collection.json"
+          COLLECTION_NAME=$(jq -r '.info.name' "$COLLECTION_FILE")
+
+          echo "Publishing collection: $COLLECTION_NAME"
+
+          COLLECTION_UID=$(curl -s --request GET \
+            "https://api.getpostman.com/collections?workspace=$WORKSPACE_ID" \
+            --header "X-Api-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+            | jq -r ".collections[] | select(.name == \"$COLLECTION_NAME\") | .uid // empty")
+
+          COLLECTION_JSON=$(cat "$COLLECTION_FILE")
+
+          if [ -n "$COLLECTION_UID" ]; then
+            echo "Updating existing collection: $COLLECTION_UID"
+            echo "{\"collection\": $COLLECTION_JSON}" | curl --location --request PUT \
+              "https://api.getpostman.com/collections/$COLLECTION_UID?workspace=$WORKSPACE_ID" \
+              --header "X-Api-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+              --header "Content-Type: application/json" \
+              --data @-
+          else
+            echo "Creating new collection: $COLLECTION_NAME"
+            echo "{\"collection\": $COLLECTION_JSON}" | curl --location --request POST \
+              "https://api.getpostman.com/collections?workspace=$WORKSPACE_ID" \
+              --header "X-Api-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+              --header "Content-Type: application/json" \
+              --data @-
+          fi
+
+      - name: Publish Dev Environment
+        run: |
+          WORKSPACE_ID="${{ secrets.POSTMAN_WORKSPACE_ID }}"
+          ENV_FILE="force-app/main/default/docs/postman/Unbounce Intake API Environment (Dev).postman_environment.json"
+          ENV_NAME=$(jq -r '.name' "$ENV_FILE")
+
+          echo "Publishing environment: $ENV_NAME"
+
+          ENV_UID=$(curl -s --request GET \
+            "https://api.getpostman.com/environments?workspace=$WORKSPACE_ID" \
+            --header "X-Api-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+            | jq -r ".environments[] | select(.name == \"$ENV_NAME\") | .uid // empty")
+
+          ENV_JSON=$(cat "$ENV_FILE")
+
+          if [ -n "$ENV_UID" ]; then
+            echo "Updating existing environment: $ENV_UID"
+            echo "{\"environment\": $ENV_JSON}" | curl --location --request PUT \
+              "https://api.getpostman.com/environments/$ENV_UID?workspace=$WORKSPACE_ID" \
+              --header "X-Api-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+              --header "Content-Type: application/json" \
+              --data @-
+          else
+            echo "Creating new environment: $ENV_NAME"
+            echo "{\"environment\": $ENV_JSON}" | curl --location --request POST \
+              "https://api.getpostman.com/environments?workspace=$WORKSPACE_ID" \
+              --header "X-Api-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+              --header "Content-Type: application/json" \
+              --data @-
+          fi
+
+      - name: Publish Experience Cloud Environment
+        run: |
+          WORKSPACE_ID="${{ secrets.POSTMAN_WORKSPACE_ID }}"
+          ENV_FILE="force-app/main/default/docs/postman/Unbounce Intake API Environment (Experience Cloud).postman_environment.json"
+          ENV_NAME=$(jq -r '.name' "$ENV_FILE")
+
+          echo "Publishing environment: $ENV_NAME"
+
+          ENV_UID=$(curl -s --request GET \
+            "https://api.getpostman.com/environments?workspace=$WORKSPACE_ID" \
+            --header "X-Api-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+            | jq -r ".environments[] | select(.name == \"$ENV_NAME\") | .uid // empty")
+
+          ENV_JSON=$(cat "$ENV_FILE")
+
+          if [ -n "$ENV_UID" ]; then
+            echo "Updating existing environment: $ENV_UID"
+            echo "{\"environment\": $ENV_JSON}" | curl --location --request PUT \
+              "https://api.getpostman.com/environments/$ENV_UID?workspace=$WORKSPACE_ID" \
+              --header "X-Api-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+              --header "Content-Type: application/json" \
+              --data @-
+          else
+            echo "Creating new environment: $ENV_NAME"
+            echo "{\"environment\": $ENV_JSON}" | curl --location --request POST \
+              "https://api.getpostman.com/environments?workspace=$WORKSPACE_ID" \
+              --header "X-Api-Key: ${{ secrets.POSTMAN_API_KEY }}" \
+              --header "Content-Type: application/json" \
+              --data @-
+          fi
