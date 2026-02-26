@@ -8,6 +8,7 @@ public with sharing class UnbounceConfigService {
         public Id defaultFirmId;
         public String defaultCaseTypeName;
         public String webhookSecret;
+        public String apiKey;
     }
 
     public static Config getConfig() {
@@ -20,6 +21,7 @@ public with sharing class UnbounceConfigService {
         c.defaultFirmId = Id.valueOf(setting.Default_Firm_Id__c.trim());
         c.defaultCaseTypeName = setting.Default_Case_Type_Name__c;
         c.webhookSecret = setting.Webhook_Secret__c;
+        c.apiKey = setting.API_Key__c;
         return c;
     }
 }

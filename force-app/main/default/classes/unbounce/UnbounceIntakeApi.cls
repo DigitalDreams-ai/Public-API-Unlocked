@@ -24,6 +24,15 @@ global with sharing class UnbounceIntakeApi {
                 return;
             }
 
+            if (String.isNotBlank(config.apiKey)) {
+                String apiKeyHeader = req.headers != null ? req.headers.get('x-api-key') : null;
+                if (apiKeyHeader == null || apiKeyHeader.trim() != config.apiKey.trim()) {
+                    res.statusCode = 401;
+                    res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse('Invalid or missing API key')));
+                    return;
+                }
+            }
+
             String signature = req.headers != null ? req.headers.get('x-unbounce-signature') : null;
             String secret = config.webhookSecret;
             if (String.isNotBlank(secret) && !UnbounceClient.verifyWebhookSignature(jsonBody, signature, secret)) {

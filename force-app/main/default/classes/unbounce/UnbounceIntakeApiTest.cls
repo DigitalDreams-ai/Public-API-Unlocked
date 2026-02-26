@@ -69,7 +69,83 @@ public class UnbounceIntakeApiTest {
     }
 
     @IsTest
-    static void testCreateIntake_InvalidJson() {
+    static void testCreateIntake_ApiKeyRequired_ValidKey() {
+        litify_pm__Firm__c firm = UnbounceTestDataFactory.createFirm();
+        UnbounceTestDataFactory.createCaseType('Auto Accident');
+        Unbounce_Config__c config = new Unbounce_Config__c(SetupOwnerId = UserInfo.getOrganizationId());
+        config.Default_Firm_Id__c = firm.Id;
+        config.Default_Case_Type_Name__c = 'Auto Accident';
+        config.API_Key__c = 'test-api-key-123';
+        upsert config;
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'first_name' => 'Api',
+            'last_name' => 'User',
+            'email' => 'api@example.com'
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers = new Map<String, String>{ 'x-api-key' => 'test-api-key-123' };
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(201, res.statusCode, 'Expected 201 with valid API key. Body: ' + res.responseBody?.toString());
+    }
+
+    @IsTest
+    static void testCreateIntake_ApiKeyRequired_MissingKey_401() {
+        litify_pm__Firm__c firm = UnbounceTestDataFactory.createFirm();
+        Unbounce_Config__c config = new Unbounce_Config__c(SetupOwnerId = UserInfo.getOrganizationId());
+        config.Default_Firm_Id__c = firm.Id;
+        config.API_Key__c = 'required-key';
+        upsert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"first_name":"A","last_name":"B","email":"a@b.com"}');
+        // no x-api-key header
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(401, res.statusCode);
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        System.assert(((String) response.get('errorMessage')).toLowerCase().contains('api key'));
+    }
+
+    @IsTest
+    static void testCreateIntake_ApiKeyRequired_WrongKey_401() {
+        litify_pm__Firm__c firm = UnbounceTestDataFactory.createFirm();
+        Unbounce_Config__c config = new Unbounce_Config__c(SetupOwnerId = UserInfo.getOrganizationId());
+        config.Default_Firm_Id__c = firm.Id;
+        config.API_Key__c = 'correct-key';
+        upsert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"first_name":"A","last_name":"B","email":"a@b.com"}');
+        req.headers = new Map<String, String>{ 'x-api-key' => 'wrong-key' };
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(401, res.statusCode);
+    }
         litify_pm__Firm__c firm = UnbounceTestDataFactory.createFirm();
         Unbounce_Config__c config = new Unbounce_Config__c(SetupOwnerId = UserInfo.getOrganizationId());
         config.Default_Firm_Id__c = firm.Id;
