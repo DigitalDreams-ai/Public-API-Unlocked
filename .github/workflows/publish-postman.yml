@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "postman/**"
+      - "docs/postman/**"
   workflow_dispatch:
 
 jobs:
@@ -49,7 +49,7 @@ jobs:
       - name: Publish Dev Environment
         run: |
           WORKSPACE_ID="${{ secrets.POSTMAN_WORKSPACE_ID }}"
-          ENV_FILE="postman/Unbounce Intake API Environment (Dev).postman_environment.json"
+          ENV_FILE="docs/postman/Unbounce Intake API Environment (Dev).postman_environment.json"
           ENV_NAME=$(jq -r '.name' "$ENV_FILE")
 
           echo "Publishing environment: $ENV_NAME"
@@ -80,7 +80,7 @@ jobs:
       - name: Publish Experience Cloud Environment
         run: |
           WORKSPACE_ID="${{ secrets.POSTMAN_WORKSPACE_ID }}"
-          ENV_FILE="postman/Unbounce Intake API Environment (Experience Cloud).postman_environment.json"
+          ENV_FILE="docs/postman/Unbounce Intake API Environment (Experience Cloud).postman_environment.json"
           ENV_NAME=$(jq -r '.name' "$ENV_FILE")
 
           echo "Publishing environment: $ENV_NAME"
