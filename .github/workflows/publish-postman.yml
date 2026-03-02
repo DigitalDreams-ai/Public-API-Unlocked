@@ -15,6 +15,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Verify Postman files exist
+        run: |
+          REPO_ROOT="${{ github.workspace }}"
+          POSTMAN_DIR="$REPO_ROOT/docs/postman"
+          echo "Contents of docs/postman:"
+          ls -la "$POSTMAN_DIR" || true
+          COLLECTION_FILE="$POSTMAN_DIR/Unbounce Intake API.postman_collection.json"
+          if [ ! -f "$COLLECTION_FILE" ]; then
+            echo "::error::Collection file not found: $COLLECTION_FILE"
+            echo "Commit and push the docs/postman/ folder (see .gitignore: add !docs/postman/ and !docs/postman/** then git add docs/postman)"
+            exit 1
+          fi
+          echo "Collection file found."
+
       - name: Publish Postman Collection
         run: |
           WORKSPACE_ID="${{ secrets.POSTMAN_WORKSPACE_ID }}"
@@ -50,7 +64,8 @@ jobs:
       - name: Publish Dev Environment
         run: |
           WORKSPACE_ID="${{ secrets.POSTMAN_WORKSPACE_ID }}"
-          ENV_FILE="docs/postman/Unbounce Intake API Environment (Dev).postman_environment.json"
+          REPO_ROOT="${{ github.workspace }}"
+          ENV_FILE="$REPO_ROOT/docs/postman/Unbounce Intake API Environment (Dev).postman_environment.json"
           ENV_NAME=$(jq -r '.name' "$ENV_FILE")
 
           echo "Publishing environment: $ENV_NAME"
