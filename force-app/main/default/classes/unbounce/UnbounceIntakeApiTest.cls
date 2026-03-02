@@ -3,13 +3,10 @@ public class UnbounceIntakeApiTest {
 
     @IsTest
     static void testCreateIntake_Success() {
-        litify_pm__Firm__c firm = UnbounceTestDataFactory.createFirm();
         UnbounceTestDataFactory.createCaseType('Auto Accident');
 
         Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
         config.Is_Active__c = true;
-        config.Default_Firm_Id__c = firm.Id;
-        config.Default_Case_Type_Name__c = 'Auto Accident';
         insert config;
 
         Map<String, Object> payload = new Map<String, Object>{
@@ -75,8 +72,6 @@ public class UnbounceIntakeApiTest {
         UnbounceTestDataFactory.createCaseType('Auto Accident');
         Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
         config.Is_Active__c = true;
-        config.Default_Case_Type_Name__c = 'Auto Accident';
-        // No Default_Firm_Id__c - web-form intakes are not from other firms
         insert config;
 
         Map<String, Object> payload = new Map<String, Object>{
@@ -111,12 +106,9 @@ public class UnbounceIntakeApiTest {
 
     @IsTest
     static void testCreateIntake_ApiKeyRequired_ValidKey() {
-        litify_pm__Firm__c firm = UnbounceTestDataFactory.createFirm();
         UnbounceTestDataFactory.createCaseType('Auto Accident');
         Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
         config.Is_Active__c = true;
-        config.Default_Firm_Id__c = firm.Id;
-        config.Default_Case_Type_Name__c = 'Auto Accident';
         config.API_Key__c = 'test-api-key-123';
         insert config;
 
@@ -144,10 +136,8 @@ public class UnbounceIntakeApiTest {
 
     @IsTest
     static void testCreateIntake_ApiKeyRequired_MissingKey_401() {
-        litify_pm__Firm__c firm = UnbounceTestDataFactory.createFirm();
         Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
         config.Is_Active__c = true;
-        config.Default_Firm_Id__c = firm.Id;
         config.API_Key__c = 'required-key';
         insert config;
 
@@ -170,10 +160,8 @@ public class UnbounceIntakeApiTest {
 
     @IsTest
     static void testCreateIntake_ApiKeyRequired_WrongKey_401() {
-        litify_pm__Firm__c firm = UnbounceTestDataFactory.createFirm();
         Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
         config.Is_Active__c = true;
-        config.Default_Firm_Id__c = firm.Id;
         config.API_Key__c = 'correct-key';
         insert config;
 
@@ -194,10 +182,8 @@ public class UnbounceIntakeApiTest {
 
     @IsTest
     static void testCreateIntake_InvalidJson() {
-        litify_pm__Firm__c firm = UnbounceTestDataFactory.createFirm();
         Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
         config.Is_Active__c = true;
-        config.Default_Firm_Id__c = firm.Id;
         insert config;
 
         RestRequest req = new RestRequest();

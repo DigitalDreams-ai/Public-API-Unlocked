@@ -7,15 +7,11 @@ public with sharing class UnbounceIntakeService {
      * Creates an intake from Unbounce webhook payload.
      *
      * @param payload Unbounce webhook JSON as Map
-     * @param firmId Optional firm to associate (from config)
-     * @param caseTypeName Optional default case type name from config (used only when payload does not send caseType)
      * @param referredByPartyName Optional Party name for Referred_By__c (e.g. PMAX-Unbounce); looked up by Name
      * @return Created intake record
      */
     public static litify_pm__Intake__c createIntakeFromUnbounce(
         Map<String, Object> payload,
-        Id firmId,
-        String caseTypeName,
         String referredByPartyName
     ) {
         if (payload == null) {
@@ -36,9 +32,7 @@ public with sharing class UnbounceIntakeService {
             intake.Referred_By__c = referredByPartyId;
         }
 
-        // Case Type lookup by Name:
-        // 1) Prefer payload key 'caseType' or 'casetype' (after custom mapping).
-        // 2) Fall back to caseTypeName from config when payload does not send either.
+        // Case Type lookup by Name from payload only (caseType or casetype).
         String caseTypeFromPayload = (String) mappedPayload.get('caseType');
         if (String.isBlank(caseTypeFromPayload)) {
             caseTypeFromPayload = (String) mappedPayload.get('casetype');
@@ -50,11 +44,8 @@ public with sharing class UnbounceIntakeService {
                 caseTypeFromPayload = (String) dataMap.get('casetype');
             }
         }
-        String effectiveCaseTypeName = String.isNotBlank(caseTypeFromPayload)
-            ? caseTypeFromPayload
-            : caseTypeName;
-        if (String.isNotBlank(effectiveCaseTypeName)) {
-            Id caseTypeId = resolveCaseTypeId(effectiveCaseTypeName);
+        if (String.isNotBlank(caseTypeFromPayload)) {
+            Id caseTypeId = resolveCaseTypeId(caseTypeFromPayload);
             if (caseTypeId != null) {
                 intake.litify_pm__Case_Type__c = caseTypeId;
             }

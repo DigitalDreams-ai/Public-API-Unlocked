@@ -19,7 +19,7 @@ global with sharing class UnbounceIntakeApi {
             if (config == null) {
                 res.statusCode = 503;
                 res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse(
-                    'Unbounce integration not configured. Configure Unbounce Config (e.g. Default Firm Id optional for web-form intakes).'
+                    'Unbounce integration not configured. Create an Unbounce Integration Config record with Is Active = true.'
                 )));
                 return;
             }
@@ -42,7 +42,7 @@ global with sharing class UnbounceIntakeApi {
             }
 
             litify_pm__Intake__c intake = UnbounceIntakeService.createIntakeFromUnbounce(
-                payload, config.defaultFirmId, config.defaultCaseTypeName, config.referredByPartyName
+                payload, config.referredByPartyName
             );
 
             res.statusCode = 201;

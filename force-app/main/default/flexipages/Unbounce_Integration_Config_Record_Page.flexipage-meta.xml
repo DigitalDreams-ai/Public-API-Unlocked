@@ -71,16 +71,6 @@
                     <name>uiBehavior</name>
                     <value>required</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Default_Case_Type_Name__c</fieldItem>
-                <identifier>RecordDefault_Case_Type_Name_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>required</value>
-                </fieldInstanceProperties>
                 <fieldItem>Record.Referred_By_Party_Name__c</fieldItem>
                 <identifier>RecordReferred_By_Party_Name_cField</identifier>
             </fieldInstance>
@@ -89,7 +79,7 @@
             <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>required</value>
+                    <value>none</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.Webhook_Secret__c</fieldItem>
                 <identifier>RecordWebhook_Secret_cField</identifier>
@@ -103,7 +93,7 @@
             <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>required</value>
+                    <value>none</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.Is_Active__c</fieldItem>
                 <identifier>RecordIs_Active_cField</identifier>
@@ -117,16 +107,6 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.API_Key__c</fieldItem>
                 <identifier>RecordAPI_Key_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>required</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Default_Firm_Id__c</fieldItem>
-                <identifier>RecordDefault_Firm_Id_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <name>Facet-ed82e570-0496-4596-978b-16b86a15a847</name>
