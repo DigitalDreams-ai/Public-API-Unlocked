@@ -17,7 +17,8 @@ public class UnbounceIntakeApiTest {
             'last_name' => 'Smith',
             'email' => 'jane@example.com',
             'phone' => '555-123-4567',
-            'description' => 'Test intake from Unbounce'
+            'description' => 'Test intake from Unbounce',
+            'caseType' => 'Auto Accident'
         };
 
         RestRequest req = new RestRequest();
@@ -81,7 +82,8 @@ public class UnbounceIntakeApiTest {
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Web',
             'last_name' => 'Form',
-            'email' => 'webform@example.com'
+            'email' => 'webform@example.com',
+            'caseType' => 'Auto Accident'
         };
 
         RestRequest req = new RestRequest();
@@ -121,7 +123,8 @@ public class UnbounceIntakeApiTest {
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Api',
             'last_name' => 'User',
-            'email' => 'api@example.com'
+            'email' => 'api@example.com',
+            'caseType' => 'Auto Accident'
         };
 
         RestRequest req = new RestRequest();

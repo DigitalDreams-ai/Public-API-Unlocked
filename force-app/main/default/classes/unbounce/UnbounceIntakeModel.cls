@@ -38,19 +38,28 @@ public with sharing class UnbounceIntakeModel {
 
         // Intake fields
         intake.litify_pm__Description__c = getString(data, new List<String>{ 'how_can_we_help_you', 'description', 'message', 'comments', 'notes' });
-        setOptionalField(intake, 'litify_pm__lit_Exact_Source__c', getString(data, new List<String>{ 'URL', 'url' }));
+        // URL / page URL / exact source
+        setOptionalField(intake, 'litify_pm__lit_Exact_Source__c', getString(data, new List<String>{ 'URL', 'url', 'page_url' }));
 
+        // Source / UTM params
         // Only set when payload provides value; org may have Source__c as text or lookup
         String source = getString(data, new List<String>{ 'source' });
         setOptionalField(intake, 'litify_pm__Source__c', source);
         setOptionalField(intake, 'litify_pm__UTM_Source__c', getString(data, new List<String>{ 'utm_source' }));
         setOptionalField(intake, 'litify_pm__UTM_Medium__c', getString(data, new List<String>{ 'utm_medium' }));
+        setOptionalField(intake, 'litify_pm__UTM_Campaign__c', getString(data, new List<String>{ 'campaignid' }));
+        setOptionalField(intake, 'litify_pm__UTM_Content__c', getString(data, new List<String>{ 'utm_content' }));
 
         String sourceType = getString(data, new List<String>{ 'source_type', 'sourceType', 'source type' });
         // Unbounce intakes: Source Type = 'Advertising'. Set only when the org's GVS allows it (no DML error if not).
         setPicklistFieldIfAllowed(intake, 'litify_pm__Source_Type__c', sourceType, 'Advertising');
 
-        String externalId = getString(data, new List<String>{ 'gclid', 'submission_id', 'submissionId', 'id', 'external_id' });
+        // GCLID and external id
+        String gclid = getString(data, new List<String>{ 'gclid' });
+        if (String.isNotBlank(gclid)) {
+            setOptionalField(intake, 'GCLID__c', gclid);
+        }
+        String externalId = getString(data, new List<String>{ 'submission_id', 'submissionId', 'id', 'external_id' });
         if (String.isNotBlank(externalId)) {
             setOptionalField(intake, 'ExternalId__c', externalId);
         }
