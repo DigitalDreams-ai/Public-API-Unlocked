@@ -18,7 +18,7 @@ jobs:
       - name: Publish Postman Collection
         run: |
           WORKSPACE_ID="${{ secrets.POSTMAN_WORKSPACE_ID }}"
-          COLLECTION_FILE="postman/Unbounce Intake API.postman_collection.json"
+          COLLECTION_FILE="docs/postman/Unbounce Intake API.postman_collection.json"
           COLLECTION_NAME=$(jq -r '.info.name' "$COLLECTION_FILE")
 
           echo "Publishing collection: $COLLECTION_NAME"
