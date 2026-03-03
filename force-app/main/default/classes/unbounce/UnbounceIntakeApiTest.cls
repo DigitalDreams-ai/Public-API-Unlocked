@@ -125,13 +125,12 @@ public class UnbounceIntakeApiTest {
         System.assertEquals(201, res.statusCode);
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         System.assert(response.containsKey('intakeId'));
-        List<litify_pm__Intake__c> created = [
-            SELECT litify_pm__Source__c, litify_pm__Source_Type__c, Referred_By__c
-            FROM litify_pm__Intake__c
-            WHERE Id = :(String) response.get('intakeId')
-        ];
-        System.assertEquals(1, created.size());
-        System.assertEquals(null, created[0].Referred_By__c, 'Web-form intakes should not have Referred_By set');
+        SObject created = queryIntakeForOptionalFields(
+            (String) response.get('intakeId'),
+            new List<String>{ 'litify_pm__Source__c', 'litify_pm__Source_Type__c', 'Referred_By__c' }
+        );
+        System.assertNotEquals(null, created);
+        assertOptionalIntakeFieldEquals(created, 'Referred_By__c', null);
     }
 
     @IsTest
@@ -180,13 +179,12 @@ public class UnbounceIntakeApiTest {
         System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
 
-        List<litify_pm__Intake__c> created = [
-            SELECT Referred_By__c
-            FROM litify_pm__Intake__c
-            WHERE Id = :(String) response.get('intakeId')
-        ];
-        System.assertEquals(1, created.size());
-        System.assertEquals(referredByParty.Id, created[0].Referred_By__c);
+        SObject created = queryIntakeForOptionalFields(
+            (String) response.get('intakeId'),
+            new List<String>{ 'Referred_By__c' }
+        );
+        System.assertNotEquals(null, created);
+        assertOptionalIntakeFieldEquals(created, 'Referred_By__c', referredByParty.Id);
     }
 
     @IsTest
