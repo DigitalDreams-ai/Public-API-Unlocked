@@ -66,7 +66,7 @@ public with sharing class UnbounceIntakeModel {
         setOptionalField(intake, 'litify_pm__UTM_Content__c', getString(data, new List<String>{ 'utm_content' }));
         setOptionalField(intake, 'GCLID__c', getString(data, new List<String>{ 'gclid' }));
 
-        intake.litify_pm__Source_Type__c = 'Advertising';
+        setOptionalField(intake, 'litify_pm__Source_Type__c', getDefaultSourceTypeValue());
 
         return intake;
     }
@@ -123,6 +123,37 @@ public with sharing class UnbounceIntakeModel {
 
         String normalized = String.valueOf(value);
         return String.isNotBlank(normalized) ? normalized.trim() : null;
+    }
+
+    @TestVisible
+    private static String getDefaultSourceTypeValue() {
+        if (!INTAKE_FIELDS.containsKey('litify_pm__Source_Type__c')) {
+            return null;
+        }
+
+        List<Schema.PicklistEntry> entries =
+            INTAKE_FIELDS.get('litify_pm__Source_Type__c').getDescribe().getPicklistValues();
+
+        for (String preferredValue : new List<String>{ 'Advertising', 'Advertisement' }) {
+            for (Schema.PicklistEntry entry : entries) {
+                if (entry.isActive() && entry.getValue() == preferredValue) {
+                    return preferredValue;
+                }
+            }
+        }
+
+        for (Schema.PicklistEntry entry : entries) {
+            if (!entry.isActive() || entry.getValue() == null) {
+                continue;
+            }
+
+            String normalizedValue = entry.getValue().toLowerCase();
+            if (normalizedValue.startsWith('advert')) {
+                return entry.getValue();
+            }
+        }
+
+        return null;
     }
 
     @TestVisible

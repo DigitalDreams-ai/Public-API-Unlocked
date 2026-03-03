@@ -166,6 +166,7 @@ private class UnbounceIntakeStatusUpdateTest {
         config.Referred_By_Party_Name__c = referredByParty.Name;
         update config;
 
+        String advertisingSourceTypeValue = getAdvertisingSourceTypeValue();
         litify_pm__Intake__c intake = new litify_pm__Intake__c(
             litify_pm__First_Name__c = 'Legacy',
             litify_pm__Last_Name__c = 'Unbounce',
@@ -173,9 +174,11 @@ private class UnbounceIntakeStatusUpdateTest {
             litify_pm__Phone__c = '555-333-5555',
             litify_pm__Status__c = 'Lead Generated',
             Referred_By__c = referredByParty.Id,
-            litify_pm__Source_Type__c = getAdvertisingSourceTypeValue(),
             litify_pm__lit_Exact_Source__c = 'https://shtest.ubpages.com/sh_test/'
         );
+        if (String.isNotBlank(advertisingSourceTypeValue)) {
+            intake.litify_pm__Source_Type__c = advertisingSourceTypeValue;
+        }
         insert intake;
 
         String nextStatus = getAlternateStatusValue(intake.litify_pm__Status__c);
@@ -266,7 +269,7 @@ private class UnbounceIntakeStatusUpdateTest {
                 return value;
             }
         }
-        return 'Advertising';
+        return null;
     }
 
     private static Id createSyntheticIntakeId() {

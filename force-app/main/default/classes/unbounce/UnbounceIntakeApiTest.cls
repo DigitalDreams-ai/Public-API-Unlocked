@@ -63,7 +63,10 @@ public class UnbounceIntakeApiTest {
         System.assertEquals('Test intake from Unbounce', created[0].litify_pm__Description__c);
         System.assertEquals('test-gclid-123', created[0].GCLID__c);
         System.assertNotEquals(null, created[0].litify_pm__Case_Type__c);
-        System.assertEquals('Advertising', created[0].litify_pm__Source_Type__c);
+        System.assertEquals(
+            UnbounceIntakeModel.getDefaultSourceTypeValue(),
+            created[0].litify_pm__Source_Type__c
+        );
 
         List<Unbounce_Intake_Tracking__c> tracking = [
             SELECT Id, Intake_Id__c, Unbounce_Integration_Config__c
@@ -376,7 +379,10 @@ public class UnbounceIntakeApiTest {
             WHERE Id = :intakeId
         ];
         System.assertEquals(null, created.litify_pm__Source__c);
-        System.assertEquals('Advertising', created.litify_pm__Source_Type__c);
+        System.assertEquals(
+            UnbounceIntakeModel.getDefaultSourceTypeValue(),
+            created.litify_pm__Source_Type__c
+        );
     }
 
     @IsTest
@@ -680,6 +686,46 @@ public class UnbounceIntakeApiTest {
         System.assertEquals('John', intake.litify_pm__First_Name__c);
         System.assertEquals('Doe', intake.litify_pm__Last_Name__c);
         System.assertEquals('john@test.com', intake.litify_pm__Email__c);
+        System.assertEquals(
+            UnbounceIntakeModel.getDefaultSourceTypeValue(),
+            intake.litify_pm__Source_Type__c
+        );
+    }
+
+    @IsTest
+    static void testUnbounceIntakeModel_SplitsFullNameWhenLastNameMissing() {
+        Map<String, Object> payload = new Map<String, Object>{
+            'name' => 'Jane Mary Doe',
+            'email' => 'jane.fullname@example.com'
+        };
+
+        litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(payload);
+
+        System.assertEquals('Jane', intake.litify_pm__First_Name__c);
+        System.assertEquals('Mary Doe', intake.litify_pm__Last_Name__c);
+    }
+
+    @IsTest
+    static void testUnbounceIntakeModel_ClampEmailPreservesDomain() {
+        String longEmail =
+            'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz@example.com';
+
+        String clamped = UnbounceIntakeModel.clampToFieldLength('litify_pm__Email__c', longEmail);
+
+        System.assertEquals(80, clamped.length());
+        System.assert(clamped.endsWith('@example.com'));
+        System.assert(clamped.contains('@'));
+    }
+
+    @IsTest
+    static void testUnbounceIntakeModel_DefaultSourceTypeUsesAdvertisingCompatibleValue() {
+        String sourceTypeValue = UnbounceIntakeModel.getDefaultSourceTypeValue();
+
+        if (sourceTypeValue == null) {
+            return;
+        }
+
+        System.assert(sourceTypeValue.toLowerCase().startsWith('advert'));
     }
 
     @IsTest
