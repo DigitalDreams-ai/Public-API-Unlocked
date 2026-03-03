@@ -1,14 +1,14 @@
 /**
  * Model class for mapping Unbounce webhook payload to litify_pm__Intake__c.
- * Mapping follows: URL→lit_Exact_Source; name→First_Name; last_name→Last_Name;
- * phone_number→Phone_Mobile; email→Email; how_can_we_help_you→Description;
- * utm_source→UTM_Source; gclid→ExternalId; utm_medium→UTM_Medium.
+ * Supports the configured canonical Unbounce keys and a data wrapper.
  */
 public with sharing class UnbounceIntakeModel {
+    private static final Map<String, Schema.SObjectField> INTAKE_FIELDS =
+        litify_pm__Intake__c.SObjectType.getDescribe().fields.getMap();
 
     /**
      * Maps Unbounce webhook payload to litify_pm__Intake__c.
-     * Supports Unbounce field names per mapping table and a flexible data wrapper.
+     * Supports Unbounce field names per mapping table and a data wrapper.
      *
      * @param payload Untyped map from Unbounce webhook (e.g. data.name, data.email, data.how_can_we_help_you)
      * @return Intake record ready for insert
@@ -22,27 +22,44 @@ public with sharing class UnbounceIntakeModel {
         litify_pm__Intake__c intake = new litify_pm__Intake__c();
 
         // Party/contact fields (mapped to Intake)
-        intake.litify_pm__First_Name__c = getString(data, new List<String>{ 'name', 'first_name', 'First_name', 'firstName', 'firstname' });
-        intake.litify_pm__Last_Name__c = getString(data, new List<String>{ 'last_name', 'Last_name', 'lastName', 'lastname' });
-        intake.litify_pm__Email__c = getString(data, new List<String>{ 'email', 'Email', 'email_address' });
-        String phone = getString(data, new List<String>{ 'phone_number', 'phone', 'Phone', 'telephone' });
-        intake.litify_pm__Phone__c = phone;
-        setOptionalField(intake, 'litify_pm__Phone_Mobile__c', phone);
+        String name = getString(
+            data,
+            new List<String>{ 'name', 'first_name' }
+        );
+        String lastName = getString(
+            data,
+            new List<String>{ 'last_name' }
+        );
+        if (String.isBlank(lastName) && looksLikeFullName(name)) {
+            intake.litify_pm__First_Name__c = getFirstName(name);
+            intake.litify_pm__Last_Name__c = getLastName(name);
+        } else {
+            intake.litify_pm__First_Name__c = name;
+            intake.litify_pm__Last_Name__c = lastName;
+        }
 
-        // Address
-        intake.litify_pm__Case_Address_1__c = getString(data, new List<String>{ 'address', 'address1', 'street', 'case_address_1' });
-        intake.litify_pm__Case_Address_2__c = getString(data, new List<String>{ 'address2', 'address_2' });
-        intake.litify_pm__Case_City__c = getString(data, new List<String>{ 'city', 'City' });
-        intake.litify_pm__Case_State__c = getString(data, new List<String>{ 'state', 'State', 'province' });
-        intake.litify_pm__Case_Postal_Code__c = getString(data, new List<String>{ 'zip', 'zip_code', 'postal_code', 'postalcode' });
+        intake.litify_pm__Email__c = getString(
+            data,
+            new List<String>{ 'email' }
+        );
+        String phone = getString(
+            data,
+            new List<String>{ 'phone_number', 'phone' }
+        );
+        intake.litify_pm__Phone__c = phone;
 
         // Intake fields
-        intake.litify_pm__Description__c = getString(data, new List<String>{ 'how_can_we_help_you', 'description', 'message', 'comments', 'notes' });
-        // URL / page URL / exact source
-        setOptionalField(intake, 'litify_pm__lit_Exact_Source__c', getString(data, new List<String>{ 'URL', 'url', 'page_url' }));
+        intake.litify_pm__Description__c = getString(
+            data,
+            new List<String>{ 'how_can_we_help_you', 'description' }
+        );
+        setOptionalField(
+            intake,
+            'litify_pm__lit_Exact_Source__c',
+            getString(data, new List<String>{ 'page_url' })
+        );
 
         // Source / UTM params
-        // Only set when payload provides value; org may have Source__c as text or lookup
         String source = getString(data, new List<String>{ 'source' });
         setOptionalField(intake, 'litify_pm__Source__c', source);
         setOptionalField(intake, 'litify_pm__UTM_Source__c', getString(data, new List<String>{ 'utm_source' }));
@@ -50,58 +67,19 @@ public with sharing class UnbounceIntakeModel {
         setOptionalField(intake, 'litify_pm__UTM_Campaign__c', getString(data, new List<String>{ 'campaignid' }));
         setOptionalField(intake, 'litify_pm__UTM_Content__c', getString(data, new List<String>{ 'utm_content' }));
 
-        String sourceType = getString(data, new List<String>{ 'source_type', 'sourceType', 'source type' });
-        // Unbounce intakes: Source Type = 'Advertising'. Set only when the org's GVS allows it (no DML error if not).
-        setPicklistFieldIfAllowed(intake, 'litify_pm__Source_Type__c', sourceType, 'Advertising');
-
-        // GCLID and external id
-        String gclid = getString(data, new List<String>{ 'gclid' });
-        if (String.isNotBlank(gclid)) {
-            setOptionalField(intake, 'GCLID__c', gclid);
-        }
-        String externalId = getString(data, new List<String>{ 'submission_id', 'submissionId', 'id', 'external_id' });
-        if (String.isNotBlank(externalId)) {
-            setOptionalField(intake, 'ExternalId__c', externalId);
-        }
-        if (!data.isEmpty()) {
-            try {
-                intake.put('Additional_Metadata__c', JSON.serialize(data));
-            } catch (SObjectException e) {
-                // Field may not exist in org
-            }
-        }
+        intake.litify_pm__Source_Type__c = 'Advertisement';
 
         return intake;
     }
 
     private static void setOptionalField(litify_pm__Intake__c intake, String fieldName, String value) {
-        if (String.isBlank(value)) return;
+        if (String.isBlank(value) || !INTAKE_FIELDS.containsKey(fieldName)) {
+            return;
+        }
         try {
             intake.put(fieldName, value);
         } catch (Exception e) {
-            // Field may not exist or may be wrong type (e.g. lookup that rejects text)
-        }
-    }
-
-    /**
-     * Sets a picklist/Global Value Set field only if the value is in the field's allowed values.
-     * Used for Source Type: default 'Advertising' for Unbounce intakes when payload doesn't send it; only set if the org's GVS allows it.
-     */
-    private static void setPicklistFieldIfAllowed(litify_pm__Intake__c intake, String fieldName, String value, String defaultWhenBlank) {
-        String toSet = String.isNotBlank(value) ? value : defaultWhenBlank;
-        if (String.isBlank(toSet)) return;
-        try {
-            Schema.SObjectField field = litify_pm__Intake__c.SObjectType.getDescribe().fields.getMap().get(fieldName);
-            if (field == null) return;
-            List<Schema.PicklistEntry> entries = field.getDescribe().getPicklistValues();
-            for (Schema.PicklistEntry pe : entries) {
-                if (pe.getValue() == toSet && pe.isActive()) {
-                    intake.put(fieldName, toSet);
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            // Field may not be picklist or describe may fail
+            // Field may exist but reject the assigned type/value.
         }
     }
 
@@ -120,5 +98,35 @@ public with sharing class UnbounceIntakeModel {
             }
         }
         return null;
+    }
+
+    private static Boolean looksLikeFullName(String name) {
+        return String.isNotBlank(name) && name.contains(' ');
+    }
+
+    private static String getFirstName(String fullName) {
+        List<String> parts = splitName(fullName);
+        return parts.isEmpty() ? fullName : parts[0];
+    }
+
+    private static String getLastName(String fullName) {
+        List<String> parts = splitName(fullName);
+        return parts.size() > 1 ? parts[1] : null;
+    }
+
+    private static List<String> splitName(String fullName) {
+        if (String.isBlank(fullName)) {
+            return new List<String>();
+        }
+        List<String> rawParts = fullName.trim().split('\\s+');
+        if (rawParts.size() <= 1) {
+            return new List<String>{ fullName.trim() };
+        }
+
+        List<String> lastNameParts = new List<String>();
+        for (Integer i = 1; i < rawParts.size(); i++) {
+            lastNameParts.add(rawParts[i]);
+        }
+        return new List<String>{ rawParts[0], String.join(lastNameParts, ' ') };
     }
 }

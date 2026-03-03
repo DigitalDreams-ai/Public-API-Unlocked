@@ -1,9 +1,8 @@
 /**
  * Resolves Unbounce configuration from the Unbounce Integration Config custom object.
- * Create at least one Unbounce_Integration_Config__c record and set Is_Active__c = true.
- * getConfig() returns the most recently created active record.
+ * Exactly one Unbounce_Integration_Config__c record should be active at a time.
  */
-public with sharing class UnbounceConfigService {
+public without sharing class UnbounceConfigService {
 
     public class Config {
         public String webhookSecret;
@@ -13,14 +12,19 @@ public with sharing class UnbounceConfigService {
 
     public static Config getConfig() {
         List<Unbounce_Integration_Config__c> settings = [
-            SELECT Webhook_Secret__c, API_Key__c, Referred_By_Party_Name__c
+            SELECT Id, Webhook_Secret__c, API_Key__c, Referred_By_Party_Name__c
             FROM Unbounce_Integration_Config__c
             WHERE Is_Active__c = true
             ORDER BY CreatedDate DESC
-            LIMIT 1
+            LIMIT 2
         ];
         if (settings.isEmpty()) {
             return null;
+        }
+        if (settings.size() > 1) {
+            throw new UnbounceIntakeServiceException(
+                'Unbounce integration is misconfigured. Exactly one active Unbounce Integration Config record is required.'
+            );
         }
         Unbounce_Integration_Config__c setting = settings[0];
 

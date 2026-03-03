@@ -3,7 +3,7 @@
  * Uses the Unbounce-specific object only; does not use Shulman API Custom_Mapping__c.
  * Template format: keys define output shape; values like $.path resolve from the payload.
  */
-public with sharing class UnbounceCustomMappingService {
+public without sharing class UnbounceCustomMappingService {
 
     private static final String CONTEXT_UNBOUNCE_INTAKE = 'Unbounce Intake';
 

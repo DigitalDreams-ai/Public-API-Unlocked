@@ -15,7 +15,14 @@ global with sharing class UnbounceIntakeApi {
             String jsonBody = req.requestBody != null ? req.requestBody.toString() : '{}';
             Map<String, Object> payload = (Map<String, Object>) JSON.deserializeUntyped(jsonBody);
 
-            UnbounceConfigService.Config config = UnbounceConfigService.getConfig();
+            UnbounceConfigService.Config config;
+            try {
+                config = UnbounceConfigService.getConfig();
+            } catch (UnbounceIntakeServiceException e) {
+                res.statusCode = 503;
+                res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse(e.getMessage())));
+                return;
+            }
             if (config == null) {
                 res.statusCode = 503;
                 res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse(

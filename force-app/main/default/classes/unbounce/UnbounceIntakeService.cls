@@ -1,7 +1,9 @@
 /**
  * Service class for creating intakes from Unbounce webhook submissions.
  */
-public with sharing class UnbounceIntakeService {
+public without sharing class UnbounceIntakeService {
+    @TestVisible
+    private static String forcedClientAccountCreateFailureMessage;
 
     /**
      * Creates an intake from Unbounce webhook payload.
@@ -22,9 +24,18 @@ public with sharing class UnbounceIntakeService {
         litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(mappedPayload);
 
         // Client lookup: use email to find or create an Account and set the Intake Client lookup.
-        Id clientAccountId = resolveClientAccountId(intake);
+        Id clientAccountId = null;
+        Boolean shouldQueueClientAccountResolution = false;
+        try {
+            clientAccountId = resolveClientAccountId(intake);
+        } catch (UnbounceIntakeServiceException e) {
+            System.debug(LoggingLevel.WARN, 'Skipping client Account creation: ' + e.getMessage());
+            shouldQueueClientAccountResolution = true;
+        }
         if (clientAccountId != null) {
             intake.litify_pm__Client__c = clientAccountId;
+        } else if (String.isNotBlank((String) intake.get('litify_pm__Email__c'))) {
+            shouldQueueClientAccountResolution = true;
         }
 
         Id referredByPartyId = resolveReferredByPartyId(referredByPartyName);
@@ -32,18 +43,11 @@ public with sharing class UnbounceIntakeService {
             intake.Referred_By__c = referredByPartyId;
         }
 
-        // Case Type lookup by Name from payload only (caseType or casetype).
-        String caseTypeFromPayload = (String) mappedPayload.get('caseType');
-        if (String.isBlank(caseTypeFromPayload)) {
-            caseTypeFromPayload = (String) mappedPayload.get('casetype');
-        }
-        if (String.isBlank(caseTypeFromPayload) && mappedPayload.containsKey('data') && mappedPayload.get('data') instanceof Map<String, Object>) {
-            Map<String, Object> dataMap = (Map<String, Object>) mappedPayload.get('data');
-            caseTypeFromPayload = (String) dataMap.get('caseType');
-            if (String.isBlank(caseTypeFromPayload)) {
-                caseTypeFromPayload = (String) dataMap.get('casetype');
-            }
-        }
+        // Case Type lookup by the configured payload key.
+        String caseTypeFromPayload = getPayloadString(
+            mappedPayload,
+            new List<String>{ 'caseType', 'casetype', 'case_type' }
+        );
         if (String.isNotBlank(caseTypeFromPayload)) {
             Id caseTypeId = resolveCaseTypeId(caseTypeFromPayload);
             if (caseTypeId != null) {
@@ -58,9 +62,72 @@ public with sharing class UnbounceIntakeService {
 
         try {
             insert intake;
+            if (clientAccountId == null && shouldReapplyMappedFields(intake)) {
+                update intake;
+            }
+            if (shouldQueueClientAccountResolution) {
+                publishClientAccountRequest(intake.Id);
+            }
             return intake;
         } catch (DmlException e) {
             throw new UnbounceIntakeServiceException('Failed to create intake: ' + e.getMessage());
+        }
+    }
+
+    public static void processClientAccountRequests(List<Unbounce_Client_Account_Request__e> events) {
+        if (events == null || events.isEmpty()) {
+            return;
+        }
+
+        Set<Id> intakeIds = new Set<Id>();
+        for (Unbounce_Client_Account_Request__e eventRecord : events) {
+            Id intakeId = parseId(eventRecord.Intake_Id__c);
+            if (intakeId != null) {
+                intakeIds.add(intakeId);
+            }
+        }
+        if (intakeIds.isEmpty()) {
+            return;
+        }
+
+        Map<Id, litify_pm__Intake__c> intakeById = new Map<Id, litify_pm__Intake__c>([
+            SELECT Id,
+                   litify_pm__First_Name__c,
+                   litify_pm__Last_Name__c,
+                   litify_pm__Email__c,
+                   litify_pm__Phone__c,
+                   litify_pm__Client__c
+            FROM litify_pm__Intake__c
+            WHERE Id IN :intakeIds
+        ]);
+
+        List<litify_pm__Intake__c> updates = new List<litify_pm__Intake__c>();
+        for (Id intakeId : intakeIds) {
+            litify_pm__Intake__c intake = intakeById.get(intakeId);
+            if (intake == null ||
+                intake.litify_pm__Client__c != null ||
+                String.isBlank((String) intake.get('litify_pm__Email__c'))) {
+                continue;
+            }
+
+            try {
+                Id clientId = resolveClientAccountId(intake);
+                if (clientId != null) {
+                    updates.add(new litify_pm__Intake__c(
+                        Id = intake.Id,
+                        litify_pm__Client__c = clientId
+                    ));
+                }
+            } catch (UnbounceIntakeServiceException e) {
+                System.debug(
+                    LoggingLevel.WARN,
+                    'Deferred client Account creation failed for Intake ' + intake.Id + ': ' + e.getMessage()
+                );
+            }
+        }
+
+        if (!updates.isEmpty()) {
+            update updates;
         }
     }
 
@@ -120,8 +187,12 @@ public with sharing class UnbounceIntakeService {
 
     private static Id createClientAccountFromIntake(litify_pm__Intake__c intake, String email) {
         try {
+            if (Test.isRunningTest() && forcedClientAccountCreateFailureMessage != null) {
+                throw new UnbounceIntakeServiceException(forcedClientAccountCreateFailureMessage);
+            }
             Schema.DescribeSObjectResult dr = Account.SObjectType.getDescribe();
             Map<String, Schema.SObjectField> fieldMap = dr.fields.getMap();
+            Map<String, Schema.SObjectField> intakeFieldMap = litify_pm__Intake__c.SObjectType.getDescribe().fields.getMap();
 
             Account a = new Account();
 
@@ -149,6 +220,12 @@ public with sharing class UnbounceIntakeService {
             if (fieldMap.containsKey('LastName') && String.isNotBlank(lastName)) {
                 a.put('LastName', lastName);
             }
+            if (fieldMap.containsKey('litify_pm__First_Name__c') && String.isNotBlank(firstName)) {
+                a.put('litify_pm__First_Name__c', firstName);
+            }
+            if (fieldMap.containsKey('litify_pm__Last_Name__c') && String.isNotBlank(lastName)) {
+                a.put('litify_pm__Last_Name__c', lastName);
+            }
 
             // Email mapped to litify_pm__Email__c when available
             if (fieldMap.containsKey('litify_pm__Email__c')) {
@@ -162,7 +239,9 @@ public with sharing class UnbounceIntakeService {
             // Phone mapped to litify_pm__Phone_Mobile__c when available
             String mobilePhone = null;
             if (Account.SObjectType.getDescribe().fields.getMap().containsKey('litify_pm__Phone_Mobile__c')) {
-                String intakeMobile = (String) intake.get('litify_pm__Phone_Mobile__c');
+                String intakeMobile = intakeFieldMap.containsKey('litify_pm__Phone_Mobile__c')
+                    ? (String) intake.get('litify_pm__Phone_Mobile__c')
+                    : null;
                 String intakePhone = (String) intake.get('litify_pm__Phone__c');
                 mobilePhone = String.isNotBlank(intakeMobile) ? intakeMobile : intakePhone;
                 if (String.isNotBlank(mobilePhone)) {
@@ -186,6 +265,40 @@ public with sharing class UnbounceIntakeService {
             return a.Id;
         } catch (DmlException e) {
             throw new UnbounceIntakeServiceException('Failed to create client Account: ' + e.getMessage());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static Boolean shouldReapplyMappedFields(litify_pm__Intake__c intake) {
+        return String.isNotBlank((String) intake.get('litify_pm__First_Name__c')) ||
+            String.isNotBlank((String) intake.get('litify_pm__Last_Name__c')) ||
+            String.isNotBlank((String) intake.get('litify_pm__Email__c')) ||
+            String.isNotBlank((String) intake.get('litify_pm__Phone__c'));
+    }
+
+    private static void publishClientAccountRequest(Id intakeId) {
+        if (intakeId == null) {
+            return;
+        }
+        try {
+            EventBus.publish(new Unbounce_Client_Account_Request__e(
+                Intake_Id__c = String.valueOf(intakeId)
+            ));
+        } catch (Exception e) {
+            System.debug(
+                LoggingLevel.WARN,
+                'Failed to publish deferred client Account creation request for Intake ' + intakeId + ': ' + e.getMessage()
+            );
+        }
+    }
+
+    private static Id parseId(String value) {
+        if (String.isBlank(value)) {
+            return null;
+        }
+        try {
+            return (Id) value.trim();
         } catch (Exception e) {
             return null;
         }
@@ -226,6 +339,27 @@ public with sharing class UnbounceIntakeService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private static String getPayloadString(Map<String, Object> payload, List<String> keys) {
+        String value = getString(payload, keys);
+        if (String.isNotBlank(value)) {
+            return value;
+        }
+        if (payload.containsKey('data') && payload.get('data') instanceof Map<String, Object>) {
+            return getString((Map<String, Object>) payload.get('data'), keys);
+        }
+        return null;
+    }
+
+    private static String getString(Map<String, Object> data, List<String> keys) {
+        for (String key : keys) {
+            Object value = data.get(key);
+            if (value != null && String.isNotBlank(String.valueOf(value))) {
+                return String.valueOf(value).trim();
+            }
+        }
+        return null;
     }
 
     /**

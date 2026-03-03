@@ -39,12 +39,26 @@ public class UnbounceIntakeApiTest {
 
         String intakeId = (String) response.get('intakeId');
         List<litify_pm__Intake__c> created = [
-            SELECT Id
+            SELECT Id,
+                   litify_pm__First_Name__c,
+                   litify_pm__Last_Name__c,
+                   litify_pm__Email__c,
+                   litify_pm__Phone__c,
+                   litify_pm__Description__c,
+                   litify_pm__Case_Type__c,
+                   litify_pm__Source_Type__c
             FROM litify_pm__Intake__c
             WHERE Id = :intakeId
         ];
         System.assertEquals(1, created.size(), 'Intake should exist');
         System.assertNotEquals(null, created[0].Id);
+        System.assertEquals('Jane', created[0].litify_pm__First_Name__c);
+        System.assertEquals('Smith', created[0].litify_pm__Last_Name__c);
+        System.assertEquals('jane@example.com', created[0].litify_pm__Email__c);
+        System.assertEquals('555-123-4567', created[0].litify_pm__Phone__c);
+        System.assertEquals('Test intake from Unbounce', created[0].litify_pm__Description__c);
+        System.assertNotEquals(null, created[0].litify_pm__Case_Type__c);
+        System.assertEquals('Advertisement', created[0].litify_pm__Source_Type__c);
     }
 
     @IsTest
@@ -102,6 +116,149 @@ public class UnbounceIntakeApiTest {
         ];
         System.assertEquals(1, created.size());
         System.assertEquals(null, created[0].Referred_By__c, 'Web-form intakes should not have Referred_By set');
+    }
+
+    @IsTest
+    static void testCreateIntake_ConfigReferredByParty_SetsLookup() {
+        UnbounceTestDataFactory.createCaseType('Auto Accident');
+        Account referredByParty = new Account();
+        try {
+            referredByParty.put('litify_pm__Last_Name__c', 'PMAX-Unbounce');
+        } catch (SObjectException e) {
+            // Some org shapes require a last-name style field on Account but do not expose the Litify field.
+            for (Schema.SObjectField field : Account.SObjectType.getDescribe().fields.getMap().values()) {
+                Schema.DescribeFieldResult describe = field.getDescribe();
+                if (describe.getName().toLowerCase().contains('last') &&
+                    describe.getType() == Schema.DisplayType.String &&
+                    describe.isCreateable()) {
+                    referredByParty.put(describe.getName(), 'PMAX-Unbounce');
+                    break;
+                }
+            }
+        }
+        insert referredByParty;
+        referredByParty = [SELECT Id, Name FROM Account WHERE Id = :referredByParty.Id];
+
+        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c(
+            Is_Active__c = true,
+            Referred_By_Party_Name__c = referredByParty.Name
+        );
+        insert config;
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'first_name' => 'Web',
+            'last_name' => 'Form',
+            'email' => 'referred@example.com',
+            'caseType' => 'Auto Accident'
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+
+        List<litify_pm__Intake__c> created = [
+            SELECT Referred_By__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :(String) response.get('intakeId')
+        ];
+        System.assertEquals(1, created.size());
+        System.assertEquals(referredByParty.Id, created[0].Referred_By__c);
+    }
+
+    @IsTest
+    static void testCreateIntake_MultipleActiveConfigs_503() {
+        insert new Unbounce_Integration_Config__c(Is_Active__c = true);
+        insert new Unbounce_Integration_Config__c(Is_Active__c = true);
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'first_name' => 'Config',
+            'last_name' => 'Conflict'
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(503, res.statusCode);
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        System.assert(
+            ((String) response.get('errorMessage')).contains('Exactly one active Unbounce Integration Config record is required.')
+        );
+    }
+
+    @IsTest
+    static void testCreateIntake_ClientAccountFailure_StillCreatesIntake() {
+        UnbounceTestDataFactory.createCaseType('Auto Accident');
+
+        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
+        config.Is_Active__c = true;
+        insert config;
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'first_name' => 'Guest',
+            'last_name' => 'Submitter',
+            'email' => 'guest@example.com',
+            'phone' => '555-222-1111',
+            'description' => 'Guest intake',
+            'caseType' => 'Auto Accident'
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        Test.startTest();
+        try {
+            UnbounceIntakeService.forcedClientAccountCreateFailureMessage =
+                'User does not have access to Contact Objects';
+            UnbounceIntakeApi.createIntake();
+        } finally {
+            UnbounceIntakeService.forcedClientAccountCreateFailureMessage = null;
+            Test.stopTest();
+        }
+
+        System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
+
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        List<litify_pm__Intake__c> created = [
+            SELECT litify_pm__First_Name__c,
+                   litify_pm__Last_Name__c,
+                   litify_pm__Email__c,
+                   litify_pm__Phone__c,
+                   litify_pm__Description__c,
+                   litify_pm__Client__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :(String) response.get('intakeId')
+        ];
+        System.assertEquals(1, created.size());
+        System.assertEquals('Guest', created[0].litify_pm__First_Name__c);
+        System.assertEquals('Submitter', created[0].litify_pm__Last_Name__c);
+        System.assertEquals('guest@example.com', created[0].litify_pm__Email__c);
+        System.assertEquals('555-222-1111', created[0].litify_pm__Phone__c);
+        System.assertEquals('Guest intake', created[0].litify_pm__Description__c);
+        System.assertEquals(null, created[0].litify_pm__Client__c);
     }
 
     @IsTest
@@ -228,10 +385,55 @@ public class UnbounceIntakeApiTest {
     }
 
     @IsTest
+    static void testUnbounceIntakeModel_LabelStyleKeysRequireCustomMapping() {
+        Map<String, Object> payload = new Map<String, Object>{
+            'Full Name' => 'Jane Doe',
+            'Email Address' => 'jane@test.com',
+            'Phone Number' => '555-987-6543',
+            'Page URL' => 'https://example.com/form',
+            'UTM Source' => 'facebook',
+            'Campaign ID' => 'lead-gen',
+            'UTM Medium' => 'social',
+            'UTM Content' => 'post-1',
+            'How can we help you?' => 'Interested in a consultation'
+        };
+
+        litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(payload);
+
+        System.assertEquals(null, intake.litify_pm__First_Name__c);
+        System.assertEquals(null, intake.litify_pm__Last_Name__c);
+        System.assertEquals(null, intake.litify_pm__Email__c);
+        System.assertEquals(null, intake.litify_pm__Phone__c);
+        System.assertEquals(null, intake.litify_pm__Description__c);
+        System.assertEquals(null, intake.litify_pm__lit_Exact_Source__c);
+        System.assertEquals(null, intake.litify_pm__UTM_Source__c);
+        System.assertEquals(null, intake.litify_pm__UTM_Campaign__c);
+        System.assertEquals(null, intake.litify_pm__UTM_Medium__c);
+        System.assertEquals(null, intake.litify_pm__UTM_Content__c);
+    }
+
+    @IsTest
+    static void testUnbounceIntakeModel_IgnoresAddressFields() {
+        Map<String, Object> payload = new Map<String, Object>{
+            'address' => '123 Main St',
+            'city' => 'Phoenix',
+            'state' => 'AZ',
+            'zip' => '85004'
+        };
+
+        litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(payload);
+
+        System.assertEquals(null, intake.litify_pm__Case_Address_1__c);
+        System.assertEquals(null, intake.litify_pm__Case_City__c);
+        System.assertEquals(null, intake.litify_pm__Case_State__c);
+        System.assertEquals(null, intake.litify_pm__Case_Postal_Code__c);
+    }
+
+    @IsTest
     static void testUnbounceIntakeModel_FromPayloadWithDataWrapper() {
         Map<String, Object> data = new Map<String, Object>{
-            'firstName' => 'Jane',
-            'lastName' => 'Doe',
+            'name' => 'Jane',
+            'last_name' => 'Doe',
             'email' => 'jane@test.com'
         };
         Map<String, Object> payload = new Map<String, Object>{ 'data' => data };
@@ -240,6 +442,63 @@ public class UnbounceIntakeApiTest {
 
         System.assertEquals('Jane', intake.litify_pm__First_Name__c);
         System.assertEquals('Doe', intake.litify_pm__Last_Name__c);
+    }
+
+    @IsTest
+    static void testCreateIntake_CustomMapping_LabelStylePayload_Success() {
+        UnbounceTestDataFactory.createCaseType('Auto Accident');
+        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
+        config.Is_Active__c = true;
+        insert config;
+        insert new Unbounce_Field_Mapping__c(
+            Is_Active__c = true,
+            Context__c = 'Unbounce Intake',
+            Mapping_Configuration__c =
+                '{"first_name":"$.data.First Name","last_name":"$.data.Last Name","email":"$.data.Email Address","phone":"$.data.Phone Number","description":"$.data.How can we help you?","caseType":"$.data.Case Type"}'
+        );
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'data' => new Map<String, Object>{
+                'First Name' => 'Label',
+                'Last Name' => 'Style',
+                'Email Address' => 'label@example.com',
+                'Phone Number' => '555-111-2222',
+                'How can we help you?' => 'Need help',
+                'Case Type' => 'Auto Accident'
+            }
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
+
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        List<litify_pm__Intake__c> created = [
+            SELECT litify_pm__First_Name__c,
+                   litify_pm__Last_Name__c,
+                   litify_pm__Email__c,
+                   litify_pm__Phone__c,
+                   litify_pm__Description__c,
+                   litify_pm__Case_Type__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :(String) response.get('intakeId')
+        ];
+        System.assertEquals(1, created.size());
+        System.assertEquals('Label', created[0].litify_pm__First_Name__c);
+        System.assertEquals('Style', created[0].litify_pm__Last_Name__c);
+        System.assertEquals('label@example.com', created[0].litify_pm__Email__c);
+        System.assertEquals('555-111-2222', created[0].litify_pm__Phone__c);
+        System.assertEquals('Need help', created[0].litify_pm__Description__c);
+        System.assertNotEquals(null, created[0].litify_pm__Case_Type__c);
     }
 
     @IsTest
