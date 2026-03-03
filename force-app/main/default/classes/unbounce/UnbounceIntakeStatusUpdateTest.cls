@@ -1,4 +1,4 @@
-@IsTest
+@IsTest(IsParallel=false)
 private class UnbounceIntakeStatusUpdateTest {
     private static final String TEST_API_KEY = 'status-test-key';
     private static List<HttpRequest> capturedRequests = new List<HttpRequest>();
@@ -57,7 +57,7 @@ private class UnbounceIntakeStatusUpdateTest {
         System.assertEquals(nextStatus, payload.get('status'));
         System.assertEquals('Status', payload.get('firstName'));
         System.assertEquals('Webhook', payload.get('lastName'));
-        System.assertEquals('status.webhook@example.com', payload.get('email'));
+        System.assertEquals(intake.litify_pm__Email__c, payload.get('email'));
     }
 
     @IsTest
@@ -195,10 +195,12 @@ private class UnbounceIntakeStatusUpdateTest {
     }
 
     private static litify_pm__Intake__c createUnbounceIntake() {
+        String uniqueEmail =
+            'status.webhook+' + String.valueOf(Crypto.getRandomLong()).replace('-', '0') + '@example.com';
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Status',
             'last_name' => 'Webhook',
-            'email' => 'status.webhook@example.com',
+            'email' => uniqueEmail,
             'phone' => '555-222-4444',
             'description' => 'Track status changes',
             'caseType' => 'Auto Accident'
@@ -218,7 +220,8 @@ private class UnbounceIntakeStatusUpdateTest {
         return [
             SELECT Id,
                    Name,
-                   litify_pm__Status__c
+                   litify_pm__Status__c,
+                   litify_pm__Email__c
             FROM litify_pm__Intake__c
             WHERE Id = :created.Id
         ];
