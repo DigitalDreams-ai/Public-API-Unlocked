@@ -18,7 +18,7 @@ public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
 
         for (litify_pm__Intake__c newIntake : newIntakes) {
             litify_pm__Intake__c oldIntake = oldMap.get(newIntake.Id);
-            if (!isUnbounceIntake(newIntake) || oldIntake == null || !didStatusChange(newIntake, oldIntake)) {
+            if (oldIntake == null || !didStatusChange(newIntake, oldIntake)) {
                 continue;
             }
             if (processedIntakeIds.contains(newIntake.Id)) {
@@ -49,11 +49,6 @@ public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
     }
 
     @TestVisible
-    private static Boolean isUnbounceIntake(litify_pm__Intake__c intake) {
-        return intake != null && ((Boolean) intake.get('Created_By_Unbounce_API__c')) == true;
-    }
-
-    @TestVisible
     private static Boolean didStatusChange(
         litify_pm__Intake__c newIntake,
         litify_pm__Intake__c oldIntake
@@ -65,4 +60,5 @@ public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
     private static String normalizeStatus(String status) {
         return status == null ? null : status.trim();
     }
+
 }

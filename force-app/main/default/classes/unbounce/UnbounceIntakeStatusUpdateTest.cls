@@ -98,6 +98,51 @@ private class UnbounceIntakeStatusUpdateTest {
         System.assertEquals(0, capturedRequests.size());
     }
 
+    @IsTest
+    static void testStatusChange_SendsWebhookForLegacyUnbounceIntake() {
+        resetCapturedRequests();
+        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
+
+        Account referredByParty = createReferredByParty('PMAX-Unbounce');
+        Unbounce_Integration_Config__c config = [
+            SELECT Id, Referred_By_Party_Name__c
+            FROM Unbounce_Integration_Config__c
+            WHERE API_Key__c = :TEST_API_KEY
+            LIMIT 1
+        ];
+        config.Referred_By_Party_Name__c = referredByParty.Name;
+        update config;
+
+        litify_pm__Intake__c intake = new litify_pm__Intake__c(
+            litify_pm__First_Name__c = 'Legacy',
+            litify_pm__Last_Name__c = 'Unbounce',
+            litify_pm__Email__c = 'legacy.unbounce@example.com',
+            litify_pm__Phone__c = '555-333-5555',
+            litify_pm__Status__c = 'Lead Generated',
+            Referred_By__c = referredByParty.Id,
+            litify_pm__Source_Type__c = getAdvertisingSourceTypeValue(),
+            litify_pm__lit_Exact_Source__c = 'https://shtest.ubpages.com/sh_test/'
+        );
+        insert intake;
+
+        String nextStatus = getAlternateStatusValue(intake.litify_pm__Status__c);
+        resetCapturedRequests();
+
+        Test.startTest();
+        update new litify_pm__Intake__c(
+            Id = intake.Id,
+            litify_pm__Status__c = nextStatus
+        );
+        Test.stopTest();
+
+        System.assertEquals(1, capturedRequests.size());
+        HttpRequest request = capturedRequests[0];
+        System.assertEquals('https://example.com/unbounce/status', request.getEndpoint());
+        Map<String, Object> payload = (Map<String, Object>) JSON.deserializeUntyped(request.getBody());
+        System.assertEquals(String.valueOf(intake.Id), payload.get('intakeId'));
+        System.assertEquals(nextStatus, payload.get('status'));
+    }
+
     private static litify_pm__Intake__c createUnbounceIntake() {
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Status',
@@ -136,5 +181,38 @@ private class UnbounceIntakeStatusUpdateTest {
 
     private static void resetCapturedRequests() {
         capturedRequests.clear();
+    }
+
+    private static Account createReferredByParty(String fallbackName) {
+        Account referredByParty = new Account();
+        try {
+            referredByParty.put('litify_pm__Last_Name__c', fallbackName);
+        } catch (SObjectException e) {
+            for (Schema.SObjectField field : Account.SObjectType.getDescribe().fields.getMap().values()) {
+                Schema.DescribeFieldResult describe = field.getDescribe();
+                if (describe.getName().toLowerCase().contains('last') &&
+                    describe.getType() == Schema.DisplayType.String &&
+                    describe.isCreateable()) {
+                    referredByParty.put(describe.getName(), fallbackName);
+                    break;
+                }
+            }
+        }
+        insert referredByParty;
+        return [SELECT Id, Name FROM Account WHERE Id = :referredByParty.Id];
+    }
+
+    private static String getAdvertisingSourceTypeValue() {
+        for (Schema.PicklistEntry entry :
+            litify_pm__Intake__c.litify_pm__Source_Type__c.getDescribe().getPicklistValues()) {
+            if (!entry.isActive()) {
+                continue;
+            }
+            String value = entry.getValue();
+            if (value != null && value.toLowerCase().startsWith('advert')) {
+                return value;
+            }
+        }
+        return 'Advertising';
     }
 }
