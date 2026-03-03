@@ -84,24 +84,6 @@ public without sharing class UnbounceConfigService {
         return configsById;
     }
 
-    public static List<Config> getActiveConfigsWithStatusWebhook() {
-        List<Config> configs = new List<Config>();
-        for (Unbounce_Integration_Config__c setting : [
-            SELECT Id,
-                   Webhook_Secret__c,
-                   API_Key__c,
-                   Referred_By_Party_Name__c,
-                   Status_Update_Webhook_URL__c,
-                   Status_Update_Webhook_Secret__c
-            FROM Unbounce_Integration_Config__c
-            WHERE Is_Active__c = true
-            AND Status_Update_Webhook_URL__c != null
-        ]) {
-            configs.add(fromSetting(setting));
-        }
-        return configs;
-    }
-
     private static Config fromSetting(Unbounce_Integration_Config__c setting) {
         Config c = new Config();
         c.id = setting.Id;

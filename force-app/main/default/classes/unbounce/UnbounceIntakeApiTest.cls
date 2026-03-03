@@ -59,6 +59,14 @@ public class UnbounceIntakeApiTest {
         System.assertEquals('Test intake from Unbounce', created[0].litify_pm__Description__c);
         System.assertNotEquals(null, created[0].litify_pm__Case_Type__c);
         System.assertEquals('Advertising', created[0].litify_pm__Source_Type__c);
+
+        List<Unbounce_Intake_Tracking__c> tracking = [
+            SELECT Id, Intake_Id__c, Unbounce_Integration_Config__c
+            FROM Unbounce_Intake_Tracking__c
+            WHERE Intake_Id__c = :intakeId
+        ];
+        System.assertEquals(1, tracking.size(), 'A tracking row should be created for each Unbounce intake.');
+        System.assertNotEquals(null, tracking[0].Unbounce_Integration_Config__c);
     }
 
     @IsTest

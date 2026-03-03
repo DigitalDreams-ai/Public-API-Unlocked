@@ -28,13 +28,14 @@ public without sharing class UnbounceIntakeService {
         if (payload == null) {
             throw new UnbounceIntakeServiceException('Payload cannot be null');
         }
+        if (config == null || config.id == null) {
+            throw new UnbounceIntakeServiceException(
+                'Unbounce intake creation requires a matching active Unbounce Integration Config record.'
+            );
+        }
 
         Map<String, Object> mappedPayload = UnbounceCustomMappingService.applyMapping(payload);
         litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(mappedPayload);
-        setBooleanFieldIfExists(intake, 'Created_By_Unbounce_API__c', true);
-        if (config != null && config.id != null) {
-            setFieldIfExists(intake, 'Unbounce_Integration_Config_Id__c', String.valueOf(config.id));
-        }
 
         // Client lookup: use email to find or create an Account and set the Intake Client lookup.
         Id clientAccountId = null;
@@ -78,6 +79,7 @@ public without sharing class UnbounceIntakeService {
 
         try {
             insert intake;
+            UnbounceIntakeTrackingService.trackIntake(intake.Id, config.id);
             if (clientAccountId == null && shouldReapplyMappedFields(intake)) {
                 update intake;
             }
@@ -436,25 +438,6 @@ public without sharing class UnbounceIntakeService {
 
         String normalized = String.valueOf(value);
         return String.isNotBlank(normalized) ? normalized.trim() : null;
-    }
-
-    private static void setBooleanFieldIfExists(SObject record, String fieldName, Boolean value) {
-        setFieldIfExists(record, fieldName, value);
-    }
-
-    private static void setFieldIfExists(SObject record, String fieldName, Object value) {
-        if (record == null || String.isBlank(fieldName)) {
-            return;
-        }
-        try {
-            Map<String, Schema.SObjectField> fields = record.getSObjectType().getDescribe().fields.getMap();
-            if (!fields.containsKey(fieldName)) {
-                return;
-            }
-            record.put(fieldName, value);
-        } catch (Exception e) {
-            return;
-        }
     }
 
     /**

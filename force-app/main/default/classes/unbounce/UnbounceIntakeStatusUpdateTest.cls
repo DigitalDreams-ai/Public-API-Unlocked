@@ -64,7 +64,13 @@ private class UnbounceIntakeStatusUpdateTest {
     static void testStatusChange_DoesNotSendForNonUnbounceIntake() {
         resetCapturedRequests();
         Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
-        litify_pm__Intake__c intake = createUnbounceIntake();
+        litify_pm__Intake__c intake = new litify_pm__Intake__c(
+            litify_pm__First_Name__c = 'Not',
+            litify_pm__Last_Name__c = 'Tracked',
+            litify_pm__Email__c = 'not.tracked@example.com',
+            litify_pm__Status__c = 'Lead Generated'
+        );
+        insert intake;
         String nextStatus = getAlternateStatusValue(intake.litify_pm__Status__c);
 
         resetCapturedRequests();
@@ -72,7 +78,6 @@ private class UnbounceIntakeStatusUpdateTest {
         Test.startTest();
         update new litify_pm__Intake__c(
             Id = intake.Id,
-            Created_By_Unbounce_API__c = false,
             litify_pm__Status__c = nextStatus
         );
         Test.stopTest();
@@ -99,7 +104,7 @@ private class UnbounceIntakeStatusUpdateTest {
     }
 
     @IsTest
-    static void testStatusChange_SendsWebhookForLegacyUnbounceIntake() {
+    static void testStatusChange_DoesNotSendWithoutTrackingEvenIfFieldsLookSimilar() {
         resetCapturedRequests();
         Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
 
@@ -135,12 +140,7 @@ private class UnbounceIntakeStatusUpdateTest {
         );
         Test.stopTest();
 
-        System.assertEquals(1, capturedRequests.size());
-        HttpRequest request = capturedRequests[0];
-        System.assertEquals('https://example.com/unbounce/status', request.getEndpoint());
-        Map<String, Object> payload = (Map<String, Object>) JSON.deserializeUntyped(request.getBody());
-        System.assertEquals(String.valueOf(intake.Id), payload.get('intakeId'));
-        System.assertEquals(nextStatus, payload.get('status'));
+        System.assertEquals(0, capturedRequests.size());
     }
 
     private static litify_pm__Intake__c createUnbounceIntake() {
@@ -157,12 +157,17 @@ private class UnbounceIntakeStatusUpdateTest {
             payload,
             UnbounceConfigService.getConfigForApiKey(TEST_API_KEY)
         );
+        List<Unbounce_Intake_Tracking__c> tracking = [
+            SELECT Id, Intake_Id__c, Unbounce_Integration_Config__c
+            FROM Unbounce_Intake_Tracking__c
+            WHERE Intake_Id__c = :String.valueOf(created.Id)
+        ];
+        System.assertEquals(1, tracking.size());
+
         return [
             SELECT Id,
                    Name,
-                   litify_pm__Status__c,
-                   Created_By_Unbounce_API__c,
-                   Unbounce_Integration_Config_Id__c
+                   litify_pm__Status__c
             FROM litify_pm__Intake__c
             WHERE Id = :created.Id
         ];
