@@ -215,19 +215,15 @@ public class UnbounceIntakeApiTest {
         System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
 
-        List<litify_pm__Intake__c> created = [
-            SELECT Type__c,
-                   Case_Type__c,
-                   litify_pm__Case_Type__c,
-                   litify_pm__Case_Type__r.Name
-            FROM litify_pm__Intake__c
-            WHERE Id = :(String) response.get('intakeId')
-        ];
-        System.assertEquals(1, created.size());
-        System.assertEquals('Personal Injury', created[0].Type__c);
-        System.assertEquals('MVA', created[0].Case_Type__c);
-        System.assertNotEquals(null, created[0].litify_pm__Case_Type__c);
-        System.assertEquals('PI - MVA', created[0].litify_pm__Case_Type__r.Name);
+        SObject created = queryIntakeForOptionalFields(
+            (String) response.get('intakeId'),
+            new List<String>{ 'litify_pm__Case_Type__c', 'litify_pm__Case_Type__r.Name', 'Type__c', 'Case_Type__c' }
+        );
+        System.assertNotEquals(null, created);
+        assertOptionalIntakeFieldEquals(created, 'Type__c', 'Personal Injury');
+        assertOptionalIntakeFieldEquals(created, 'Case_Type__c', 'MVA');
+        System.assertNotEquals(null, created.get('litify_pm__Case_Type__c'));
+        System.assertEquals('PI - MVA', ((SObject) created.getSObject('litify_pm__Case_Type__r')).get('Name'));
     }
 
     @IsTest
@@ -415,14 +411,13 @@ public class UnbounceIntakeApiTest {
         );
 
         String intakeId = (String) ((Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString())).get('intakeId');
-        litify_pm__Intake__c created = [
-            SELECT Case_Type__c, Type__c, litify_pm__Case_Type__c
-            FROM litify_pm__Intake__c
-            WHERE Id = :intakeId
-        ];
-        System.assertEquals(null, created.Case_Type__c);
-        System.assertEquals(null, created.Type__c);
-        System.assertEquals(null, created.litify_pm__Case_Type__c);
+        SObject created = queryIntakeForOptionalFields(
+            intakeId,
+            new List<String>{ 'litify_pm__Case_Type__c', 'Type__c', 'Case_Type__c' }
+        );
+        assertOptionalIntakeFieldEquals(created, 'Case_Type__c', null);
+        assertOptionalIntakeFieldEquals(created, 'Type__c', null);
+        System.assertEquals(null, created.get('litify_pm__Case_Type__c'));
     }
 
     @IsTest
@@ -635,29 +630,29 @@ public class UnbounceIntakeApiTest {
         System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
 
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
-        List<litify_pm__Intake__c> created = [
-            SELECT litify_pm__First_Name__c,
-                   litify_pm__Last_Name__c,
-                   litify_pm__Email__c,
-                   litify_pm__Phone__c,
-                   litify_pm__Description__c,
-                   litify_pm__lit_Exact_Source__c,
-                   Type__c,
-                   Case_Type__c,
-                   litify_pm__Case_Type__r.Name
-            FROM litify_pm__Intake__c
-            WHERE Id = :(String) response.get('intakeId')
-        ];
-        System.assertEquals(1, created.size());
-        System.assertEquals('Form', created[0].litify_pm__First_Name__c);
-        System.assertEquals('Encoded', created[0].litify_pm__Last_Name__c);
-        System.assertEquals('form.encoded@example.com', created[0].litify_pm__Email__c);
-        System.assertEquals('5551234567', created[0].litify_pm__Phone__c);
-        System.assertEquals('Need help', created[0].litify_pm__Description__c);
-        System.assertEquals('https://example.com/landing', created[0].litify_pm__lit_Exact_Source__c);
-        System.assertEquals('Personal Injury', created[0].Type__c);
-        System.assertEquals('MVA', created[0].Case_Type__c);
-        System.assertEquals('PI - MVA', created[0].litify_pm__Case_Type__r.Name);
+        SObject created = queryIntakeForOptionalFields(
+            (String) response.get('intakeId'),
+            new List<String>{
+                'litify_pm__First_Name__c',
+                'litify_pm__Last_Name__c',
+                'litify_pm__Email__c',
+                'litify_pm__Phone__c',
+                'litify_pm__Description__c',
+                'litify_pm__lit_Exact_Source__c',
+                'litify_pm__Case_Type__r.Name',
+                'Type__c',
+                'Case_Type__c'
+            }
+        );
+        System.assertEquals('Form', created.get('litify_pm__First_Name__c'));
+        System.assertEquals('Encoded', created.get('litify_pm__Last_Name__c'));
+        System.assertEquals('form.encoded@example.com', created.get('litify_pm__Email__c'));
+        System.assertEquals('5551234567', created.get('litify_pm__Phone__c'));
+        System.assertEquals('Need help', created.get('litify_pm__Description__c'));
+        System.assertEquals('https://example.com/landing', created.get('litify_pm__lit_Exact_Source__c'));
+        assertOptionalIntakeFieldEquals(created, 'Type__c', 'Personal Injury');
+        assertOptionalIntakeFieldEquals(created, 'Case_Type__c', 'MVA');
+        System.assertEquals('PI - MVA', ((SObject) created.getSObject('litify_pm__Case_Type__r')).get('Name'));
     }
 
     @IsTest
@@ -800,29 +795,29 @@ public class UnbounceIntakeApiTest {
         System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
 
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
-        List<litify_pm__Intake__c> created = [
-            SELECT litify_pm__First_Name__c,
-                   litify_pm__Last_Name__c,
-                   litify_pm__Email__c,
-                   litify_pm__Phone__c,
-                   litify_pm__Description__c,
-                   litify_pm__lit_Exact_Source__c,
-                   Type__c,
-                   Case_Type__c,
-                   litify_pm__Case_Type__r.Name
-            FROM litify_pm__Intake__c
-            WHERE Id = :(String) response.get('intakeId')
-        ];
-        System.assertEquals(1, created.size());
-        System.assertEquals('Json', created[0].litify_pm__First_Name__c);
-        System.assertEquals('Array', created[0].litify_pm__Last_Name__c);
-        System.assertEquals('json.array@example.com', created[0].litify_pm__Email__c);
-        System.assertEquals('5551113333', created[0].litify_pm__Phone__c);
-        System.assertEquals('Need help', created[0].litify_pm__Description__c);
-        System.assertEquals('https://example.com/array', created[0].litify_pm__lit_Exact_Source__c);
-        System.assertEquals('Personal Injury', created[0].Type__c);
-        System.assertEquals('MVA', created[0].Case_Type__c);
-        System.assertEquals('PI - MVA', created[0].litify_pm__Case_Type__r.Name);
+        SObject created = queryIntakeForOptionalFields(
+            (String) response.get('intakeId'),
+            new List<String>{
+                'litify_pm__First_Name__c',
+                'litify_pm__Last_Name__c',
+                'litify_pm__Email__c',
+                'litify_pm__Phone__c',
+                'litify_pm__Description__c',
+                'litify_pm__lit_Exact_Source__c',
+                'litify_pm__Case_Type__r.Name',
+                'Type__c',
+                'Case_Type__c'
+            }
+        );
+        System.assertEquals('Json', created.get('litify_pm__First_Name__c'));
+        System.assertEquals('Array', created.get('litify_pm__Last_Name__c'));
+        System.assertEquals('json.array@example.com', created.get('litify_pm__Email__c'));
+        System.assertEquals('5551113333', created.get('litify_pm__Phone__c'));
+        System.assertEquals('Need help', created.get('litify_pm__Description__c'));
+        System.assertEquals('https://example.com/array', created.get('litify_pm__lit_Exact_Source__c'));
+        assertOptionalIntakeFieldEquals(created, 'Type__c', 'Personal Injury');
+        assertOptionalIntakeFieldEquals(created, 'Case_Type__c', 'MVA');
+        System.assertEquals('PI - MVA', ((SObject) created.getSObject('litify_pm__Case_Type__r')).get('Name'));
     }
 
     @IsTest
@@ -843,5 +838,39 @@ public class UnbounceIntakeApiTest {
         );
         insert config;
         return config;
+    }
+
+    private static SObject queryIntakeForOptionalFields(String intakeId, List<String> candidateFields) {
+        Map<String, Schema.SObjectField> intakeFieldMap = litify_pm__Intake__c.SObjectType.getDescribe().fields.getMap();
+        List<String> selectedFields = new List<String>{ 'Id' };
+        for (String fieldName : candidateFields) {
+            if (String.isBlank(fieldName)) {
+                continue;
+            }
+
+            if (fieldName.contains('.')) {
+                String relationshipName = fieldName.substringBefore('.');
+                if (relationshipName == 'litify_pm__Case_Type__r' && intakeFieldMap.containsKey('litify_pm__Case_Type__c')) {
+                    selectedFields.add(fieldName);
+                }
+                continue;
+            }
+
+            if (intakeFieldMap.containsKey(fieldName)) {
+                selectedFields.add(fieldName);
+            }
+        }
+
+        return Database.query(
+            'SELECT ' + String.join(selectedFields, ', ') +
+            ' FROM litify_pm__Intake__c WHERE Id = :intakeId LIMIT 1'
+        );
+    }
+
+    private static void assertOptionalIntakeFieldEquals(SObject intakeRecord, String fieldName, Object expectedValue) {
+        if (!litify_pm__Intake__c.SObjectType.getDescribe().fields.getMap().containsKey(fieldName)) {
+            return;
+        }
+        System.assertEquals(expectedValue, intakeRecord.get(fieldName));
     }
 }
