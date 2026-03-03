@@ -496,9 +496,10 @@ public class UnbounceIntakeApiTest {
             UnbounceIntakeService.forcedClientAccountCreateFailureMessage =
                 'User does not have access to Contact Objects';
             UnbounceIntakeApi.createIntake();
-        } finally {
             UnbounceIntakeService.forcedClientAccountCreateFailureMessage = null;
+        } finally {
             Test.stopTest();
+            UnbounceIntakeService.forcedClientAccountCreateFailureMessage = null;
         }
 
         System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
