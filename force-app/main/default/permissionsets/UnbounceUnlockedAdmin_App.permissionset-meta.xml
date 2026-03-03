@@ -7,6 +7,21 @@
     <description>This permission set provides access to the &quot;Unbounce-Unlocked Admin&quot; Lightning App and Unbounce Integration Config.</description>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Unbounce_Field_Mapping__c.Context__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Unbounce_Field_Mapping__c.Is_Active__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Unbounce_Field_Mapping__c.Mapping_Configuration__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Unbounce_Integration_Config__c.API_Key__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -37,6 +52,15 @@
     </fieldPermissions>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Unbounce-Unlocked Admin App</label>
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>true</allowDelete>
+        <allowEdit>true</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>true</modifyAllRecords>
+        <object>Unbounce_Field_Mapping__c</object>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
     <objectPermissions>
         <allowCreate>true</allowCreate>
         <allowDelete>true</allowDelete>

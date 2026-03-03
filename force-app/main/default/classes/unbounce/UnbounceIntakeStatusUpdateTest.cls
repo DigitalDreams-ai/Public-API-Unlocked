@@ -26,11 +26,12 @@ private class UnbounceIntakeStatusUpdateTest {
 
     @IsTest
     static void testStatusChange_SendsWebhook() {
+        resetCapturedRequests();
+        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
         litify_pm__Intake__c intake = createUnbounceIntake();
         String nextStatus = getAlternateStatusValue(intake.litify_pm__Status__c);
 
         resetCapturedRequests();
-        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
 
         Test.startTest();
         update new litify_pm__Intake__c(
@@ -61,11 +62,12 @@ private class UnbounceIntakeStatusUpdateTest {
 
     @IsTest
     static void testStatusChange_DoesNotSendForNonUnbounceIntake() {
+        resetCapturedRequests();
+        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
         litify_pm__Intake__c intake = createUnbounceIntake();
         String nextStatus = getAlternateStatusValue(intake.litify_pm__Status__c);
 
         resetCapturedRequests();
-        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
 
         Test.startTest();
         update new litify_pm__Intake__c(
@@ -80,10 +82,11 @@ private class UnbounceIntakeStatusUpdateTest {
 
     @IsTest
     static void testStatusChange_DoesNotSendWhenStatusIsUnchanged() {
+        resetCapturedRequests();
+        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
         litify_pm__Intake__c intake = createUnbounceIntake();
 
         resetCapturedRequests();
-        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
 
         Test.startTest();
         update new litify_pm__Intake__c(

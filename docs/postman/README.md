@@ -37,6 +37,7 @@ The API is public and uses **X-Api-Key** only (no session or OAuth). Set **api_k
 ## Prerequisites
 
 - At least one active **Unbounce Integration Config** record with a unique **API Key**.
+- If you also use outbound status updates, saving **Status Update Webhook URL** auto-provisions a Remote Site Setting for that webhook domain.
 - For Experience Cloud: **Unbounce Intake API (Guest)** permission set assigned to the site guest profile.
 
 ## Reference: Shulman API Postman
