@@ -1,0 +1,190 @@
+.json-viewer {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'Source Code Pro', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    position: relative;
+}
+
+:global(.theme-default) :global(.json-key) {
+    color: #0b5cab;
+    font-weight: 600;
+}
+
+:global(.theme-default) :global(.json-string) {
+    color: #2e844a;
+}
+
+:global(.theme-default) :global(.json-number) {
+    color: #8e4b10;
+}
+
+:global(.theme-default) :global(.json-boolean) {
+    color: #ba0517;
+}
+
+:global(.theme-default) :global(.json-null),
+:global(.theme-default) :global(.json-undefined),
+:global(.theme-default) :global(.json-collapsed),
+:global(.theme-default) :global(.json-toggle) {
+    color: #5c5c5c;
+}
+
+:global(.theme-default) :global(.json-brace),
+:global(.theme-default) :global(.json-bracket) {
+    color: #181818;
+    font-weight: 700;
+}
+
+:global(.theme-default) :global(.json-toggle:hover) {
+    color: #0b5cab;
+}
+
+:global(.theme-warm) :global(.json-key) {
+    color: #a03c00;
+    font-weight: 600;
+}
+
+:global(.theme-warm) :global(.json-string) {
+    color: #8a1538;
+}
+
+:global(.theme-warm) :global(.json-number) {
+    color: #b45f06;
+}
+
+:global(.theme-warm) :global(.json-boolean) {
+    color: #7f8c00;
+}
+
+:global(.theme-warm) :global(.json-null),
+:global(.theme-warm) :global(.json-undefined),
+:global(.theme-warm) :global(.json-collapsed),
+:global(.theme-warm) :global(.json-toggle) {
+    color: #6b625f;
+}
+
+:global(.theme-warm) :global(.json-brace),
+:global(.theme-warm) :global(.json-bracket) {
+    color: #201600;
+    font-weight: 700;
+}
+
+:global(.theme-warm) :global(.json-toggle:hover) {
+    color: #a03c00;
+}
+
+:global(.theme-cool) :global(.json-key) {
+    color: #0b5cab;
+    font-weight: 600;
+}
+
+:global(.theme-cool) :global(.json-string) {
+    color: #005fb2;
+}
+
+:global(.theme-cool) :global(.json-number) {
+    color: #0f7b6c;
+}
+
+:global(.theme-cool) :global(.json-boolean) {
+    color: #5f4bb6;
+}
+
+:global(.theme-cool) :global(.json-null),
+:global(.theme-cool) :global(.json-undefined),
+:global(.theme-cool) :global(.json-collapsed),
+:global(.theme-cool) :global(.json-toggle) {
+    color: #5f6a72;
+}
+
+:global(.theme-cool) :global(.json-brace),
+:global(.theme-cool) :global(.json-bracket) {
+    color: #032d60;
+    font-weight: 700;
+}
+
+:global(.theme-cool) :global(.json-toggle:hover) {
+    color: #0b5cab;
+}
+
+:global(.theme-black) :global(.json-key) {
+    color: #f3c342;
+    font-weight: 600;
+}
+
+:global(.theme-black) :global(.json-string) {
+    color: #5dd39e;
+}
+
+:global(.theme-black) :global(.json-number) {
+    color: #7ab6ff;
+}
+
+:global(.theme-black) :global(.json-boolean) {
+    color: #ff8fab;
+}
+
+:global(.theme-black) :global(.json-null),
+:global(.theme-black) :global(.json-undefined),
+:global(.theme-black) :global(.json-collapsed),
+:global(.theme-black) :global(.json-toggle) {
+    color: #c9c9c9;
+}
+
+:global(.theme-black) :global(.json-brace),
+:global(.theme-black) :global(.json-bracket) {
+    color: #f7f7f7;
+    font-weight: 700;
+}
+
+:global(.theme-black) :global(.json-toggle:hover) {
+    color: #f3c342;
+}
+
+.slds-card__body {
+    position: relative;
+}
+
+.copy-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 1.25rem;
+    z-index: 10;
+    background-color: var(--slds-g-color-neutral-base-100, #ffffff);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.json-container {
+    overflow-x: auto;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    background-color: #fafaf9;
+    border: 1px solid #e5e5e5;
+}
+
+.json-line {
+    white-space: pre;
+    min-height: 1.5em;
+}
+
+.json-toggle {
+    cursor: pointer;
+    user-select: none;
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    font-size: 0.8em;
+    margin-right: 0.25em;
+    transition: color 0.2s;
+}
+
+.json-toggle:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.json-content {
+    display: inline-block;
+    width: 100%;
+}

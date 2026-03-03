@@ -31,7 +31,7 @@ private class UnbounceConfigTriggerTest {
         insert new Unbounce_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'trigger-test-key-1',
-            Status_Update_Webhook_URL__c = 'https://webhook.site/4ac60226-8980-4dea-8e8f-a458f9ef9ec5'
+            Outbound_Webhook_URL__c = 'https://webhook.site/4ac60226-8980-4dea-8e8f-a458f9ef9ec5'
         );
         Test.stopTest();
         UnbounceIntegrationConfigTriggerHandler.enableRemoteSiteProvisioningInTests = false;
@@ -67,15 +67,15 @@ private class UnbounceConfigTriggerTest {
         System.assertEquals(
             true,
             UnbounceIntegrationConfigTriggerHandler.shouldProvisionRemoteSite(
-                new Unbounce_Integration_Config__c(Status_Update_Webhook_URL__c = 'https://webhook.site/new'),
-                new Unbounce_Integration_Config__c(Status_Update_Webhook_URL__c = 'https://example.com/old')
+                new Unbounce_Integration_Config__c(Outbound_Webhook_URL__c = 'https://webhook.site/new'),
+                new Unbounce_Integration_Config__c(Outbound_Webhook_URL__c = 'https://example.com/old')
             )
         );
         System.assertEquals(
             false,
             UnbounceIntegrationConfigTriggerHandler.shouldProvisionRemoteSite(
-                new Unbounce_Integration_Config__c(Status_Update_Webhook_URL__c = 'https://webhook.site/new'),
-                new Unbounce_Integration_Config__c(Status_Update_Webhook_URL__c = 'https://webhook.site/new')
+                new Unbounce_Integration_Config__c(Outbound_Webhook_URL__c = 'https://webhook.site/new'),
+                new Unbounce_Integration_Config__c(Outbound_Webhook_URL__c = 'https://webhook.site/new')
             )
         );
     }

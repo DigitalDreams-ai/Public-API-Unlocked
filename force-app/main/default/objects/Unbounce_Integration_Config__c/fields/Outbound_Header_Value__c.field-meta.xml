@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Outbound_Header_Value__c</fullName>
+    <description>Optional token or credential source value used by the selected outbound auth mode.</description>
+    <externalId>false</externalId>
+    <label>Outbound Header Value</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+</CustomField>

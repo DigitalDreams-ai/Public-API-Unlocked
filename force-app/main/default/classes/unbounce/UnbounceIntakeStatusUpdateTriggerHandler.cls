@@ -2,6 +2,12 @@
  * Handles outbound webhook delivery for status changes on Unbounce-created Intakes.
  */
 public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
+    @TestVisible
+    private static final Set<String> NOTIFIABLE_STATUSES = new Set<String>{
+        'Referred Out',
+        'Converted'
+    };
+
     private static Set<String> processedEventKeys = new Set<String>();
     private static Set<Id> processedIntakeIds = new Set<Id>();
 
@@ -17,6 +23,9 @@ public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
         for (litify_pm__Intake__c newIntake : newIntakes) {
             litify_pm__Intake__c oldIntake = oldMap.get(newIntake.Id);
             if (oldIntake != null && didStatusChange(newIntake, oldIntake)) {
+                if (!shouldSendStatusUpdate(normalizeStatus((String) newIntake.get('litify_pm__Status__c')))) {
+                    continue;
+                }
                 changedIntakeIds.add(newIntake.Id);
             }
         }
@@ -38,6 +47,10 @@ public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
             if (oldIntake == null || !didStatusChange(newIntake, oldIntake)) {
                 continue;
             }
+            String currentStatus = normalizeStatus((String) newIntake.get('litify_pm__Status__c'));
+            if (!shouldSendStatusUpdate(currentStatus)) {
+                continue;
+            }
             Unbounce_Intake_Tracking__c tracking = trackingByIntakeId.get(newIntake.Id);
             if (tracking == null || tracking.Unbounce_Integration_Config__c == null) {
                 continue;
@@ -49,7 +62,7 @@ public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
             String eventKey =
                 String.valueOf(newIntake.Id) + ':' +
                 normalizeStatus((String) oldIntake.get('litify_pm__Status__c')) + ':' +
-                normalizeStatus((String) newIntake.get('litify_pm__Status__c'));
+                currentStatus;
             if (processedEventKeys.contains(eventKey)) {
                 continue;
             }
@@ -60,7 +73,7 @@ public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
                 newIntake.Id,
                 tracking.Unbounce_Integration_Config__c,
                 normalizeStatus((String) oldIntake.get('litify_pm__Status__c')),
-                normalizeStatus((String) newIntake.get('litify_pm__Status__c')),
+                currentStatus,
                 System.now()
             ));
         }
@@ -83,4 +96,8 @@ public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
         return status == null ? null : status.trim();
     }
 
+    @TestVisible
+    private static Boolean shouldSendStatusUpdate(String status) {
+        return String.isNotBlank(status) && NOTIFIABLE_STATUSES.contains(status);
+    }
 }

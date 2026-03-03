@@ -19,8 +19,8 @@ private class UnbounceIntakeStatusUpdateTest {
         insert new Unbounce_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = TEST_API_KEY,
-            Status_Update_Webhook_URL__c = 'https://example.com/unbounce/status',
-            Status_Update_Webhook_Secret__c = 'status-secret'
+            Outbound_Webhook_URL__c = 'https://example.com/unbounce/status',
+            Outbound_Webhook_Secret__c = 'status-secret'
         );
     }
 
@@ -29,7 +29,7 @@ private class UnbounceIntakeStatusUpdateTest {
         resetCapturedRequests();
         Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
         litify_pm__Intake__c intake = createUnbounceIntake();
-        String nextStatus = getAlternateStatusValue(intake.litify_pm__Status__c);
+        String nextStatus = getRequiredStatusValue('Referred Out');
 
         resetCapturedRequests();
 
@@ -47,29 +47,56 @@ private class UnbounceIntakeStatusUpdateTest {
         System.assertEquals('status_changed', request.getHeader('X-Unbounce-Event-Type'));
         System.assertEquals(
             UnbounceClient.generateWebhookSignature(request.getBody(), 'status-secret'),
-            request.getHeader('x-unbounce-signature')
+            request.getHeader(UnbounceIntakeStatusUpdateQueueable.DEFAULT_SIGNATURE_HEADER)
         );
 
         Map<String, Object> payload = (Map<String, Object>) JSON.deserializeUntyped(request.getBody());
-        System.assertEquals('status_changed', payload.get('eventType'));
-        System.assertEquals(String.valueOf(intake.Id), payload.get('intakeId'));
-        System.assertEquals('Lead Generated', payload.get('previousStatus'));
-        System.assertEquals(nextStatus, payload.get('status'));
         System.assertEquals('Status', payload.get('firstName'));
         System.assertEquals('Webhook', payload.get('lastName'));
         System.assertEquals(intake.litify_pm__Email__c, payload.get('email'));
+        System.assertEquals('test-gclid', payload.get('gclid'));
+        System.assertEquals(5, payload.size());
+        System.assert(payload.containsKey('createdDate'));
+        System.assertEquals(false, payload.containsKey('status'));
+        System.assertEquals(false, payload.containsKey('previousStatus'));
+        System.assertEquals(false, payload.containsKey('phone'));
+
+        List<Unbounce_Webhook_Delivery__c> deliveries = [
+            SELECT Intake__c,
+                   Triggered_Status__c,
+                   Status__c,
+                   Status_Code__c,
+                   Request_JSON__c,
+                   Response_JSON__c,
+                   Unbounce_Integration_Config__c
+            FROM Unbounce_Webhook_Delivery__c
+            WHERE Intake__c = :intake.Id
+        ];
+        System.assertEquals(1, deliveries.size());
+        System.assertEquals('Referred Out', deliveries[0].Triggered_Status__c);
+        System.assertEquals('Success', deliveries[0].Status__c);
+        System.assertEquals(200, deliveries[0].Status_Code__c);
+        System.assert(deliveries[0].Request_JSON__c.contains('"gclid":"test-gclid"'));
+        System.assert(deliveries[0].Response_JSON__c.contains('"statusCode":200'));
+
+        Unbounce_Integration_Config__c config = [
+            SELECT Last_Webhook_Delivery_Attempt__c,
+                   Last_Webhook_Delivery_Status__c,
+                   Last_Webhook_Request_JSON__c,
+                   Last_Webhook_Response_JSON__c
+            FROM Unbounce_Integration_Config__c
+            WHERE API_Key__c = :TEST_API_KEY
+            LIMIT 1
+        ];
+        System.assertEquals('Success', config.Last_Webhook_Delivery_Status__c);
+        System.assertNotEquals(null, config.Last_Webhook_Delivery_Attempt__c);
+        System.assert(config.Last_Webhook_Request_JSON__c.contains('"email"'));
+        System.assert(config.Last_Webhook_Response_JSON__c.contains('"statusCode":200'));
     }
 
     @IsTest
-    static void testBuildPayload_UsesCapturedCurrentStatus() {
-        litify_pm__Intake__c intake = new litify_pm__Intake__c(
-            Id = createSyntheticIntakeId(),
-            litify_pm__First_Name__c = 'Status',
-            litify_pm__Last_Name__c = 'Race',
-            litify_pm__Email__c = 'status.race@example.com',
-            litify_pm__Phone__c = '555-888-9999',
-            litify_pm__Status__c = 'Stale Status'
-        );
+    static void testBuildPayload_ContainsOnlyRequestedFields() {
+        litify_pm__Intake__c intake = createUnbounceIntake();
         UnbounceIntakeStatusUpdateQueueable.DeliveryItem item =
             new UnbounceIntakeStatusUpdateQueueable.DeliveryItem(
                 intake.Id,
@@ -81,8 +108,180 @@ private class UnbounceIntakeStatusUpdateTest {
 
         Map<String, Object> payload = UnbounceIntakeStatusUpdateQueueable.buildPayload(intake, item);
 
-        System.assertEquals('Qualified', payload.get('status'));
-        System.assertEquals('Lead Generated', payload.get('previousStatus'));
+        System.assertEquals('Status', payload.get('firstName'));
+        System.assertEquals('Webhook', payload.get('lastName'));
+        System.assertEquals(intake.litify_pm__Email__c, payload.get('email'));
+        System.assertEquals(intake.GCLID__c, payload.get('gclid'));
+        System.assertEquals(5, payload.size());
+        System.assert(payload.containsKey('createdDate'));
+        System.assertEquals(false, payload.containsKey('status'));
+    }
+
+    @IsTest
+    static void testStatusChange_AppliesConfiguredAuthAndCustomHeaders() {
+        resetCapturedRequests();
+        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
+
+        Unbounce_Integration_Config__c config = [
+            SELECT Id,
+                   Outbound_Webhook_Secret__c
+            FROM Unbounce_Integration_Config__c
+            WHERE API_Key__c = :TEST_API_KEY
+            LIMIT 1
+        ];
+        config.Outbound_Webhook_Secret__c = null;
+        config.Outbound_Auth_Mode__c = 'BearerToken';
+        config.Outbound_Header_Value__c = 'status-bearer-token';
+        config.Outbound_Header_Name__c = null;
+        config.Outbound_Content_Type__c = 'application/json; charset=UTF-8';
+        config.Outbound_Additional_Headers_JSON__c =
+            '{"Content-Type":"application/json; charset=UTF-8","X-Unbounce-Event-Type":"status_changed","Authorization":"Bearer status-bearer-token","X-Correlation-Source":"Unbounce","X-Environment":"Test"}';
+        update config;
+
+        litify_pm__Intake__c intake = createUnbounceIntake();
+        String nextStatus = getRequiredStatusValue('Converted');
+        resetCapturedRequests();
+
+        Test.startTest();
+        update new litify_pm__Intake__c(
+            Id = intake.Id,
+            litify_pm__Status__c = nextStatus
+        );
+        Test.stopTest();
+
+        System.assertEquals(1, capturedRequests.size());
+        HttpRequest request = capturedRequests[0];
+        System.assertEquals('application/json; charset=UTF-8', request.getHeader('Content-Type'));
+        System.assertEquals('Bearer status-bearer-token', request.getHeader('Authorization'));
+        System.assertEquals('Unbounce', request.getHeader('X-Correlation-Source'));
+        System.assertEquals('Test', request.getHeader('X-Environment'));
+        System.assertEquals(null, request.getHeader(UnbounceIntakeStatusUpdateQueueable.DEFAULT_SIGNATURE_HEADER));
+    }
+
+    @IsTest
+    static void testApplyAdditionalHeaders_IgnoresManagedHeadersStoredInPreviewJson() {
+        HttpRequest request = new HttpRequest();
+        UnbounceConfigService.Config config = new UnbounceConfigService.Config();
+        config.outboundAuthMode = 'BearerToken';
+        config.outboundHeaderValue = 'status-bearer-token';
+        config.outboundContentType = 'application/json; charset=UTF-8';
+        config.outboundAdditionalHeadersJson =
+            '{"Content-Type":"application/json; charset=UTF-8","X-Unbounce-Event-Type":"status_changed","Authorization":"Bearer status-bearer-token","X-Correlation-Source":"Unbounce"}';
+
+        UnbounceIntakeStatusUpdateQueueable.applyRequestConfiguration(request, config, '{"ok":true}');
+
+        System.assertEquals('application/json; charset=UTF-8', request.getHeader('Content-Type'));
+        System.assertEquals('status_changed', request.getHeader('X-Unbounce-Event-Type'));
+        System.assertEquals('Bearer status-bearer-token', request.getHeader('Authorization'));
+        System.assertEquals('Unbounce', request.getHeader('X-Correlation-Source'));
+    }
+
+    @IsTest
+    static void testStatusChange_AppliesConfiguredPayloadTemplate() {
+        resetCapturedRequests();
+        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
+
+        Unbounce_Integration_Config__c config = [
+            SELECT Id
+            FROM Unbounce_Integration_Config__c
+            WHERE API_Key__c = :TEST_API_KEY
+            LIMIT 1
+        ];
+        config.Outbound_Payload_Configuration__c =
+            '{"lead":{"first_name":"$.firstName","email":"$.email","gclid":"$.gclid"},"created_at":"$.createdDate","event":"status_changed"}';
+        update config;
+
+        litify_pm__Intake__c intake = createUnbounceIntake();
+        String nextStatus = getRequiredStatusValue('Referred Out');
+        resetCapturedRequests();
+
+        Test.startTest();
+        update new litify_pm__Intake__c(
+            Id = intake.Id,
+            litify_pm__Status__c = nextStatus
+        );
+        Test.stopTest();
+
+        System.assertEquals(1, capturedRequests.size());
+        Map<String, Object> payload = (Map<String, Object>) JSON.deserializeUntyped(capturedRequests[0].getBody());
+        Map<String, Object> lead = (Map<String, Object>) payload.get('lead');
+        System.assertEquals('Status', lead.get('first_name'));
+        System.assertEquals(intake.litify_pm__Email__c, lead.get('email'));
+        System.assertEquals('test-gclid', lead.get('gclid'));
+        System.assertEquals('status_changed', payload.get('event'));
+        System.assert(payload.containsKey('created_at'));
+        System.assertEquals(false, payload.containsKey('firstName'));
+    }
+
+    @IsTest
+    static void testApplyRequestConfiguration_UsesApiKeyHeaderAndArrayConfiguredHeaders() {
+        HttpRequest request = new HttpRequest();
+        UnbounceConfigService.Config config = new UnbounceConfigService.Config();
+        config.outboundAuthMode = 'ApiKeyHeader';
+        config.outboundHeaderName = 'X-Partner-Key';
+        config.outboundHeaderValue = 'partner-token';
+        config.outboundAdditionalHeadersJson =
+            '[{"name":"X-One","value":"1"},{"header":"X-Two","value":"2"}]';
+
+        UnbounceIntakeStatusUpdateQueueable.applyRequestConfiguration(request, config, '{"ok":true}');
+
+        System.assertEquals('application/json', request.getHeader('Content-Type'));
+        System.assertEquals('status_changed', request.getHeader('X-Unbounce-Event-Type'));
+        System.assertEquals('partner-token', request.getHeader('X-Partner-Key'));
+        System.assertEquals('1', request.getHeader('X-One'));
+        System.assertEquals('2', request.getHeader('X-Two'));
+    }
+
+    @IsTest
+    static void testApplyAuthHeaders_UsesBasicAndHmacModes() {
+        HttpRequest basicRequest = new HttpRequest();
+        UnbounceConfigService.Config basicConfig = new UnbounceConfigService.Config();
+        basicConfig.outboundAuthMode = 'BasicAuth';
+        basicConfig.outboundHeaderValue = 'user:pass';
+
+        UnbounceIntakeStatusUpdateQueueable.applyAuthHeaders(basicRequest, basicConfig, '{"ok":true}');
+
+        System.assertEquals(
+            'Basic ' + EncodingUtil.base64Encode(Blob.valueOf('user:pass')),
+            basicRequest.getHeader('Authorization')
+        );
+
+        HttpRequest signatureRequest = new HttpRequest();
+        UnbounceConfigService.Config signatureConfig = new UnbounceConfigService.Config();
+        signatureConfig.outboundAuthMode = 'HmacSignature';
+        signatureConfig.outboundHeaderName = 'X-Custom-Signature';
+        signatureConfig.statusUpdateWebhookSecret = 'secret-value';
+        String payload = '{"hello":"world"}';
+
+        UnbounceIntakeStatusUpdateQueueable.applyAuthHeaders(signatureRequest, signatureConfig, payload);
+
+        System.assertEquals(
+            UnbounceClient.generateWebhookSignature(payload, 'secret-value'),
+            signatureRequest.getHeader('X-Custom-Signature')
+        );
+    }
+
+    @IsTest
+    static void testApplyPayloadConfiguration_UsesConfiguredTemplate() {
+        Map<String, Object> payload = new Map<String, Object>{
+            'firstName' => 'Jane',
+            'lastName' => 'Smith',
+            'email' => 'jane@example.com',
+            'gclid' => 'gclid-123',
+            'createdDate' => '2026-03-03T00:00:00.000Z'
+        };
+        UnbounceConfigService.Config config = new UnbounceConfigService.Config();
+        config.outboundPayloadConfiguration =
+            '{"lead":{"first_name":"$.firstName","email":"$.email"},"gclid":"$.gclid"}';
+
+        Map<String, Object> transformed =
+            UnbounceIntakeStatusUpdateQueueable.applyPayloadConfiguration(payload, config);
+
+        Map<String, Object> lead = (Map<String, Object>) transformed.get('lead');
+        System.assertEquals('Jane', lead.get('first_name'));
+        System.assertEquals('jane@example.com', lead.get('email'));
+        System.assertEquals('gclid-123', transformed.get('gclid'));
+        System.assertEquals(false, transformed.containsKey('firstName'));
     }
 
     @IsTest
@@ -119,7 +318,7 @@ private class UnbounceIntakeStatusUpdateTest {
             litify_pm__Status__c = 'Lead Generated'
         );
         insert intake;
-        String nextStatus = getAlternateStatusValue(intake.litify_pm__Status__c);
+        String nextStatus = getRequiredStatusValue('Referred Out');
 
         resetCapturedRequests();
 
@@ -131,6 +330,7 @@ private class UnbounceIntakeStatusUpdateTest {
         Test.stopTest();
 
         System.assertEquals(0, capturedRequests.size());
+        System.assertEquals(0, [SELECT Count() FROM Unbounce_Webhook_Delivery__c WHERE Intake__c = :intake.Id]);
     }
 
     @IsTest
@@ -181,7 +381,7 @@ private class UnbounceIntakeStatusUpdateTest {
         }
         insert intake;
 
-        String nextStatus = getAlternateStatusValue(intake.litify_pm__Status__c);
+        String nextStatus = getRequiredStatusValue('Referred Out');
         resetCapturedRequests();
 
         Test.startTest();
@@ -194,6 +394,32 @@ private class UnbounceIntakeStatusUpdateTest {
         System.assertEquals(0, capturedRequests.size());
     }
 
+    @IsTest
+    static void testStatusChange_DoesNotSendForDisallowedStatus() {
+        resetCapturedRequests();
+        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
+        litify_pm__Intake__c intake = createUnbounceIntake();
+        String nextStatus = getDisallowedStatusValue(intake.litify_pm__Status__c);
+
+        resetCapturedRequests();
+
+        Test.startTest();
+        update new litify_pm__Intake__c(
+            Id = intake.Id,
+            litify_pm__Status__c = nextStatus
+        );
+        Test.stopTest();
+
+        System.assertEquals(0, capturedRequests.size());
+    }
+
+    @IsTest
+    static void testStatusChange_SendsForConverted() {
+        System.assertEquals(true, UnbounceIntakeStatusUpdateTriggerHandler.shouldSendStatusUpdate('Converted'));
+        System.assertEquals(true, UnbounceIntakeStatusUpdateTriggerHandler.shouldSendStatusUpdate('Referred Out'));
+        System.assertEquals(false, UnbounceIntakeStatusUpdateTriggerHandler.shouldSendStatusUpdate('Lead Generated'));
+    }
+
     private static litify_pm__Intake__c createUnbounceIntake() {
         String uniqueEmail =
             'status.webhook+' + String.valueOf(Crypto.getRandomLong()).replace('-', '0') + '@example.com';
@@ -202,6 +428,7 @@ private class UnbounceIntakeStatusUpdateTest {
             'last_name' => 'Webhook',
             'email' => uniqueEmail,
             'phone' => '555-222-4444',
+            'gclid' => 'test-gclid',
             'description' => 'Track status changes',
             'caseType' => 'Auto Accident'
         };
@@ -219,27 +446,46 @@ private class UnbounceIntakeStatusUpdateTest {
 
         return [
             SELECT Id,
-                   Name,
+                   CreatedDate,
+                   litify_pm__First_Name__c,
+                   litify_pm__Last_Name__c,
                    litify_pm__Status__c,
-                   litify_pm__Email__c
+                   litify_pm__Email__c,
+                   GCLID__c
             FROM litify_pm__Intake__c
             WHERE Id = :created.Id
         ];
     }
 
-    private static String getAlternateStatusValue(String currentStatus) {
+    private static void resetCapturedRequests() {
+        capturedRequests.clear();
+    }
+
+    private static String getRequiredStatusValue(String expectedStatus) {
         for (Schema.PicklistEntry entry :
             litify_pm__Intake__c.litify_pm__Status__c.getDescribe().getPicklistValues()) {
-            if (entry.isActive() && entry.getValue() != currentStatus) {
+            if (entry.isActive() && entry.getValue() == expectedStatus) {
                 return entry.getValue();
             }
         }
-        System.assert(false, 'Expected at least one alternate active Intake status value');
+        System.assert(false, 'Expected active Intake status value: ' + expectedStatus);
         return null;
     }
 
-    private static void resetCapturedRequests() {
-        capturedRequests.clear();
+    private static String getDisallowedStatusValue(String currentStatus) {
+        for (Schema.PicklistEntry entry :
+            litify_pm__Intake__c.litify_pm__Status__c.getDescribe().getPicklistValues()) {
+            if (!entry.isActive()) {
+                continue;
+            }
+            String value = entry.getValue();
+            if (value == currentStatus || value == 'Referred Out' || value == 'Converted') {
+                continue;
+            }
+            return value;
+        }
+        System.assert(false, 'Expected at least one active disallowed Intake status value');
+        return null;
     }
 
     private static void setOptionalIntakeField(litify_pm__Intake__c intake, String fieldName, Object value) {
@@ -256,6 +502,7 @@ private class UnbounceIntakeStatusUpdateTest {
 
     private static Account createReferredByParty(String fallbackName) {
         Account referredByParty = new Account();
+        referredByParty.Name = fallbackName;
         try {
             referredByParty.put('litify_pm__Last_Name__c', fallbackName);
         } catch (SObjectException e) {

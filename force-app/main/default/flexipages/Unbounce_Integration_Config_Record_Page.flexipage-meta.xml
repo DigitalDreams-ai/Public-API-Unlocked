@@ -4,20 +4,34 @@
         <itemInstances>
             <componentInstance>
                 <componentInstanceProperties>
+                    <name>actionNames</name>
+                    <valueList>
+                        <valueListItems>
+                            <value>Clone</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>Edit</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>Delete</value>
+                        </valueListItems>
+                    </valueList>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
                     <name>collapsed</name>
                     <value>false</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>enableActionsConfiguration</name>
-                    <value>false</value>
+                    <value>true</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>enableActionsInNative</name>
-                    <value>false</value>
+                    <value>true</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>hideChatterActions</name>
-                    <value>false</value>
+                    <value>true</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>numVisibleActions</name>
@@ -69,33 +83,13 @@
             <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>required</value>
+                    <value>none</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.Referred_By_Party_Name__c</fieldItem>
                 <identifier>RecordReferred_By_Party_Name_cField</identifier>
             </fieldInstance>
         </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Webhook_Secret__c</fieldItem>
-                <identifier>RecordWebhook_Secret_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Status_Update_Webhook_Secret__c</fieldItem>
-                <identifier>RecordStatus_Update_Webhook_Secret_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <name>Facet-823a716d-0440-4486-9149-436b6aa1d2a4</name>
+        <name>Facet-c463296a-a8bc-4589-b5cc-897695b84374</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -113,23 +107,13 @@
             <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
-                    <value>required</value>
+                    <value>none</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.API_Key__c</fieldItem>
                 <identifier>RecordAPI_Key_cField</identifier>
             </fieldInstance>
         </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Status_Update_Webhook_URL__c</fieldItem>
-                <identifier>RecordStatus_Update_Webhook_URL_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <name>Facet-ed82e570-0496-4596-978b-16b86a15a847</name>
+        <name>Facet-2dae3615-1067-4aa4-8511-490bc5ab510d</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -137,7 +121,7 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-823a716d-0440-4486-9149-436b6aa1d2a4</value>
+                    <value>Facet-c463296a-a8bc-4589-b5cc-897695b84374</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column</identifier>
@@ -147,13 +131,85 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-ed82e570-0496-4596-978b-16b86a15a847</value>
+                    <value>Facet-2dae3615-1067-4aa4-8511-490bc5ab510d</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column2</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-ee7ac9cc-328a-4d53-ac61-23f5f513269e</name>
+        <name>Facet-589e801b-cfea-4a5b-ada6-9579a2d4e30b</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Outbound_Webhook_URL__c</fieldItem>
+                <identifier>RecordStatus_Update_Webhook_URL_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Outbound_Webhook_Secret__c</fieldItem>
+                <identifier>RecordStatus_Update_Webhook_Secret_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-outboundLeft</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Outbound_Additional_Headers_JSON__c</fieldItem>
+                <identifier>RecordOutbound_Additional_Headers_JSON_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Outbound_Payload_Configuration__c</fieldItem>
+                <identifier>RecordOutbound_Payload_Configuration_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-outboundRight</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-outboundLeft</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:column</componentName>
+                <identifier>flexipage_columnOutbound1</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-outboundRight</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:column</componentName>
+                <identifier>flexipage_columnOutbound2</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-outboundColumns</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -167,7 +223,7 @@
                 <identifier>RecordCreatedByIdField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-7359f160-375f-43c0-87ed-b102d835c83b</name>
+        <name>Facet-38319ba7-b7b7-48a7-a6c7-1c4cb7d71df9</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -181,7 +237,7 @@
                 <identifier>RecordLastModifiedByIdField</identifier>
             </fieldInstance>
         </itemInstances>
-        <name>Facet-f257de21-d6fa-4eb1-a2ac-9c2e62f0a3b8</name>
+        <name>Facet-ee7397ca-3045-483d-ae45-79547f7281af</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -189,7 +245,7 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-7359f160-375f-43c0-87ed-b102d835c83b</value>
+                    <value>Facet-38319ba7-b7b7-48a7-a6c7-1c4cb7d71df9</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column3</identifier>
@@ -199,13 +255,13 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>body</name>
-                    <value>Facet-f257de21-d6fa-4eb1-a2ac-9c2e62f0a3b8</value>
+                    <value>Facet-ee7397ca-3045-483d-ae45-79547f7281af</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_column4</identifier>
             </componentInstance>
         </itemInstances>
-        <name>Facet-64b8997a-8178-4403-880b-998f10612126</name>
+        <name>Facet-5f1f3a72-b5af-4d9a-8ead-494a8f2e3690</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -213,7 +269,7 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>columns</name>
-                    <value>Facet-ee7ac9cc-328a-4d53-ac61-23f5f513269e</value>
+                    <value>Facet-589e801b-cfea-4a5b-ada6-9579a2d4e30b</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>horizontalAlignment</name>
@@ -231,7 +287,31 @@
             <componentInstance>
                 <componentInstanceProperties>
                     <name>columns</name>
-                    <value>Facet-64b8997a-8178-4403-880b-998f10612126</value>
+                    <value>Facet-outboundColumns</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>horizontalAlignment</name>
+                    <value>false</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>label</name>
+                    <value>Outbound Delivery</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:fieldSection</componentName>
+                <identifier>flexipage_fieldSectionOutbound</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentName>unbounceJsonPayloadBuilder</componentName>
+                <identifier>unbounceJsonPayloadBuilder</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>columns</name>
+                    <value>Facet-5f1f3a72-b5af-4d9a-8ead-494a8f2e3690</value>
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>horizontalAlignment</name>
@@ -243,6 +323,12 @@
                 </componentInstanceProperties>
                 <componentName>flexipage:fieldSection</componentName>
                 <identifier>flexipage_fieldSection2</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentName>force:recordDetailPanelMobile</componentName>
+                <identifier>force_recordDetailPanelMobile</identifier>
             </componentInstance>
         </itemInstances>
         <mode>Replace</mode>
@@ -302,6 +388,140 @@
         <type>Region</type>
     </flexiPageRegions>
     <flexiPageRegions>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Last_Webhook_Delivery_Attempt__c</fieldItem>
+                <identifier>RecordLast_Webhook_Delivery_Attempt_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-latestDeliveryLeft</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Last_Webhook_Delivery_Status__c</fieldItem>
+                <identifier>RecordLast_Webhook_Delivery_Status_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-latestDeliveryRight</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-latestDeliveryLeft</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:column</componentName>
+                <identifier>flexipage_columnLatest1</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-latestDeliveryRight</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:column</componentName>
+                <identifier>flexipage_columnLatest2</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-latestDeliveryColumns</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>columns</name>
+                    <value>Facet-latestDeliveryColumns</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>horizontalAlignment</name>
+                    <value>false</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>label</name>
+                    <value>Latest Delivery Summary</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:fieldSection</componentName>
+                <identifier>flexipage_fieldSectionLatestDelivery</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>actionNames</name>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>adminFilters</name>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>maxRecordsToDisplay</name>
+                    <value>10</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>parentFieldApiName</name>
+                    <value>Unbounce_Integration_Config__c.Id</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>relatedListApiName</name>
+                    <value>Unbounce_Webhook_Deliveries__r</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>relatedListDisplayType</name>
+                    <value>ADVGRID</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>relatedListFieldAliases</name>
+                    <valueList>
+                        <valueListItems>
+                            <value>NAME</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>Intake__c</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>Triggered_Status__c</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>Status__c</value>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>Status_Code__c</value>
+                        </valueListItems>
+                    </valueList>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>relatedListLabel</name>
+                    <value>Unbounce Webhook Deliveries</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>showActionBar</name>
+                    <value>false</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>sortFieldAlias</name>
+                    <value>CREATED_DATE</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>sortFieldOrder</name>
+                    <value>Descending</value>
+                </componentInstanceProperties>
+                <componentName>lst:dynamicRelatedList</componentName>
+                <identifier>lst_dynamicRelatedListWebhookDeliveries</identifier>
+            </componentInstance>
+        </itemInstances>
         <mode>Replace</mode>
         <name>sidebar</name>
         <type>Region</type>
