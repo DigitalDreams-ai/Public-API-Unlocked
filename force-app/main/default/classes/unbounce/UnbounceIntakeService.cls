@@ -34,8 +34,7 @@ public without sharing class UnbounceIntakeService {
             );
         }
 
-        Map<String, Object> mappedPayload = UnbounceCustomMappingService.applyMapping(payload);
-        litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(mappedPayload);
+        litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(payload);
         intake.Created_By_Unbounce_API__c = true;
 
         // Client lookup: use email to find or create an Account and set the Intake Client lookup.
@@ -61,7 +60,7 @@ public without sharing class UnbounceIntakeService {
 
         // Case Type lookup by the configured payload key.
         String caseTypeFromPayload = getPayloadString(
-            mappedPayload,
+            payload,
             new List<String>{ 'caseType', 'casetype', 'case_type' }
         );
         if (String.isNotBlank(caseTypeFromPayload)) {

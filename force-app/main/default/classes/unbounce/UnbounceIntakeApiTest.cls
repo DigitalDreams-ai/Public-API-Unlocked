@@ -688,7 +688,7 @@ public class UnbounceIntakeApiTest {
     }
 
     @IsTest
-    static void testUnbounceIntakeModel_LabelStyleKeysRequireCustomMapping() {
+    static void testUnbounceIntakeModel_LabelStyleKeysAreIgnored() {
         Map<String, Object> payload = new Map<String, Object>{
             'Full Name' => 'Jane Doe',
             'Email Address' => 'jane@test.com',
@@ -826,62 +826,6 @@ public class UnbounceIntakeApiTest {
     }
 
     @IsTest
-    static void testCreateIntake_CustomMapping_LabelStylePayload_Success() {
-        UnbounceTestDataFactory.createCaseType('Auto Accident');
-        createActiveConfig(DEFAULT_API_KEY, null);
-        insert new Unbounce_Field_Mapping__c(
-            Is_Active__c = true,
-            Context__c = 'Unbounce Intake',
-            Mapping_Configuration__c =
-                '{"first_name":"$.data.First Name","last_name":"$.data.Last Name","email":"$.data.Email Address","phone":"$.data.Phone Number","description":"$.data.How can we help you?","caseType":"$.data.Case Type"}'
-        );
-
-        Map<String, Object> payload = new Map<String, Object>{
-            'data' => new Map<String, Object>{
-                'First Name' => 'Label',
-                'Last Name' => 'Style',
-                'Email Address' => 'label@example.com',
-                'Phone Number' => '555-111-2222',
-                'How can we help you?' => 'Need help',
-                'Case Type' => 'Auto Accident'
-            }
-        };
-
-        RestRequest req = new RestRequest();
-        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
-        req.httpMethod = 'POST';
-        req.requestBody = Blob.valueOf(JSON.serialize(payload));
-        req.headers.put('x-api-key', DEFAULT_API_KEY);
-
-        RestResponse res = new RestResponse();
-        RestContext.request = req;
-        RestContext.response = res;
-
-        UnbounceIntakeApi.createIntake();
-
-        System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
-
-        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
-        List<litify_pm__Intake__c> created = [
-            SELECT litify_pm__First_Name__c,
-                   litify_pm__Last_Name__c,
-                   litify_pm__Email__c,
-                   litify_pm__Phone__c,
-                   litify_pm__Description__c,
-                   litify_pm__Case_Type__c
-            FROM litify_pm__Intake__c
-            WHERE Id = :(String) response.get('intakeId')
-        ];
-        System.assertEquals(1, created.size());
-        System.assertEquals('Label', created[0].litify_pm__First_Name__c);
-        System.assertEquals('Style', created[0].litify_pm__Last_Name__c);
-        System.assertEquals('label@example.com', created[0].litify_pm__Email__c);
-        System.assertEquals('555-111-2222', created[0].litify_pm__Phone__c);
-        System.assertEquals('Need help', created[0].litify_pm__Description__c);
-        System.assertNotEquals(null, created[0].litify_pm__Case_Type__c);
-    }
-
-    @IsTest
     static void testUnbounceIntakeModel_NullPayloadThrows() {
         try {
             UnbounceIntakeModel.fromUnbouncePayload(null);
@@ -889,36 +833,6 @@ public class UnbounceIntakeApiTest {
         } catch (UnbounceIntakeServiceException e) {
             System.assert(e.getMessage().contains('null'));
         }
-    }
-
-    @IsTest
-    static void testUnbounceCustomMappingService_NoMapping_ReturnsPayloadUnchanged() {
-        Map<String, Object> payload = new Map<String, Object>{ 'email' => 'test@example.com' };
-        Map<String, Object> result = UnbounceCustomMappingService.applyMapping(payload);
-        System.assertEquals(payload, result);
-        System.assertEquals('test@example.com', result.get('email'));
-    }
-
-    @IsTest
-    static void testUnbounceCustomMappingService_WithMapping_TransformsPayload() {
-        Unbounce_Field_Mapping__c mapping = new Unbounce_Field_Mapping__c(
-            Is_Active__c = true,
-            Context__c = 'Unbounce Intake',
-            Mapping_Configuration__c = '{"name":"$.data.firstName","email":"$.data.email"}'
-        );
-        insert mapping;
-
-        Map<String, Object> data = new Map<String, Object>{
-            'firstName' => 'MappedFirst',
-            'email' => 'mapped@test.com'
-        };
-        Map<String, Object> payload = new Map<String, Object>{ 'data' => data };
-
-        Map<String, Object> result = UnbounceCustomMappingService.applyMapping(payload);
-
-        System.assertNotEquals(null, result);
-        System.assertEquals('MappedFirst', result.get('name'));
-        System.assertEquals('mapped@test.com', result.get('email'));
     }
 
     private static Unbounce_Integration_Config__c createActiveConfig(String apiKey, String referredByPartyName) {
