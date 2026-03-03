@@ -158,6 +158,7 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
             'lastName' => intake.litify_pm__Last_Name__c,
             'email' => intake.litify_pm__Email__c,
             'gclid' => (String) intake.get('GCLID__c'),
+            'conversionTime' => formatAsIso8601((Datetime) intake.get('Google_Ads_Conversion_Time__c')),
             'createdDate' => formatAsIso8601(intake.CreatedDate)
         };
     }
@@ -326,6 +327,7 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
             SELECT Id,
                    CreatedDate,
                    GCLID__c,
+                   Google_Ads_Conversion_Time__c,
                    litify_pm__First_Name__c,
                    litify_pm__Last_Name__c,
                    litify_pm__Email__c

@@ -92,6 +92,15 @@ private class UnbounceIntakeStatusUpdateTest {
         System.assertNotEquals(null, config.Last_Webhook_Delivery_Attempt__c);
         System.assert(config.Last_Webhook_Request_JSON__c.contains('"email"'));
         System.assert(config.Last_Webhook_Response_JSON__c.contains('"statusCode":200'));
+
+        litify_pm__Intake__c refreshed = [
+            SELECT Google_Ads_Conversion_Event__c,
+                   Google_Ads_Conversion_Time__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :intake.Id
+        ];
+        System.assertEquals('Referred Out', refreshed.Google_Ads_Conversion_Event__c);
+        System.assertNotEquals(null, refreshed.Google_Ads_Conversion_Time__c);
     }
 
     @IsTest
@@ -112,8 +121,10 @@ private class UnbounceIntakeStatusUpdateTest {
         System.assertEquals('Webhook', payload.get('lastName'));
         System.assertEquals(intake.litify_pm__Email__c, payload.get('email'));
         System.assertEquals(intake.GCLID__c, payload.get('gclid'));
-        System.assertEquals(5, payload.size());
+        System.assertEquals(formatAsIso8601(intake.Google_Ads_Conversion_Time__c), payload.get('conversionTime'));
+        System.assertEquals(6, payload.size());
         System.assert(payload.containsKey('createdDate'));
+        System.assert(payload.containsKey('conversionTime'));
         System.assertEquals(false, payload.containsKey('status'));
     }
 
@@ -420,6 +431,28 @@ private class UnbounceIntakeStatusUpdateTest {
         System.assertEquals(false, UnbounceIntakeStatusUpdateTriggerHandler.shouldSendStatusUpdate('Lead Generated'));
     }
 
+    @IsTest
+    static void testStatusChange_StampsGoogleAdsConversionFieldsForConverted() {
+        litify_pm__Intake__c intake = createUnbounceIntake();
+        String nextStatus = getRequiredStatusValue('Converted');
+
+        Test.startTest();
+        update new litify_pm__Intake__c(
+            Id = intake.Id,
+            litify_pm__Status__c = nextStatus
+        );
+        Test.stopTest();
+
+        litify_pm__Intake__c refreshed = [
+            SELECT Google_Ads_Conversion_Event__c,
+                   Google_Ads_Conversion_Time__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :intake.Id
+        ];
+        System.assertEquals('Converted', refreshed.Google_Ads_Conversion_Event__c);
+        System.assertNotEquals(null, refreshed.Google_Ads_Conversion_Time__c);
+    }
+
     private static litify_pm__Intake__c createUnbounceIntake() {
         String uniqueEmail =
             'status.webhook+' + String.valueOf(Crypto.getRandomLong()).replace('-', '0') + '@example.com';
@@ -447,6 +480,8 @@ private class UnbounceIntakeStatusUpdateTest {
         return [
             SELECT Id,
                    CreatedDate,
+                   Google_Ads_Conversion_Event__c,
+                   Google_Ads_Conversion_Time__c,
                    litify_pm__First_Name__c,
                    litify_pm__Last_Name__c,
                    litify_pm__Status__c,
@@ -540,5 +575,9 @@ private class UnbounceIntakeStatusUpdateTest {
 
     private static Id createSyntheticConfigId() {
         return (Id) ('a1Y000000000001AAA');
+    }
+
+    private static String formatAsIso8601(Datetime value) {
+        return value == null ? null : value.formatGMT('yyyy-MM-dd\'T\'HH:mm:ss.SSS\'Z\'');
     }
 }
