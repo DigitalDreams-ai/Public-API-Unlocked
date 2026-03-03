@@ -54,9 +54,7 @@ public without sharing class UnbounceIntakeService {
 
         String referredByPartyName = config != null ? config.referredByPartyName : null;
         Id referredByPartyId = resolveReferredByPartyId(referredByPartyName);
-        if (referredByPartyId != null) {
-            intake.Referred_By__c = referredByPartyId;
-        }
+        setIntakeFieldIfPresent(intake, 'Referred_By__c', referredByPartyId);
 
         // Case Type lookup by the configured payload key.
         String caseTypeFromPayload = getPayloadString(
@@ -459,6 +457,22 @@ public without sharing class UnbounceIntakeService {
 
         String normalized = String.valueOf(value);
         return String.isNotBlank(normalized) ? normalized.trim() : null;
+    }
+
+    private static void setIntakeFieldIfPresent(litify_pm__Intake__c intake, String fieldName, Object value) {
+        if (intake == null || String.isBlank(fieldName) || value == null) {
+            return;
+        }
+        try {
+            Map<String, Schema.SObjectField> intakeFields =
+                litify_pm__Intake__c.SObjectType.getDescribe().fields.getMap();
+            if (!intakeFields.containsKey(fieldName)) {
+                return;
+            }
+            intake.put(fieldName, value);
+        } catch (Exception e) {
+            return;
+        }
     }
 
     /**

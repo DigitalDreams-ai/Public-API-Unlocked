@@ -173,9 +173,9 @@ private class UnbounceIntakeStatusUpdateTest {
             litify_pm__Email__c = 'legacy.unbounce@example.com',
             litify_pm__Phone__c = '555-333-5555',
             litify_pm__Status__c = 'Lead Generated',
-            Referred_By__c = referredByParty.Id,
             litify_pm__lit_Exact_Source__c = 'https://shtest.ubpages.com/sh_test/'
         );
+        setOptionalIntakeField(intake, 'Referred_By__c', referredByParty.Id);
         if (String.isNotBlank(advertisingSourceTypeValue)) {
             intake.litify_pm__Source_Type__c = advertisingSourceTypeValue;
         }
@@ -240,6 +240,18 @@ private class UnbounceIntakeStatusUpdateTest {
 
     private static void resetCapturedRequests() {
         capturedRequests.clear();
+    }
+
+    private static void setOptionalIntakeField(litify_pm__Intake__c intake, String fieldName, Object value) {
+        if (intake == null || String.isBlank(fieldName) || value == null) {
+            return;
+        }
+        Map<String, Schema.SObjectField> intakeFields =
+            litify_pm__Intake__c.SObjectType.getDescribe().fields.getMap();
+        if (!intakeFields.containsKey(fieldName)) {
+            return;
+        }
+        intake.put(fieldName, value);
     }
 
     private static Account createReferredByParty(String fallbackName) {
