@@ -12,37 +12,42 @@ global with sharing class UnbounceIntakeApi {
         res.addHeader('Content-Type', 'application/json');
 
         try {
-            String jsonBody = req.requestBody != null ? req.requestBody.toString() : '{}';
-            Map<String, Object> payload = (Map<String, Object>) JSON.deserializeUntyped(jsonBody);
+            String requestBody = req.requestBody != null ? req.requestBody.toString() : '';
+            String apiKeyHeader = getHeaderIgnoreCase(req, 'x-api-key');
 
-            UnbounceConfigService.Config config = UnbounceConfigService.getConfig();
-            if (config == null || config.defaultFirmId == null) {
-                res.statusCode = 503;
-                res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse(
-                    'Unbounce integration not configured. Set Default Firm Id in Unbounce Config.'
-                )));
+            if (String.isBlank(apiKeyHeader)) {
+                res.statusCode = 401;
+                res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse('Invalid or missing API key')));
                 return;
             }
 
-            if (String.isNotBlank(config.apiKey)) {
-                String apiKeyHeader = req.headers != null ? req.headers.get('x-api-key') : null;
-                if (apiKeyHeader == null || apiKeyHeader.trim() != config.apiKey.trim()) {
-                    res.statusCode = 401;
-                    res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse('Invalid or missing API key')));
-                    return;
-                }
+            UnbounceConfigService.Config config;
+            try {
+                config = UnbounceConfigService.getConfigForApiKey(apiKeyHeader);
+            } catch (UnbounceIntakeServiceException e) {
+                res.statusCode = 503;
+                res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse(e.getMessage())));
+                return;
+            }
+            if (config == null) {
+                res.statusCode = 401;
+                res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse('Invalid or missing API key')));
+                return;
             }
 
-            String signature = req.headers != null ? req.headers.get('x-unbounce-signature') : null;
+            String signature = getHeaderIgnoreCase(req, 'x-unbounce-signature');
             String secret = config.webhookSecret;
-            if (String.isNotBlank(secret) && !UnbounceClient.verifyWebhookSignature(jsonBody, signature, secret)) {
+            if (String.isNotBlank(secret) && !UnbounceClient.verifyWebhookSignature(requestBody, signature, secret)) {
                 res.statusCode = 401;
                 res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse('Invalid webhook signature')));
                 return;
             }
 
+            String contentType = getHeaderIgnoreCase(req, 'Content-Type');
+            Map<String, Object> payload = parsePayload(requestBody, contentType);
+
             litify_pm__Intake__c intake = UnbounceIntakeService.createIntakeFromUnbounce(
-                payload, config.defaultFirmId, config.defaultCaseTypeName
+                payload, config
             );
 
             res.statusCode = 201;
@@ -57,6 +62,90 @@ global with sharing class UnbounceIntakeApi {
             res.statusCode = 500;
             res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse(e.getMessage())));
         }
+    }
+
+    @TestVisible
+    private static Map<String, Object> parsePayload(String requestBody, String contentType) {
+        if (String.isBlank(requestBody)) {
+            return new Map<String, Object>();
+        }
+
+        String normalizedContentType = contentType != null ? contentType.toLowerCase() : '';
+        if (normalizedContentType.contains('application/x-www-form-urlencoded')) {
+            return parseFormEncodedPayload(requestBody);
+        }
+
+        try {
+            Object deserialized = JSON.deserializeUntyped(requestBody);
+            if (deserialized instanceof Map<String, Object>) {
+                return (Map<String, Object>) deserialized;
+            }
+            throw new UnbounceIntakeServiceException(
+                'Invalid request body. Expected a JSON object or form-encoded key/value pairs.'
+            );
+        } catch (JSONException e) {
+            if (looksLikeFormEncoded(requestBody)) {
+                return parseFormEncodedPayload(requestBody);
+            }
+            throw e;
+        }
+    }
+
+    private static Boolean looksLikeFormEncoded(String requestBody) {
+        if (String.isBlank(requestBody)) {
+            return false;
+        }
+        return requestBody.contains('=') && !requestBody.trim().startsWith('{') && !requestBody.trim().startsWith('[');
+    }
+
+    private static Map<String, Object> parseFormEncodedPayload(String requestBody) {
+        Map<String, Object> payload = new Map<String, Object>();
+        if (String.isBlank(requestBody)) {
+            return payload;
+        }
+
+        for (String pair : requestBody.split('&')) {
+            if (String.isBlank(pair)) {
+                continue;
+            }
+
+            Integer equalsIndex = pair.indexOf('=');
+            String encodedKey = equalsIndex >= 0 ? pair.substring(0, equalsIndex) : pair;
+            String encodedValue = equalsIndex >= 0 ? pair.substring(equalsIndex + 1) : '';
+
+            String key = urlDecodeFormValue(encodedKey);
+            if (String.isBlank(key)) {
+                continue;
+            }
+            payload.put(key, urlDecodeFormValue(encodedValue));
+        }
+
+        return payload;
+    }
+
+    private static String urlDecodeFormValue(String value) {
+        if (value == null) {
+            return null;
+        }
+        return EncodingUtil.urlDecode(value.replace('+', '%20'), 'UTF-8');
+    }
+
+    private static String getHeaderIgnoreCase(RestRequest req, String headerName) {
+        if (req == null || req.headers == null || String.isBlank(headerName)) {
+            return null;
+        }
+        String exactValue = req.headers.get(headerName);
+        if (exactValue != null) {
+            return exactValue;
+        }
+
+        String lowerHeaderName = headerName.toLowerCase();
+        for (String key : req.headers.keySet()) {
+            if (key != null && key.toLowerCase() == lowerHeaderName) {
+                return req.headers.get(key);
+            }
+        }
+        return null;
     }
 
     global class IntakeResponse {

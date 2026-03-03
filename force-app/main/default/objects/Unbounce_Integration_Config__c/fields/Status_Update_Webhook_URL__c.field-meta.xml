@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Status_Update_Webhook_URL__c</fullName>
+    <description>Optional HTTPS endpoint that receives outbound Unbounce intake status change notifications.</description>
+    <externalId>false</externalId>
+    <label>Status Update Webhook URL</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Url</type>
+</CustomField>

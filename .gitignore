@@ -14,6 +14,7 @@ robot/Unbounce-Unlocked/results/
 .sf/
 .sfdx/
 .localdevserver/
+.codex-temp/
 deploy-options.json
 test_results.json
 test_results.xml
@@ -59,3 +60,6 @@ $RECYCLE.BIN/
 # Ignore contents of docs folder but keep the folder itself
 docs/*
 !docs/.gitkeep
+# Keep Postman collection and environments for publish-postman workflow
+!docs/postman/
+!docs/postman/**

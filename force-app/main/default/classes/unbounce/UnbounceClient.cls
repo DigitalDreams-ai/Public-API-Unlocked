@@ -24,13 +24,21 @@ public with sharing class UnbounceClient {
         }
 
         try {
-            Blob payloadBlob = Blob.valueOf(payload);
-            Blob secretBlob = Blob.valueOf(secret);
-            Blob expectedMac = Crypto.generateMac('HmacSHA256', payloadBlob, secretBlob);
-            String expectedHex = EncodingUtil.convertToHex(expectedMac);
-            return expectedHex.equalsIgnoreCase(signature);
+            String expectedHex = generateWebhookSignature(payload, secret);
+            return expectedHex != null && expectedHex.equalsIgnoreCase(signature);
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public static String generateWebhookSignature(String payload, String secret) {
+        if (String.isBlank(payload) || String.isBlank(secret)) {
+            return null;
+        }
+
+        Blob payloadBlob = Blob.valueOf(payload);
+        Blob secretBlob = Blob.valueOf(secret);
+        Blob expectedMac = Crypto.generateMac('HmacSHA256', payloadBlob, secretBlob);
+        return EncodingUtil.convertToHex(expectedMac);
     }
 }

@@ -37,7 +37,7 @@ To sync the Unbounce Intake API collection and environments to Postman on push t
      - Name: `POSTMAN_WORKSPACE_ID`  
        Value: the workspace ID from step 2.
 
-After that, the workflow will create or update the **Unbounce Intake API** collection and the **Unbounce Intake API Environment (Dev)** and **(Experience Cloud)** environments in that workspace when the corresponding files under `force-app/main/default/docs/postman/` change on `main`, or when you run the workflow manually.
+After that, the workflow will create or update the **Unbounce Intake API** collection and the **Unbounce Intake API Environment (Dev)** and **(Experience Cloud)** environments in that workspace when the corresponding files under `docs/postman/` change on `main`, or when you run the workflow manually.
 
 ## Releases
 
