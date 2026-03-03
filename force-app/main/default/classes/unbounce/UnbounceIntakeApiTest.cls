@@ -14,6 +14,7 @@ public class UnbounceIntakeApiTest {
             'email' => 'jane@example.com',
             'phone' => '555-123-4567',
             'description' => 'Test intake from Unbounce',
+            'gclid' => 'test-gclid-123',
             'caseType' => 'Auto Accident'
         };
 
@@ -40,11 +41,13 @@ public class UnbounceIntakeApiTest {
         String intakeId = (String) response.get('intakeId');
         List<litify_pm__Intake__c> created = [
             SELECT Id,
+                   Created_By_Unbounce_API__c,
                    litify_pm__First_Name__c,
                    litify_pm__Last_Name__c,
                    litify_pm__Email__c,
                    litify_pm__Phone__c,
                    litify_pm__Description__c,
+                   GCLID__c,
                    litify_pm__Case_Type__c,
                    litify_pm__Source_Type__c
             FROM litify_pm__Intake__c
@@ -52,11 +55,13 @@ public class UnbounceIntakeApiTest {
         ];
         System.assertEquals(1, created.size(), 'Intake should exist');
         System.assertNotEquals(null, created[0].Id);
+        System.assertEquals(true, created[0].Created_By_Unbounce_API__c);
         System.assertEquals('Jane', created[0].litify_pm__First_Name__c);
         System.assertEquals('Smith', created[0].litify_pm__Last_Name__c);
         System.assertEquals('jane@example.com', created[0].litify_pm__Email__c);
         System.assertEquals('555-123-4567', created[0].litify_pm__Phone__c);
         System.assertEquals('Test intake from Unbounce', created[0].litify_pm__Description__c);
+        System.assertEquals('test-gclid-123', created[0].GCLID__c);
         System.assertNotEquals(null, created[0].litify_pm__Case_Type__c);
         System.assertEquals('Advertising', created[0].litify_pm__Source_Type__c);
 
@@ -223,6 +228,214 @@ public class UnbounceIntakeApiTest {
         System.assertEquals('MVA', created[0].Case_Type__c);
         System.assertNotEquals(null, created[0].litify_pm__Case_Type__c);
         System.assertEquals('PI - MVA', created[0].litify_pm__Case_Type__r.Name);
+    }
+
+    @IsTest
+    static void testCreateIntake_TruncatesLongUnbounceStrings() {
+        UnbounceTestDataFactory.createCaseType('Auto Accident');
+        createActiveConfig(DEFAULT_API_KEY, null);
+
+        String longEmailLocalPart = 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz';
+        String longEmail = longEmailLocalPart + '@example.com';
+        String longPhone = '1234567890123456789012345678901234567890EXTENSION';
+        String longPageUrl = 'https://example.com/' + String.valueOf(Crypto.getRandomLong()) + '/' +
+            'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz' +
+            '?utm_campaign=' +
+            'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz' +
+            '&utm_source=google&utm_medium=cpc&utm_content=variant';
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'first_name' => 'Jane',
+            'last_name' => 'Lengthy',
+            'email' => longEmail,
+            'phone_number' => longPhone,
+            'page_url' => longPageUrl,
+            'utm_source' => longPageUrl,
+            'utm_medium' => longPageUrl,
+            'campaignid' => longPageUrl,
+            'utm_content' => longPageUrl,
+            'how_can_we_help_you' => 'Long-value truncation test',
+            'caseType' => 'Auto Accident'
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(
+            201,
+            res.statusCode,
+            'Expected 201 for oversized Unbounce strings. Body: ' +
+            (res.responseBody != null ? res.responseBody.toString() : '')
+        );
+
+        String intakeId = (String) ((Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString())).get('intakeId');
+        litify_pm__Intake__c created = [
+            SELECT litify_pm__Email__c,
+                   litify_pm__Phone__c,
+                   litify_pm__lit_Exact_Source__c,
+                   litify_pm__UTM_Source__c,
+                   litify_pm__UTM_Medium__c,
+                   litify_pm__UTM_Campaign__c,
+                   litify_pm__UTM_Content__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :intakeId
+        ];
+        System.assertEquals(80, created.litify_pm__Email__c.length());
+        System.assertEquals(40, created.litify_pm__Phone__c.length());
+        System.assertEquals(255, created.litify_pm__lit_Exact_Source__c.length());
+        System.assertEquals(255, created.litify_pm__UTM_Source__c.length());
+        System.assertEquals(255, created.litify_pm__UTM_Medium__c.length());
+        System.assertEquals(255, created.litify_pm__UTM_Campaign__c.length());
+        System.assertEquals(255, created.litify_pm__UTM_Content__c.length());
+    }
+
+    @IsTest
+    static void testCreateIntake_MapsGclid() {
+        UnbounceTestDataFactory.createCaseType('Auto Accident');
+        createActiveConfig(DEFAULT_API_KEY, null);
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'first_name' => 'Jane',
+            'last_name' => 'Click',
+            'email' => 'jane.click@example.com',
+            'phone_number' => '555-020-3030',
+            'gclid' => 'EAIaIQobChMI-test-gclid',
+            'caseType' => 'Auto Accident'
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(
+            201,
+            res.statusCode,
+            'Expected 201 when Unbounce sends gclid. Body: ' +
+            (res.responseBody != null ? res.responseBody.toString() : '')
+        );
+
+        String intakeId = (String) ((Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString())).get('intakeId');
+        litify_pm__Intake__c created = [
+            SELECT GCLID__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :intakeId
+        ];
+        System.assertEquals('EAIaIQobChMI-test-gclid', created.GCLID__c);
+    }
+
+    @IsTest
+    static void testCreateIntake_IgnoresSourceStringPayload() {
+        UnbounceTestDataFactory.createCaseType('Auto Accident');
+        createActiveConfig(DEFAULT_API_KEY, null);
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'first_name' => 'Jane',
+            'last_name' => 'Source',
+            'email' => 'jane.source@example.com',
+            'phone_number' => '555-010-1010',
+            'caseType' => 'Auto Accident',
+            'source' => 'google'
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(
+            201,
+            res.statusCode,
+            'Expected 201 when Unbounce sends source as plain text. Body: ' +
+            (res.responseBody != null ? res.responseBody.toString() : '')
+        );
+
+        String intakeId = (String) ((Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString())).get('intakeId');
+        litify_pm__Intake__c created = [
+            SELECT litify_pm__Source__c, litify_pm__Source_Type__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :intakeId
+        ];
+        System.assertEquals(null, created.litify_pm__Source__c);
+        System.assertEquals('Advertising', created.litify_pm__Source_Type__c);
+    }
+
+    @IsTest
+    static void testCreateIntake_NonMvaCaseTypeDoesNotWriteRestrictedPicklist() {
+        createActiveConfig(DEFAULT_API_KEY, null);
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'first_name' => 'Jane',
+            'last_name' => 'Labor',
+            'email' => 'jane.labor@example.com',
+            'phone_number' => '555-010-2020',
+            'caseType' => 'Labor Law'
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(
+            201,
+            res.statusCode,
+            'Expected 201 for non-MVA case types. Body: ' +
+            (res.responseBody != null ? res.responseBody.toString() : '')
+        );
+
+        String intakeId = (String) ((Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString())).get('intakeId');
+        litify_pm__Intake__c created = [
+            SELECT Case_Type__c, Type__c, litify_pm__Case_Type__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :intakeId
+        ];
+        System.assertEquals(null, created.Case_Type__c);
+        System.assertEquals(null, created.Type__c);
+        System.assertEquals(null, created.litify_pm__Case_Type__c);
+    }
+
+    @IsTest
+    static void testCreateIntake_AppliesDuplicateRuleBypassForUnbounceRecords() {
+        litify_pm__Intake__c intake = new litify_pm__Intake__c(
+            Created_By_Unbounce_API__c = true
+        );
+
+        Database.DMLOptions options = UnbounceIntakeService.buildDuplicateRuleBypassOptions(intake);
+
+        System.assertNotEquals(null, options);
+        System.assertEquals(true, options.DuplicateRuleHeader.allowSave);
+        System.assertEquals(false, options.DuplicateRuleHeader.runAsCurrentUser);
     }
 
     @IsTest

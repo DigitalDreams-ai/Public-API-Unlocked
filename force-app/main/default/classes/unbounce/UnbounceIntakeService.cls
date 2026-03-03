@@ -36,6 +36,7 @@ public without sharing class UnbounceIntakeService {
 
         Map<String, Object> mappedPayload = UnbounceCustomMappingService.applyMapping(payload);
         litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(mappedPayload);
+        intake.Created_By_Unbounce_API__c = true;
 
         // Client lookup: use email to find or create an Account and set the Intake Client lookup.
         Id clientAccountId = null;
@@ -78,6 +79,7 @@ public without sharing class UnbounceIntakeService {
         }
 
         try {
+            applyDuplicateRuleBypassIfNeeded(intake);
             insert intake;
             UnbounceIntakeTrackingService.trackIntake(intake.Id, config.id);
             if (clientAccountId == null && shouldReapplyMappedFields(intake)) {
@@ -295,6 +297,27 @@ public without sharing class UnbounceIntakeService {
             String.isNotBlank((String) intake.get('litify_pm__Phone__c'));
     }
 
+    @TestVisible
+    private static void applyDuplicateRuleBypassIfNeeded(litify_pm__Intake__c intake) {
+        Database.DMLOptions options = buildDuplicateRuleBypassOptions(intake);
+        if (intake == null || options == null) {
+            return;
+        }
+        intake.setOptions(options);
+    }
+
+    @TestVisible
+    private static Database.DMLOptions buildDuplicateRuleBypassOptions(litify_pm__Intake__c intake) {
+        if (intake == null || intake.Created_By_Unbounce_API__c != true) {
+            return null;
+        }
+
+        Database.DMLOptions options = new Database.DMLOptions();
+        options.DuplicateRuleHeader.allowSave = true;
+        options.DuplicateRuleHeader.runAsCurrentUser = false;
+        return options;
+    }
+
     private static void publishClientAccountRequest(Id intakeId) {
         if (intakeId == null) {
             return;
@@ -360,9 +383,8 @@ public without sharing class UnbounceIntakeService {
     }
 
     private static void applyCaseTypeRouting(litify_pm__Intake__c intake, String caseTypeFromPayload) {
-        setIntakePicklistIfAllowed(intake, 'Case_Type__c', caseTypeFromPayload);
-
         if (isMvaCaseType(caseTypeFromPayload)) {
+            setIntakePicklistIfAllowed(intake, 'Case_Type__c', 'MVA');
             setIntakePicklistIfAllowed(intake, 'Type__c', 'Personal Injury');
         }
     }

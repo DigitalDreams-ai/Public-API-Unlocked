@@ -31,41 +31,40 @@ public with sharing class UnbounceIntakeModel {
             new List<String>{ 'last_name' }
         );
         if (String.isBlank(lastName) && looksLikeFullName(name)) {
-            intake.litify_pm__First_Name__c = getFirstName(name);
-            intake.litify_pm__Last_Name__c = getLastName(name);
+            setStringField(intake, 'litify_pm__First_Name__c', getFirstName(name));
+            setStringField(intake, 'litify_pm__Last_Name__c', getLastName(name));
         } else {
-            intake.litify_pm__First_Name__c = name;
-            intake.litify_pm__Last_Name__c = lastName;
+            setStringField(intake, 'litify_pm__First_Name__c', name);
+            setStringField(intake, 'litify_pm__Last_Name__c', lastName);
         }
 
-        intake.litify_pm__Email__c = getString(
+        setStringField(intake, 'litify_pm__Email__c', getString(
             data,
             new List<String>{ 'email' }
-        );
+        ));
         String phone = getString(
             data,
             new List<String>{ 'phone_number', 'phone' }
         );
-        intake.litify_pm__Phone__c = phone;
+        setStringField(intake, 'litify_pm__Phone__c', phone);
 
         // Intake fields
-        intake.litify_pm__Description__c = getString(
+        setStringField(intake, 'litify_pm__Description__c', getString(
             data,
             new List<String>{ 'how_can_we_help_you', 'description' }
-        );
+        ));
         setOptionalField(
             intake,
             'litify_pm__lit_Exact_Source__c',
             getString(data, new List<String>{ 'page_url' })
         );
 
-        // Source / UTM params
-        String source = getString(data, new List<String>{ 'source' });
-        setOptionalField(intake, 'litify_pm__Source__c', source);
+        // UTM params
         setOptionalField(intake, 'litify_pm__UTM_Source__c', getString(data, new List<String>{ 'utm_source' }));
         setOptionalField(intake, 'litify_pm__UTM_Medium__c', getString(data, new List<String>{ 'utm_medium' }));
         setOptionalField(intake, 'litify_pm__UTM_Campaign__c', getString(data, new List<String>{ 'campaignid' }));
         setOptionalField(intake, 'litify_pm__UTM_Content__c', getString(data, new List<String>{ 'utm_content' }));
+        setOptionalField(intake, 'GCLID__c', getString(data, new List<String>{ 'gclid' }));
 
         intake.litify_pm__Source_Type__c = 'Advertising';
 
@@ -77,10 +76,17 @@ public with sharing class UnbounceIntakeModel {
             return;
         }
         try {
-            intake.put(fieldName, value);
+            intake.put(fieldName, clampToFieldLength(fieldName, value));
         } catch (Exception e) {
             // Field may exist but reject the assigned type/value.
         }
+    }
+
+    private static void setStringField(litify_pm__Intake__c intake, String fieldName, String value) {
+        if (intake == null || String.isBlank(fieldName) || !INTAKE_FIELDS.containsKey(fieldName)) {
+            return;
+        }
+        intake.put(fieldName, clampToFieldLength(fieldName, value));
     }
 
     private static Map<String, Object> extractDataMap(Map<String, Object> payload) {
@@ -117,6 +123,50 @@ public with sharing class UnbounceIntakeModel {
 
         String normalized = String.valueOf(value);
         return String.isNotBlank(normalized) ? normalized.trim() : null;
+    }
+
+    @TestVisible
+    private static String clampToFieldLength(String fieldName, String value) {
+        if (String.isBlank(value) || String.isBlank(fieldName) || !INTAKE_FIELDS.containsKey(fieldName)) {
+            return value;
+        }
+
+        try {
+            Schema.DescribeFieldResult describe = INTAKE_FIELDS.get(fieldName).getDescribe();
+            Integer maxLength = describe.getLength();
+            if (maxLength != null && maxLength > 0 && value.length() > maxLength) {
+                if (describe.getType() == Schema.DisplayType.Email) {
+                    return clampEmailToFieldLength(value, maxLength);
+                }
+                return value.substring(0, maxLength);
+            }
+        } catch (Exception e) {
+            return value;
+        }
+        return value;
+    }
+
+    private static String clampEmailToFieldLength(String value, Integer maxLength) {
+        if (String.isBlank(value) || maxLength == null || maxLength <= 0 || value.length() <= maxLength) {
+            return value;
+        }
+
+        Integer atIndex = value.indexOf('@');
+        if (atIndex <= 0) {
+            return value.substring(0, maxLength);
+        }
+
+        String domain = value.substring(atIndex);
+        Integer maxLocalPartLength = maxLength - domain.length();
+        if (maxLocalPartLength <= 0) {
+            return value.substring(0, maxLength);
+        }
+
+        String localPart = value.substring(0, atIndex);
+        if (localPart.length() > maxLocalPartLength) {
+            localPart = localPart.substring(0, maxLocalPartLength);
+        }
+        return localPart + domain;
     }
 
     private static Boolean looksLikeFullName(String name) {

@@ -50,6 +50,16 @@
         <field>Unbounce_Integration_Config__c.Webhook_Secret__c</field>
         <readable>true</readable>
     </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.GCLID__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.Created_By_Unbounce_API__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Unbounce-Unlocked Admin App</label>
     <objectPermissions>
