@@ -16,12 +16,25 @@ public without sharing class UnbounceIntakeService {
         Map<String, Object> payload,
         String referredByPartyName
     ) {
+        UnbounceConfigService.Config config = new UnbounceConfigService.Config();
+        config.referredByPartyName = referredByPartyName;
+        return createIntakeFromUnbounce(payload, config);
+    }
+
+    public static litify_pm__Intake__c createIntakeFromUnbounce(
+        Map<String, Object> payload,
+        UnbounceConfigService.Config config
+    ) {
         if (payload == null) {
             throw new UnbounceIntakeServiceException('Payload cannot be null');
         }
 
         Map<String, Object> mappedPayload = UnbounceCustomMappingService.applyMapping(payload);
         litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(mappedPayload);
+        setBooleanFieldIfExists(intake, 'Created_By_Unbounce_API__c', true);
+        if (config != null && config.id != null) {
+            setFieldIfExists(intake, 'Unbounce_Integration_Config_Id__c', String.valueOf(config.id));
+        }
 
         // Client lookup: use email to find or create an Account and set the Intake Client lookup.
         Id clientAccountId = null;
@@ -38,6 +51,7 @@ public without sharing class UnbounceIntakeService {
             shouldQueueClientAccountResolution = true;
         }
 
+        String referredByPartyName = config != null ? config.referredByPartyName : null;
         Id referredByPartyId = resolveReferredByPartyId(referredByPartyName);
         if (referredByPartyId != null) {
             intake.Referred_By__c = referredByPartyId;
@@ -422,6 +436,25 @@ public without sharing class UnbounceIntakeService {
 
         String normalized = String.valueOf(value);
         return String.isNotBlank(normalized) ? normalized.trim() : null;
+    }
+
+    private static void setBooleanFieldIfExists(SObject record, String fieldName, Boolean value) {
+        setFieldIfExists(record, fieldName, value);
+    }
+
+    private static void setFieldIfExists(SObject record, String fieldName, Object value) {
+        if (record == null || String.isBlank(fieldName)) {
+            return;
+        }
+        try {
+            Map<String, Schema.SObjectField> fields = record.getSObjectType().getDescribe().fields.getMap();
+            if (!fields.containsKey(fieldName)) {
+                return;
+            }
+            record.put(fieldName, value);
+        } catch (Exception e) {
+            return;
+        }
     }
 
     /**

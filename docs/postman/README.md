@@ -19,11 +19,11 @@ Postman collection and environments for testing the Unbounce Intake API (`POST /
 
 - **base_url** – Org URL (Dev) or site URL (Experience Cloud). Set to your org/site; leave placeholders only for reference.
 - **rest_path** – `services/apexrest` for both the direct org URL and the Experience Cloud site URL. Pre-set in each environment.
-- **api_key** – **Required if API Key is set in Unbounce Config.** Sent as the `X-Api-Key` header. Get the value from Setup → Custom Settings → Unbounce Config → Manage → API Key. Leave empty only if the org has no API Key configured.
+- **api_key** – Required. Sent as the `X-Api-Key` header and must match exactly one active **Unbounce Integration Config** record.
 - **webhook_secret** – Optional; only if you use Unbounce webhook signature verification.
 - **intake_id** – Set by the collection when a create request returns 201.
 
-The API is public and uses **X-Api-Key** only (no session or OAuth). Set **api_key** in your Postman environment to match the value in Unbounce Config. If the org has no API Key configured, the header is optional.
+The API is public and uses **X-Api-Key** only (no session or OAuth). Set **api_key** in your Postman environment to match the specific active **Unbounce Integration Config** record you want to route through.
 
 ## Requests
 
@@ -36,7 +36,7 @@ The API is public and uses **X-Api-Key** only (no session or OAuth). Set **api_k
 
 ## Prerequisites
 
-- **Unbounce Config** org default: at least **Default Firm Id**; optionally **API Key** (enforces `X-Api-Key` header), Case Type, Webhook Secret (Setup → Custom Settings → Unbounce Config → Manage).
+- At least one active **Unbounce Integration Config** record with a unique **API Key**.
 - For Experience Cloud: **Unbounce Intake API (Guest)** permission set assigned to the site guest profile.
 
 ## Reference: Shulman API Postman

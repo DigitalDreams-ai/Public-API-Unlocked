@@ -17,6 +17,16 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Unbounce_Integration_Config__c.Status_Update_Webhook_Secret__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Unbounce_Integration_Config__c.Status_Update_Webhook_URL__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Unbounce_Integration_Config__c.Referred_By_Party_Name__c</field>
         <readable>true</readable>
     </fieldPermissions>

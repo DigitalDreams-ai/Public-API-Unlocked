@@ -13,35 +13,29 @@ global with sharing class UnbounceIntakeApi {
 
         try {
             String requestBody = req.requestBody != null ? req.requestBody.toString() : '';
-            String contentType = req.headers != null ? req.headers.get('Content-Type') : null;
-            Map<String, Object> payload = parsePayload(requestBody, contentType);
+            String apiKeyHeader = getHeaderIgnoreCase(req, 'x-api-key');
+
+            if (String.isBlank(apiKeyHeader)) {
+                res.statusCode = 401;
+                res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse('Invalid or missing API key')));
+                return;
+            }
 
             UnbounceConfigService.Config config;
             try {
-                config = UnbounceConfigService.getConfig();
+                config = UnbounceConfigService.getConfigForApiKey(apiKeyHeader);
             } catch (UnbounceIntakeServiceException e) {
                 res.statusCode = 503;
                 res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse(e.getMessage())));
                 return;
             }
             if (config == null) {
-                res.statusCode = 503;
-                res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse(
-                    'Unbounce integration not configured. Create an Unbounce Integration Config record with Is Active = true.'
-                )));
+                res.statusCode = 401;
+                res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse('Invalid or missing API key')));
                 return;
             }
 
-            if (String.isNotBlank(config.apiKey)) {
-                String apiKeyHeader = req.headers != null ? req.headers.get('x-api-key') : null;
-                if (apiKeyHeader == null || apiKeyHeader.trim() != config.apiKey.trim()) {
-                    res.statusCode = 401;
-                    res.responseBody = Blob.valueOf(JSON.serialize(new ErrorResponse('Invalid or missing API key')));
-                    return;
-                }
-            }
-
-            String signature = req.headers != null ? req.headers.get('x-unbounce-signature') : null;
+            String signature = getHeaderIgnoreCase(req, 'x-unbounce-signature');
             String secret = config.webhookSecret;
             if (String.isNotBlank(secret) && !UnbounceClient.verifyWebhookSignature(requestBody, signature, secret)) {
                 res.statusCode = 401;
@@ -49,8 +43,11 @@ global with sharing class UnbounceIntakeApi {
                 return;
             }
 
+            String contentType = getHeaderIgnoreCase(req, 'Content-Type');
+            Map<String, Object> payload = parsePayload(requestBody, contentType);
+
             litify_pm__Intake__c intake = UnbounceIntakeService.createIntakeFromUnbounce(
-                payload, config.referredByPartyName
+                payload, config
             );
 
             res.statusCode = 201;
@@ -131,6 +128,24 @@ global with sharing class UnbounceIntakeApi {
             return null;
         }
         return EncodingUtil.urlDecode(value.replace('+', '%20'), 'UTF-8');
+    }
+
+    private static String getHeaderIgnoreCase(RestRequest req, String headerName) {
+        if (req == null || req.headers == null || String.isBlank(headerName)) {
+            return null;
+        }
+        String exactValue = req.headers.get(headerName);
+        if (exactValue != null) {
+            return exactValue;
+        }
+
+        String lowerHeaderName = headerName.toLowerCase();
+        for (String key : req.headers.keySet()) {
+            if (key != null && key.toLowerCase() == lowerHeaderName) {
+                return req.headers.get(key);
+            }
+        }
+        return null;
     }
 
     global class IntakeResponse {

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Created_By_Unbounce_API__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Marks intake records created through the Unbounce Intake API so downstream automations can target only those records.</description>
+    <externalId>false</externalId>
+    <label>Created By Unbounce API</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

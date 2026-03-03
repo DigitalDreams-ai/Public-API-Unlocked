@@ -1,13 +1,12 @@
 @IsTest
 public class UnbounceIntakeApiTest {
+    private static final String DEFAULT_API_KEY = 'test-api-key';
 
     @IsTest
     static void testCreateIntake_Success() {
         UnbounceTestDataFactory.createCaseType('Auto Accident');
 
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        insert config;
+        createActiveConfig(DEFAULT_API_KEY, null);
 
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Jane',
@@ -22,6 +21,7 @@ public class UnbounceIntakeApiTest {
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -62,13 +62,14 @@ public class UnbounceIntakeApiTest {
     }
 
     @IsTest
-    static void testCreateIntake_NotConfigured_NoConfig() {
+    static void testCreateIntake_NoMatchingConfigForApiKey_401() {
         Map<String, Object> payload = new Map<String, Object>{ 'first_name' => 'Test' };
 
         RestRequest req = new RestRequest();
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', 'missing-config-key');
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -76,17 +77,15 @@ public class UnbounceIntakeApiTest {
 
         UnbounceIntakeApi.createIntake();
 
-        System.assertEquals(503, res.statusCode);
+        System.assertEquals(401, res.statusCode);
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
-        System.assert(((String) response.get('errorMessage')).contains('not configured'));
+        System.assert(((String) response.get('errorMessage')).toLowerCase().contains('api key'));
     }
 
     @IsTest
     static void testCreateIntake_WebFormNoFirm_Success() {
         UnbounceTestDataFactory.createCaseType('Auto Accident');
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        insert config;
+        createActiveConfig(DEFAULT_API_KEY, null);
 
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Web',
@@ -99,6 +98,7 @@ public class UnbounceIntakeApiTest {
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -139,11 +139,8 @@ public class UnbounceIntakeApiTest {
         insert referredByParty;
         referredByParty = [SELECT Id, Name FROM Account WHERE Id = :referredByParty.Id];
 
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c(
-            Is_Active__c = true,
-            Referred_By_Party_Name__c = referredByParty.Name
-        );
-        insert config;
+        createActiveConfig('primary-key', referredByParty.Name);
+        createActiveConfig('secondary-key', null);
 
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Web',
@@ -156,6 +153,7 @@ public class UnbounceIntakeApiTest {
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', 'primary-key');
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -179,9 +177,7 @@ public class UnbounceIntakeApiTest {
     static void testCreateIntake_MvaRoutesTypeAndLitifyCaseType() {
         UnbounceTestDataFactory.createCaseType('PI - MVA');
 
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        insert config;
+        createActiveConfig(DEFAULT_API_KEY, null);
 
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Mva',
@@ -195,6 +191,7 @@ public class UnbounceIntakeApiTest {
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -221,9 +218,9 @@ public class UnbounceIntakeApiTest {
     }
 
     @IsTest
-    static void testCreateIntake_MultipleActiveConfigs_503() {
-        insert new Unbounce_Integration_Config__c(Is_Active__c = true);
-        insert new Unbounce_Integration_Config__c(Is_Active__c = true);
+    static void testCreateIntake_DuplicateMatchingApiKeys_503() {
+        insert new Unbounce_Integration_Config__c(Is_Active__c = true, API_Key__c = 'duplicate-key');
+        insert new Unbounce_Integration_Config__c(Is_Active__c = true, API_Key__c = 'duplicate-key');
 
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Config',
@@ -234,6 +231,7 @@ public class UnbounceIntakeApiTest {
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', 'duplicate-key');
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -244,7 +242,7 @@ public class UnbounceIntakeApiTest {
         System.assertEquals(503, res.statusCode);
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         System.assert(
-            ((String) response.get('errorMessage')).contains('Exactly one active Unbounce Integration Config record is required.')
+            ((String) response.get('errorMessage')).contains('must match the supplied API key')
         );
     }
 
@@ -252,9 +250,7 @@ public class UnbounceIntakeApiTest {
     static void testCreateIntake_ClientAccountFailure_QueuesDeferredCreation() {
         UnbounceTestDataFactory.createCaseType('Auto Accident');
 
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        insert config;
+        createActiveConfig(DEFAULT_API_KEY, null);
 
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Guest',
@@ -269,6 +265,7 @@ public class UnbounceIntakeApiTest {
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -309,10 +306,7 @@ public class UnbounceIntakeApiTest {
     @IsTest
     static void testCreateIntake_ApiKeyRequired_ValidKey() {
         UnbounceTestDataFactory.createCaseType('Auto Accident');
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        config.API_Key__c = 'test-api-key-123';
-        insert config;
+        createActiveConfig('test-api-key-123', null);
 
         Map<String, Object> payload = new Map<String, Object>{
             'first_name' => 'Api',
@@ -338,10 +332,7 @@ public class UnbounceIntakeApiTest {
 
     @IsTest
     static void testCreateIntake_ApiKeyRequired_MissingKey_401() {
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        config.API_Key__c = 'required-key';
-        insert config;
+        createActiveConfig('required-key', null);
 
         RestRequest req = new RestRequest();
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
@@ -362,10 +353,7 @@ public class UnbounceIntakeApiTest {
 
     @IsTest
     static void testCreateIntake_ApiKeyRequired_WrongKey_401() {
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        config.API_Key__c = 'correct-key';
-        insert config;
+        createActiveConfig('correct-key', null);
 
         RestRequest req = new RestRequest();
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
@@ -384,14 +372,13 @@ public class UnbounceIntakeApiTest {
 
     @IsTest
     static void testCreateIntake_InvalidJson() {
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        insert config;
+        createActiveConfig(DEFAULT_API_KEY, null);
 
         RestRequest req = new RestRequest();
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf('{ invalid }');
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -406,9 +393,7 @@ public class UnbounceIntakeApiTest {
     static void testCreateIntake_FormEncodedPayload_Success() {
         UnbounceTestDataFactory.createCaseType('PI - MVA');
 
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        insert config;
+        createActiveConfig(DEFAULT_API_KEY, null);
 
         RestRequest req = new RestRequest();
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
@@ -418,6 +403,7 @@ public class UnbounceIntakeApiTest {
             'first_name=Form&last_name=Encoded&email=form.encoded%40example.com&phone_number=5551234567' +
             '&how_can_we_help_you=Need+help&caseType=MVA&page_url=https%3A%2F%2Fexample.com%2Flanding'
         );
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -565,9 +551,7 @@ public class UnbounceIntakeApiTest {
     static void testCreateIntake_JsonArrayPayload_Success() {
         UnbounceTestDataFactory.createCaseType('PI - MVA');
 
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        insert config;
+        createActiveConfig(DEFAULT_API_KEY, null);
 
         Map<String, Object> payload = new Map<String, Object>{
             'name' => new List<Object>{ 'Json' },
@@ -584,6 +568,7 @@ public class UnbounceIntakeApiTest {
         req.httpMethod = 'POST';
         req.addHeader('Content-Type', 'application/json');
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -622,9 +607,7 @@ public class UnbounceIntakeApiTest {
     @IsTest
     static void testCreateIntake_CustomMapping_LabelStylePayload_Success() {
         UnbounceTestDataFactory.createCaseType('Auto Accident');
-        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
-        config.Is_Active__c = true;
-        insert config;
+        createActiveConfig(DEFAULT_API_KEY, null);
         insert new Unbounce_Field_Mapping__c(
             Is_Active__c = true,
             Context__c = 'Unbounce Intake',
@@ -647,6 +630,7 @@ public class UnbounceIntakeApiTest {
         req.requestURI = '/services/apexrest/v1/unbounce/intakes';
         req.httpMethod = 'POST';
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
+        req.headers.put('x-api-key', DEFAULT_API_KEY);
 
         RestResponse res = new RestResponse();
         RestContext.request = req;
@@ -714,5 +698,15 @@ public class UnbounceIntakeApiTest {
         System.assertNotEquals(null, result);
         System.assertEquals('MappedFirst', result.get('name'));
         System.assertEquals('mapped@test.com', result.get('email'));
+    }
+
+    private static Unbounce_Integration_Config__c createActiveConfig(String apiKey, String referredByPartyName) {
+        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = apiKey,
+            Referred_By_Party_Name__c = referredByPartyName
+        );
+        insert config;
+        return config;
     }
 }

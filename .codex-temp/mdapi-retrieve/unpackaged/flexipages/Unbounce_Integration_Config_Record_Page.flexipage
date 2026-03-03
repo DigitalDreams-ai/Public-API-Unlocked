@@ -85,16 +85,6 @@
                 <identifier>RecordWebhook_Secret_cField</identifier>
             </fieldInstance>
         </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Status_Update_Webhook_Secret__c</fieldItem>
-                <identifier>RecordStatus_Update_Webhook_Secret_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
         <name>Facet-823a716d-0440-4486-9149-436b6aa1d2a4</name>
         <type>Facet</type>
     </flexiPageRegions>
