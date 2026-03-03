@@ -8,7 +8,7 @@ Postman collection and environments for testing the Unbounce Intake API (`POST /
 |------|---------|
 | `Unbounce Intake API.postman_collection.json` | Requests and test scripts for the Unbounce intake endpoint. |
 | `Unbounce Intake API Environment (Dev).postman_environment.json` | Dev org base URL and `rest_path`: `services/apexrest`. |
-| `Unbounce Intake API Environment (Experience Cloud).postman_environment.json` | Experience Cloud site base URL and `rest_path`: `apexrest`. |
+| `Unbounce Intake API Environment (Experience Cloud).postman_environment.json` | Experience Cloud site base URL and `rest_path`: `services/apexrest`. |
 
 ## Import
 
@@ -18,7 +18,7 @@ Postman collection and environments for testing the Unbounce Intake API (`POST /
 ## Environment variables
 
 - **base_url** – Org URL (Dev) or site URL (Experience Cloud). Set to your org/site; leave placeholders only for reference.
-- **rest_path** – `services/apexrest` (Dev) or `apexrest` (Experience Cloud). Pre-set in each environment.
+- **rest_path** – `services/apexrest` for both the direct org URL and the Experience Cloud site URL. Pre-set in each environment.
 - **api_key** – **Required if API Key is set in Unbounce Config.** Sent as the `X-Api-Key` header. Get the value from Setup → Custom Settings → Unbounce Config → Manage → API Key. Leave empty only if the org has no API Key configured.
 - **webhook_secret** – Optional; only if you use Unbounce webhook signature verification.
 - **intake_id** – Set by the collection when a create request returns 201.

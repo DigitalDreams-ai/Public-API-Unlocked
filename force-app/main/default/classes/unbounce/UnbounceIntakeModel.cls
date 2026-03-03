@@ -93,11 +93,30 @@ public with sharing class UnbounceIntakeModel {
     private static String getString(Map<String, Object> data, List<String> keys) {
         for (String key : keys) {
             Object val = data.get(key);
-            if (val != null && String.isNotBlank(String.valueOf(val))) {
-                return String.valueOf(val).trim();
+            String normalizedValue = normalizeStringValue(val);
+            if (String.isNotBlank(normalizedValue)) {
+                return normalizedValue;
             }
         }
         return null;
+    }
+
+    private static String normalizeStringValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof List<Object>) {
+            for (Object item : (List<Object>) value) {
+                String normalizedItem = normalizeStringValue(item);
+                if (String.isNotBlank(normalizedItem)) {
+                    return normalizedItem;
+                }
+            }
+            return null;
+        }
+
+        String normalized = String.valueOf(value);
+        return String.isNotBlank(normalized) ? normalized.trim() : null;
     }
 
     private static Boolean looksLikeFullName(String name) {

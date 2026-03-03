@@ -398,11 +398,30 @@ public without sharing class UnbounceIntakeService {
     private static String getString(Map<String, Object> data, List<String> keys) {
         for (String key : keys) {
             Object value = data.get(key);
-            if (value != null && String.isNotBlank(String.valueOf(value))) {
-                return String.valueOf(value).trim();
+            String normalizedValue = normalizeStringValue(value);
+            if (String.isNotBlank(normalizedValue)) {
+                return normalizedValue;
             }
         }
         return null;
+    }
+
+    private static String normalizeStringValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof List<Object>) {
+            for (Object item : (List<Object>) value) {
+                String normalizedItem = normalizeStringValue(item);
+                if (String.isNotBlank(normalizedItem)) {
+                    return normalizedItem;
+                }
+            }
+            return null;
+        }
+
+        String normalized = String.valueOf(value);
+        return String.isNotBlank(normalized) ? normalized.trim() : null;
     }
 
     /**

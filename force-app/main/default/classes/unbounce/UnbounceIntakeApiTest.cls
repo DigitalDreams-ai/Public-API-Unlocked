@@ -403,6 +403,57 @@ public class UnbounceIntakeApiTest {
     }
 
     @IsTest
+    static void testCreateIntake_FormEncodedPayload_Success() {
+        UnbounceTestDataFactory.createCaseType('PI - MVA');
+
+        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
+        config.Is_Active__c = true;
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'application/x-www-form-urlencoded');
+        req.requestBody = Blob.valueOf(
+            'first_name=Form&last_name=Encoded&email=form.encoded%40example.com&phone_number=5551234567' +
+            '&how_can_we_help_you=Need+help&caseType=MVA&page_url=https%3A%2F%2Fexample.com%2Flanding'
+        );
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
+
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        List<litify_pm__Intake__c> created = [
+            SELECT litify_pm__First_Name__c,
+                   litify_pm__Last_Name__c,
+                   litify_pm__Email__c,
+                   litify_pm__Phone__c,
+                   litify_pm__Description__c,
+                   litify_pm__lit_Exact_Source__c,
+                   Type__c,
+                   Case_Type__c,
+                   litify_pm__Case_Type__r.Name
+            FROM litify_pm__Intake__c
+            WHERE Id = :(String) response.get('intakeId')
+        ];
+        System.assertEquals(1, created.size());
+        System.assertEquals('Form', created[0].litify_pm__First_Name__c);
+        System.assertEquals('Encoded', created[0].litify_pm__Last_Name__c);
+        System.assertEquals('form.encoded@example.com', created[0].litify_pm__Email__c);
+        System.assertEquals('5551234567', created[0].litify_pm__Phone__c);
+        System.assertEquals('Need help', created[0].litify_pm__Description__c);
+        System.assertEquals('https://example.com/landing', created[0].litify_pm__lit_Exact_Source__c);
+        System.assertEquals('Personal Injury', created[0].Type__c);
+        System.assertEquals('MVA', created[0].Case_Type__c);
+        System.assertEquals('PI - MVA', created[0].litify_pm__Case_Type__r.Name);
+    }
+
+    @IsTest
     static void testUnbounceClient_VerifySignature_SkipWhenNoSecret() {
         System.assertEquals(true, UnbounceClient.verifyWebhookSignature('payload', 'sig', null));
         System.assertEquals(true, UnbounceClient.verifyWebhookSignature('payload', 'sig', ''));
@@ -487,6 +538,85 @@ public class UnbounceIntakeApiTest {
 
         System.assertEquals('Jane', intake.litify_pm__First_Name__c);
         System.assertEquals('Doe', intake.litify_pm__Last_Name__c);
+    }
+
+    @IsTest
+    static void testUnbounceIntakeModel_FromPayloadWithArrayValues() {
+        Map<String, Object> payload = new Map<String, Object>{
+            'name' => new List<Object>{ 'Jane' },
+            'last_name' => new List<Object>{ 'Doe' },
+            'email' => new List<Object>{ 'jane.array@test.com' },
+            'phone_number' => new List<Object>{ '555-987-6543' },
+            'how_can_we_help_you' => new List<Object>{ 'Need help' },
+            'page_url' => new List<Object>{ 'https://example.com/landing' }
+        };
+
+        litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(payload);
+
+        System.assertEquals('Jane', intake.litify_pm__First_Name__c);
+        System.assertEquals('Doe', intake.litify_pm__Last_Name__c);
+        System.assertEquals('jane.array@test.com', intake.litify_pm__Email__c);
+        System.assertEquals('555-987-6543', intake.litify_pm__Phone__c);
+        System.assertEquals('Need help', intake.litify_pm__Description__c);
+        System.assertEquals('https://example.com/landing', intake.litify_pm__lit_Exact_Source__c);
+    }
+
+    @IsTest
+    static void testCreateIntake_JsonArrayPayload_Success() {
+        UnbounceTestDataFactory.createCaseType('PI - MVA');
+
+        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
+        config.Is_Active__c = true;
+        insert config;
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'name' => new List<Object>{ 'Json' },
+            'last_name' => new List<Object>{ 'Array' },
+            'email' => new List<Object>{ 'json.array@example.com' },
+            'phone_number' => new List<Object>{ '5551113333' },
+            'how_can_we_help_you' => new List<Object>{ 'Need help' },
+            'caseType' => new List<Object>{ 'MVA' },
+            'page_url' => new List<Object>{ 'https://example.com/array' }
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'application/json');
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
+
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        List<litify_pm__Intake__c> created = [
+            SELECT litify_pm__First_Name__c,
+                   litify_pm__Last_Name__c,
+                   litify_pm__Email__c,
+                   litify_pm__Phone__c,
+                   litify_pm__Description__c,
+                   litify_pm__lit_Exact_Source__c,
+                   Type__c,
+                   Case_Type__c,
+                   litify_pm__Case_Type__r.Name
+            FROM litify_pm__Intake__c
+            WHERE Id = :(String) response.get('intakeId')
+        ];
+        System.assertEquals(1, created.size());
+        System.assertEquals('Json', created[0].litify_pm__First_Name__c);
+        System.assertEquals('Array', created[0].litify_pm__Last_Name__c);
+        System.assertEquals('json.array@example.com', created[0].litify_pm__Email__c);
+        System.assertEquals('5551113333', created[0].litify_pm__Phone__c);
+        System.assertEquals('Need help', created[0].litify_pm__Description__c);
+        System.assertEquals('https://example.com/array', created[0].litify_pm__lit_Exact_Source__c);
+        System.assertEquals('Personal Injury', created[0].Type__c);
+        System.assertEquals('MVA', created[0].Case_Type__c);
+        System.assertEquals('PI - MVA', created[0].litify_pm__Case_Type__r.Name);
     }
 
     @IsTest
