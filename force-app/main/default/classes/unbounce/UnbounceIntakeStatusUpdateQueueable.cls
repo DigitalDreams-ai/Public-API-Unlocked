@@ -2,6 +2,8 @@
  * Sends outbound webhook notifications when a Unbounce-created Intake changes status.
  */
 public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queueable, Database.AllowsCallouts {
+    @TestVisible
+    private static final Integer MAX_DELIVERIES_PER_JOB = 90;
 
     public class DeliveryItem {
         public Id intakeId;
@@ -42,8 +44,11 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
             return;
         }
 
-        List<DeliveryItem> items = deserializeItems(serializedItems);
+        List<String> currentBatchSerialized = takeBatch(serializedItems);
+        List<String> remainingSerialized = dropBatch(serializedItems);
+        List<DeliveryItem> items = deserializeItems(currentBatchSerialized);
         if (items.isEmpty()) {
+            enqueueSerializedItems(remainingSerialized);
             return;
         }
 
@@ -93,6 +98,8 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
                 );
             }
         }
+
+        enqueueSerializedItems(remainingSerialized);
     }
 
     @TestVisible
@@ -114,7 +121,7 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
             'source' => 'Unbounce',
             'intakeId' => String.valueOf(intake.Id),
             'intakeName' => intake.Name,
-            'status' => intake.litify_pm__Status__c,
+            'status' => item.currentStatus,
             'previousStatus' => item.previousStatus,
             'changedAt' => formatAsIso8601(item.changedAt),
             'firstName' => intake.litify_pm__First_Name__c,
@@ -122,6 +129,40 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
             'email' => intake.litify_pm__Email__c,
             'phone' => intake.litify_pm__Phone__c
         };
+    }
+
+    @TestVisible
+    private static List<String> takeBatch(List<String> sourceItems) {
+        List<String> batch = new List<String>();
+        if (sourceItems == null || sourceItems.isEmpty()) {
+            return batch;
+        }
+
+        Integer limitSize = Math.min(MAX_DELIVERIES_PER_JOB, sourceItems.size());
+        for (Integer index = 0; index < limitSize; index++) {
+            batch.add(sourceItems[index]);
+        }
+        return batch;
+    }
+
+    @TestVisible
+    private static List<String> dropBatch(List<String> sourceItems) {
+        List<String> remaining = new List<String>();
+        if (sourceItems == null || sourceItems.size() <= MAX_DELIVERIES_PER_JOB) {
+            return remaining;
+        }
+
+        for (Integer index = MAX_DELIVERIES_PER_JOB; index < sourceItems.size(); index++) {
+            remaining.add(sourceItems[index]);
+        }
+        return remaining;
+    }
+
+    private static void enqueueSerializedItems(List<String> remainingSerialized) {
+        if (remainingSerialized == null || remainingSerialized.isEmpty()) {
+            return;
+        }
+        System.enqueueJob(new UnbounceIntakeStatusUpdateQueueable(remainingSerialized));
     }
 
     private static Map<Id, litify_pm__Intake__c> queryIntakes(List<DeliveryItem> items) {
@@ -141,8 +182,7 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
                    litify_pm__First_Name__c,
                    litify_pm__Last_Name__c,
                    litify_pm__Email__c,
-                   litify_pm__Phone__c,
-                   litify_pm__Status__c
+                   litify_pm__Phone__c
             FROM litify_pm__Intake__c
             WHERE Id IN :intakeIds
         ]);

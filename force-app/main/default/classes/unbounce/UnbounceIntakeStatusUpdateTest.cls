@@ -61,6 +61,54 @@ private class UnbounceIntakeStatusUpdateTest {
     }
 
     @IsTest
+    static void testBuildPayload_UsesCapturedCurrentStatus() {
+        litify_pm__Intake__c intake = new litify_pm__Intake__c(
+            Id = createSyntheticIntakeId(),
+            litify_pm__First_Name__c = 'Status',
+            litify_pm__Last_Name__c = 'Race',
+            litify_pm__Email__c = 'status.race@example.com',
+            litify_pm__Phone__c = '555-888-9999',
+            litify_pm__Status__c = 'Stale Status'
+        );
+        UnbounceIntakeStatusUpdateQueueable.DeliveryItem item =
+            new UnbounceIntakeStatusUpdateQueueable.DeliveryItem(
+                intake.Id,
+                createSyntheticConfigId(),
+                'Lead Generated',
+                'Qualified',
+                System.now()
+            );
+
+        Map<String, Object> payload = UnbounceIntakeStatusUpdateQueueable.buildPayload(intake, item);
+
+        System.assertEquals('Qualified', payload.get('status'));
+        System.assertEquals('Lead Generated', payload.get('previousStatus'));
+    }
+
+    @IsTest
+    static void testQueueableBatching_SplitsOversizedWork() {
+        List<String> serializedItems = new List<String>();
+        Integer totalItems = UnbounceIntakeStatusUpdateQueueable.MAX_DELIVERIES_PER_JOB + 7;
+        for (Integer index = 0; index < totalItems; index++) {
+            serializedItems.add('item-' + index);
+        }
+
+        List<String> batch = UnbounceIntakeStatusUpdateQueueable.takeBatch(serializedItems);
+        List<String> remaining = UnbounceIntakeStatusUpdateQueueable.dropBatch(serializedItems);
+
+        System.assertEquals(
+            UnbounceIntakeStatusUpdateQueueable.MAX_DELIVERIES_PER_JOB,
+            batch.size()
+        );
+        System.assertEquals(totalItems - batch.size(), remaining.size());
+        System.assertEquals('item-0', batch[0]);
+        System.assertEquals(
+            'item-' + String.valueOf(UnbounceIntakeStatusUpdateQueueable.MAX_DELIVERIES_PER_JOB),
+            remaining[0]
+        );
+    }
+
+    @IsTest
     static void testStatusChange_DoesNotSendForNonUnbounceIntake() {
         resetCapturedRequests();
         Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
@@ -219,5 +267,13 @@ private class UnbounceIntakeStatusUpdateTest {
             }
         }
         return 'Advertising';
+    }
+
+    private static Id createSyntheticIntakeId() {
+        return (Id) ('a0d000000000001AAA');
+    }
+
+    private static Id createSyntheticConfigId() {
+        return (Id) ('a1Y000000000001AAA');
     }
 }
