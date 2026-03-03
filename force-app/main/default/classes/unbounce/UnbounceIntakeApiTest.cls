@@ -58,7 +58,7 @@ public class UnbounceIntakeApiTest {
         System.assertEquals('555-123-4567', created[0].litify_pm__Phone__c);
         System.assertEquals('Test intake from Unbounce', created[0].litify_pm__Description__c);
         System.assertNotEquals(null, created[0].litify_pm__Case_Type__c);
-        System.assertEquals('Advertisement', created[0].litify_pm__Source_Type__c);
+        System.assertEquals('Advertising', created[0].litify_pm__Source_Type__c);
     }
 
     @IsTest
@@ -176,6 +176,51 @@ public class UnbounceIntakeApiTest {
     }
 
     @IsTest
+    static void testCreateIntake_MvaRoutesTypeAndLitifyCaseType() {
+        UnbounceTestDataFactory.createCaseType('PI - MVA');
+
+        Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
+        config.Is_Active__c = true;
+        insert config;
+
+        Map<String, Object> payload = new Map<String, Object>{
+            'first_name' => 'Mva',
+            'last_name' => 'Lead',
+            'email' => 'mva@example.com',
+            'phone' => '555-000-1111',
+            'caseType' => 'MVA'
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/unbounce/intakes';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(JSON.serialize(payload));
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        UnbounceIntakeApi.createIntake();
+
+        System.assertEquals(201, res.statusCode, 'Expected 201. Body: ' + (res.responseBody != null ? res.responseBody.toString() : ''));
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+
+        List<litify_pm__Intake__c> created = [
+            SELECT Type__c,
+                   Case_Type__c,
+                   litify_pm__Case_Type__c,
+                   litify_pm__Case_Type__r.Name
+            FROM litify_pm__Intake__c
+            WHERE Id = :(String) response.get('intakeId')
+        ];
+        System.assertEquals(1, created.size());
+        System.assertEquals('Personal Injury', created[0].Type__c);
+        System.assertEquals('MVA', created[0].Case_Type__c);
+        System.assertNotEquals(null, created[0].litify_pm__Case_Type__c);
+        System.assertEquals('PI - MVA', created[0].litify_pm__Case_Type__r.Name);
+    }
+
+    @IsTest
     static void testCreateIntake_MultipleActiveConfigs_503() {
         insert new Unbounce_Integration_Config__c(Is_Active__c = true);
         insert new Unbounce_Integration_Config__c(Is_Active__c = true);
@@ -204,7 +249,7 @@ public class UnbounceIntakeApiTest {
     }
 
     @IsTest
-    static void testCreateIntake_ClientAccountFailure_StillCreatesIntake() {
+    static void testCreateIntake_ClientAccountFailure_QueuesDeferredCreation() {
         UnbounceTestDataFactory.createCaseType('Auto Accident');
 
         Unbounce_Integration_Config__c config = new Unbounce_Integration_Config__c();
@@ -258,7 +303,7 @@ public class UnbounceIntakeApiTest {
         System.assertEquals('guest@example.com', created[0].litify_pm__Email__c);
         System.assertEquals('555-222-1111', created[0].litify_pm__Phone__c);
         System.assertEquals('Guest intake', created[0].litify_pm__Description__c);
-        System.assertEquals(null, created[0].litify_pm__Client__c);
+        System.assertNotEquals(null, created[0].litify_pm__Client__c);
     }
 
     @IsTest

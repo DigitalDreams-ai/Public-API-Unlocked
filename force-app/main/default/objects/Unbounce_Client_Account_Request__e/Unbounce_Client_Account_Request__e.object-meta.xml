@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Unbounce Client Account Request</label>
+    <pluralLabel>Unbounce Client Account Requests</pluralLabel>
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Platform Event for deferred Unbounce client Account creation and Intake client linking.</description>
+    <eventType>HighVolume</eventType>
+    <publishBehavior>PublishAfterCommit</publishBehavior>
+</CustomObject>

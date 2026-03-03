@@ -67,7 +67,7 @@ public with sharing class UnbounceIntakeModel {
         setOptionalField(intake, 'litify_pm__UTM_Campaign__c', getString(data, new List<String>{ 'campaignid' }));
         setOptionalField(intake, 'litify_pm__UTM_Content__c', getString(data, new List<String>{ 'utm_content' }));
 
-        intake.litify_pm__Source_Type__c = 'Advertisement';
+        intake.litify_pm__Source_Type__c = 'Advertising';
 
         return intake;
     }

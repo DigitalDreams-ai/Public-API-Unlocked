@@ -49,7 +49,9 @@ public without sharing class UnbounceIntakeService {
             new List<String>{ 'caseType', 'casetype', 'case_type' }
         );
         if (String.isNotBlank(caseTypeFromPayload)) {
-            Id caseTypeId = resolveCaseTypeId(caseTypeFromPayload);
+            applyCaseTypeRouting(intake, caseTypeFromPayload);
+            String litifyCaseTypeName = getLitifyCaseTypeName(caseTypeFromPayload);
+            Id caseTypeId = resolveCaseTypeId(litifyCaseTypeName);
             if (caseTypeId != null) {
                 intake.litify_pm__Case_Type__c = caseTypeId;
             }
@@ -338,6 +340,47 @@ public without sharing class UnbounceIntakeService {
             return caseTypes.isEmpty() ? null : caseTypes[0].Id;
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private static void applyCaseTypeRouting(litify_pm__Intake__c intake, String caseTypeFromPayload) {
+        setIntakePicklistIfAllowed(intake, 'Case_Type__c', caseTypeFromPayload);
+
+        if (isMvaCaseType(caseTypeFromPayload)) {
+            setIntakePicklistIfAllowed(intake, 'Type__c', 'Personal Injury');
+        }
+    }
+
+    private static String getLitifyCaseTypeName(String caseTypeFromPayload) {
+        return isMvaCaseType(caseTypeFromPayload) ? 'PI - MVA' : caseTypeFromPayload;
+    }
+
+    private static Boolean isMvaCaseType(String caseTypeFromPayload) {
+        return String.isNotBlank(caseTypeFromPayload) &&
+            caseTypeFromPayload.trim().toUpperCase() == 'MVA';
+    }
+
+    private static void setIntakePicklistIfAllowed(litify_pm__Intake__c intake, String fieldName, String value) {
+        if (String.isBlank(fieldName) || String.isBlank(value)) {
+            return;
+        }
+        try {
+            Map<String, Schema.SObjectField> intakeFields = litify_pm__Intake__c.SObjectType.getDescribe().fields.getMap();
+            if (!intakeFields.containsKey(fieldName)) {
+                return;
+            }
+            Schema.DescribeFieldResult fieldDescribe = intakeFields.get(fieldName).getDescribe();
+            if (fieldDescribe.getType() != Schema.DisplayType.Picklist) {
+                return;
+            }
+            for (Schema.PicklistEntry entry : fieldDescribe.getPicklistValues()) {
+                if (entry.isActive() && entry.getValue() == value) {
+                    intake.put(fieldName, value);
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            return;
         }
     }
 
