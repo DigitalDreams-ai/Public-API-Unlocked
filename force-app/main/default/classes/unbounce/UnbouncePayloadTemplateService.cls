@@ -5,6 +5,7 @@ public with sharing class UnbouncePayloadTemplateService {
         'lastName' => '$.lastName',
         'email' => '$.email',
         'gclid' => '$.gclid',
+        'conversionTime' => '$.conversionTime',
         'createdDate' => '$.createdDate'
     };
 

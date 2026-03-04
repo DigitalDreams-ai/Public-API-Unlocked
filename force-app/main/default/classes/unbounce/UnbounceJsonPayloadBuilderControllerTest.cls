@@ -9,26 +9,64 @@ private class UnbounceJsonPayloadBuilderControllerTest {
     }
 
     @IsTest
-    static void testGetDefaultPayloadSchema_ReturnsExpectedPaths() {
-        String schema = UnbounceJsonPayloadBuilderController.getDefaultPayloadSchema();
-        System.assert(schema.contains('"firstName"'));
-        System.assert(schema.contains('"$.firstName"'));
-        System.assert(schema.contains('"$.createdDate"'));
+    static void testGetPayloadSettings_ReturnsDefaultsAndFieldReferences() {
+        UnbounceJsonPayloadBuilderController.PayloadSettings settings =
+            UnbounceJsonPayloadBuilderController.getPayloadSettings(getConfigId());
+
+        System.assertEquals(true, settings.syncInboundAndOutbound);
+        System.assert(settings.defaultJson.contains('"inbound"'));
+        System.assert(settings.defaultJson.contains('"outbound"'));
+        System.assert(settings.availableFieldReferences.size() > 0);
+        for (String reference : settings.availableFieldReferences) {
+            System.assertEquals(true, reference.startsWith('$intake.'));
+        }
     }
 
     @IsTest
-    static void testSaveAndGetConfiguration() {
+    static void testSaveAndGetPayloadSettings() {
         Id configId = getConfigId();
-        String configuration = '{"lead":{"email":"$.email"},"event":"status_changed"}';
+        String configuration =
+            '{' +
+                '"inbound":[{"externalKey":"preferred_language","value":"$intake.litify_pm__Description__c","sortOrder":1}],' +
+                '"outbound":[{"externalKey":"preferredLanguage","value":"$intake.litify_pm__Description__c","sortOrder":1}]' +
+            '}';
 
         Test.startTest();
-        UnbounceJsonPayloadBuilderController.saveConfiguration(configId, configuration);
+        UnbounceJsonPayloadBuilderController.savePayloadSettings(configId, true, configuration);
         Test.stopTest();
 
-        System.assertEquals(
-            configuration,
-            UnbounceJsonPayloadBuilderController.getConfiguration(configId)
-        );
+        UnbounceJsonPayloadBuilderController.PayloadSettings settings =
+            UnbounceJsonPayloadBuilderController.getPayloadSettings(configId);
+        System.assertEquals(true, settings.syncInboundAndOutbound);
+        System.assertEquals(configuration, settings.configurationJson);
+    }
+
+    @IsTest
+    static void testSavePayloadSettings_RejectsUnknownFieldReference() {
+        try {
+            UnbounceJsonPayloadBuilderController.savePayloadSettings(
+                getConfigId(),
+                true,
+                '{"inbound":[{"externalKey":"bad","value":"$intake.Does_Not_Exist__c","sortOrder":1}],"outbound":[]}'
+            );
+            System.assert(false, 'Expected an AuraHandledException');
+        } catch (AuraHandledException e) {
+            System.assert(e.getMessage().contains('Unknown Intake field reference'));
+        }
+    }
+
+    @IsTest
+    static void testSavePayloadSettings_RejectsInvalidJsonShape() {
+        try {
+            UnbounceJsonPayloadBuilderController.savePayloadSettings(
+                getConfigId(),
+                true,
+                '{"bad":true}'
+            );
+            System.assert(false, 'Expected an AuraHandledException');
+        } catch (AuraHandledException e) {
+            System.assert(e.getMessage().contains('Mappings configuration'));
+        }
     }
 
     @IsTest
@@ -54,28 +92,6 @@ private class UnbounceJsonPayloadBuilderControllerTest {
         System.assertEquals('Authorization', settings.headerName);
         System.assertEquals('test-token', settings.headerValue);
         System.assertEquals(configuration, settings.additionalHeadersJson);
-    }
-
-    @IsTest
-    static void testSaveConfiguration_RejectsNonObjectJson() {
-        Id configId = getConfigId();
-        try {
-            UnbounceJsonPayloadBuilderController.saveConfiguration(configId, '["bad"]');
-            System.assert(false, 'Expected an AuraHandledException');
-        } catch (AuraHandledException e) {
-            System.assert(e.getMessage().contains('Configuration must be a JSON object'));
-        }
-    }
-
-    @IsTest
-    static void testSaveConfiguration_RejectsInvalidJson() {
-        Id configId = getConfigId();
-        try {
-            UnbounceJsonPayloadBuilderController.saveConfiguration(configId, '{"bad":');
-            System.assert(false, 'Expected an AuraHandledException');
-        } catch (AuraHandledException e) {
-            System.assert(e.getMessage().contains('Invalid JSON'));
-        }
     }
 
     @IsTest
@@ -105,10 +121,9 @@ private class UnbounceJsonPayloadBuilderControllerTest {
 
     @IsTest
     static void testSaveHeaderSettings_RejectsPrimitiveJson() {
-        Id configId = getConfigId();
         try {
             UnbounceJsonPayloadBuilderController.saveHeaderSettings(
-                configId,
+                getConfigId(),
                 'None',
                 'application/json',
                 null,
@@ -122,56 +137,12 @@ private class UnbounceJsonPayloadBuilderControllerTest {
     }
 
     @IsTest
-    static void testSaveConfiguration_ClearsConfigurationWhenBlank() {
-        Id configId = getConfigId();
-        UnbounceJsonPayloadBuilderController.saveConfiguration(configId, '{"lead":{"email":"$.email"}}');
-
-        Test.startTest();
-        UnbounceJsonPayloadBuilderController.saveConfiguration(configId, null);
-        Test.stopTest();
-
-        System.assertEquals(null, UnbounceJsonPayloadBuilderController.getConfiguration(configId));
-    }
-
-    @IsTest
-    static void testSaveHeaderSettings_ClearsConfigurationWhenBlank() {
-        Id configId = getConfigId();
-        UnbounceJsonPayloadBuilderController.saveHeaderSettings(
-            configId,
-            'None',
-            'application/json',
-            null,
-            null,
-            '{"X-Test":"1"}'
-        );
-
-        Test.startTest();
-        UnbounceJsonPayloadBuilderController.saveHeaderSettings(
-            configId,
-            null,
-            null,
-            null,
-            null,
-            null
-        );
-        Test.stopTest();
-
-        UnbounceJsonPayloadBuilderController.HeaderSettings settings =
-            UnbounceJsonPayloadBuilderController.getHeaderSettings(configId);
-        System.assertEquals(null, settings.authMode);
-        System.assertEquals(null, settings.contentType);
-        System.assertEquals(null, settings.headerName);
-        System.assertEquals(null, settings.headerValue);
-        System.assertEquals(null, settings.additionalHeadersJson);
-    }
-
-    @IsTest
     static void testController_NullRecordIdBranches() {
-        System.assertEquals(null, UnbounceJsonPayloadBuilderController.getConfiguration(null));
+        System.assertEquals(null, UnbounceJsonPayloadBuilderController.getPayloadSettings(null));
         System.assertEquals(null, UnbounceJsonPayloadBuilderController.getHeaderSettings(null));
 
         try {
-            UnbounceJsonPayloadBuilderController.saveConfiguration(null, '{}');
+            UnbounceJsonPayloadBuilderController.savePayloadSettings(null, true, '{}');
             System.assert(false, 'Expected an AuraHandledException');
         } catch (AuraHandledException e) {
             System.assert(e.getMessage().contains('Record ID is required'));
@@ -190,26 +161,6 @@ private class UnbounceJsonPayloadBuilderControllerTest {
         } catch (AuraHandledException e) {
             System.assert(e.getMessage().contains('Record ID is required'));
         }
-    }
-
-    @IsTest
-    static void testPayloadTemplateService_ResolvesConfiguredTemplate() {
-        Map<String, Object> sourcePayload = new Map<String, Object>{
-            'firstName' => 'Jane',
-            'lastName' => 'Smith',
-            'email' => 'jane@example.com',
-            'gclid' => 'g-123',
-            'createdDate' => '2026-03-03T00:00:00.000Z'
-        };
-        Map<String, Object> result = UnbouncePayloadTemplateService.applyTemplateConfiguration(
-            '{"lead":{"first_name":"$.firstName","email":"$.email"},"source":"salesforce"}',
-            sourcePayload
-        );
-
-        System.assertEquals('salesforce', result.get('source'));
-        Map<String, Object> lead = (Map<String, Object>) result.get('lead');
-        System.assertEquals('Jane', lead.get('first_name'));
-        System.assertEquals('jane@example.com', lead.get('email'));
     }
 
     private static Id getConfigId() {

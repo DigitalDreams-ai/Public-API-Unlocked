@@ -117,7 +117,11 @@ private class UnbounceIntakeStatusUpdateTest {
                 System.now()
             );
 
-        Map<String, Object> payload = UnbounceIntakeStatusUpdateQueueable.buildPayload(intake, item);
+        Map<String, Object> payload = UnbounceIntakeStatusUpdateQueueable.buildPayload(
+            intake,
+            item,
+            new UnbounceConfigService.Config()
+        );
 
         System.assertEquals('Status', payload.get('firstName'));
         System.assertEquals('Webhook', payload.get('lastName'));
@@ -190,7 +194,7 @@ private class UnbounceIntakeStatusUpdateTest {
     }
 
     @IsTest
-    static void testStatusChange_AppliesConfiguredPayloadTemplate() {
+    static void testStatusChange_AppliesConfiguredRequestMappings() {
         resetCapturedRequests();
         Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
 
@@ -200,8 +204,15 @@ private class UnbounceIntakeStatusUpdateTest {
             WHERE API_Key__c = :TEST_API_KEY
             LIMIT 1
         ];
-        config.Outbound_Payload_Configuration__c =
-            '{"lead":{"first_name":"$.firstName","email":"$.email","gclid":"$.gclid"},"created_at":"$.createdDate","event":"status_changed"}';
+        config.Request_Field_Mappings__c =
+            '{' +
+                '"inbound":[],' +
+                '"outbound":[' +
+                    '{"externalKey":"leadEmail","value":"$intake.litify_pm__Email__c","sortOrder":1},' +
+                    '{"externalKey":"googleClickId","value":"$intake.GCLID__c","sortOrder":2},' +
+                    '{"externalKey":"conversionTime","value":"$intake.Google_Ads_Conversion_Time__c","sortOrder":3}' +
+                ']' +
+            '}';
         update config;
 
         litify_pm__Intake__c intake = createUnbounceIntake();
@@ -217,13 +228,16 @@ private class UnbounceIntakeStatusUpdateTest {
 
         System.assertEquals(1, capturedRequests.size());
         Map<String, Object> payload = (Map<String, Object>) JSON.deserializeUntyped(capturedRequests[0].getBody());
-        Map<String, Object> lead = (Map<String, Object>) payload.get('lead');
-        System.assertEquals('Status', lead.get('first_name'));
-        System.assertEquals(intake.litify_pm__Email__c, lead.get('email'));
-        System.assertEquals('test-gclid', lead.get('gclid'));
-        System.assertEquals('status_changed', payload.get('event'));
-        System.assert(payload.containsKey('created_at'));
+        litify_pm__Intake__c refreshed = [
+            SELECT Google_Ads_Conversion_Time__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :intake.Id
+        ];
+        System.assertEquals(intake.litify_pm__Email__c, payload.get('leadEmail'));
+        System.assertEquals('test-gclid', payload.get('googleClickId'));
+        System.assertEquals(formatAsIso8601(refreshed.Google_Ads_Conversion_Time__c), payload.get('conversionTime'));
         System.assertEquals(false, payload.containsKey('firstName'));
+        System.assertEquals(false, payload.containsKey('createdDate'));
     }
 
     @IsTest
@@ -275,25 +289,31 @@ private class UnbounceIntakeStatusUpdateTest {
     }
 
     @IsTest
-    static void testApplyPayloadConfiguration_UsesConfiguredTemplate() {
-        Map<String, Object> payload = new Map<String, Object>{
-            'firstName' => 'Jane',
-            'lastName' => 'Smith',
-            'email' => 'jane@example.com',
-            'gclid' => 'gclid-123',
-            'createdDate' => '2026-03-03T00:00:00.000Z'
-        };
+    static void testBuildPayload_UsesConfiguredRequestMappings() {
+        litify_pm__Intake__c intake = createUnbounceIntake();
+        UnbounceIntakeStatusUpdateQueueable.DeliveryItem item =
+            new UnbounceIntakeStatusUpdateQueueable.DeliveryItem(
+                intake.Id,
+                createSyntheticConfigId(),
+                'Lead Generated',
+                'Converted',
+                System.now()
+            );
         UnbounceConfigService.Config config = new UnbounceConfigService.Config();
-        config.outboundPayloadConfiguration =
-            '{"lead":{"first_name":"$.firstName","email":"$.email"},"gclid":"$.gclid"}';
+        config.requestFieldMappingsConfiguration =
+            '{' +
+                '"inbound":[],' +
+                '"outbound":[' +
+                    '{"externalKey":"leadEmail","value":"$intake.litify_pm__Email__c","sortOrder":1},' +
+                    '{"externalKey":"googleClickId","value":"$intake.GCLID__c","sortOrder":2}' +
+                ']' +
+            '}';
 
         Map<String, Object> transformed =
-            UnbounceIntakeStatusUpdateQueueable.applyPayloadConfiguration(payload, config);
+            UnbounceIntakeStatusUpdateQueueable.buildPayload(intake, item, config);
 
-        Map<String, Object> lead = (Map<String, Object>) transformed.get('lead');
-        System.assertEquals('Jane', lead.get('first_name'));
-        System.assertEquals('jane@example.com', lead.get('email'));
-        System.assertEquals('gclid-123', transformed.get('gclid'));
+        System.assertEquals(intake.litify_pm__Email__c, transformed.get('leadEmail'));
+        System.assertEquals(intake.GCLID__c, transformed.get('googleClickId'));
         System.assertEquals(false, transformed.containsKey('firstName'));
     }
 
@@ -464,17 +484,17 @@ private class UnbounceIntakeStatusUpdateTest {
     }
 
     @IsTest
-    static void testStatusChange_MalformedPayloadTemplateFailsOneDeliveryWithoutAbortingBatch() {
+    static void testStatusChange_MalformedMappingConfigurationFailsOneDeliveryWithoutAbortingBatch() {
         resetCapturedRequests();
         Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
 
         Unbounce_Integration_Config__c badConfig = [
-            SELECT Id, Outbound_Payload_Configuration__c
+            SELECT Id, Request_Field_Mappings__c
             FROM Unbounce_Integration_Config__c
             WHERE API_Key__c = :TEST_API_KEY
             LIMIT 1
         ];
-        badConfig.Outbound_Payload_Configuration__c = '{"lead":';
+        badConfig.Request_Field_Mappings__c = '[]';
         update badConfig;
 
         Unbounce_Integration_Config__c goodConfig = new Unbounce_Integration_Config__c(

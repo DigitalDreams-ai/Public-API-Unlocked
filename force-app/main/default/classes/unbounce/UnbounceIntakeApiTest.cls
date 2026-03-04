@@ -717,6 +717,40 @@ public class UnbounceIntakeApiTest {
     }
 
     @IsTest
+    static void testUnbounceIntakeModel_ClampTextFieldUsesFieldLength() {
+        String longGclid =
+            'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz' +
+            'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz' +
+            'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz' +
+            'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz';
+
+        String clamped = UnbounceIntakeModel.clampToFieldLength('GCLID__c', longGclid);
+
+        System.assertEquals(255, clamped.length());
+    }
+
+    @IsTest
+    static void testUnbounceIntakeModel_ClampEmailWithoutAtSymbolTruncates() {
+        String longValue =
+            'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz';
+
+        String clamped = UnbounceIntakeModel.clampToFieldLength('litify_pm__Email__c', longValue);
+
+        System.assertEquals(80, clamped.length());
+        System.assertEquals(longValue.substring(0, 80), clamped);
+    }
+
+    @IsTest
+    static void testUnbounceIntakeModel_ClampUnknownFieldReturnsOriginalValue() {
+        String value = 'unchanged';
+
+        System.assertEquals(
+            value,
+            UnbounceIntakeModel.clampToFieldLength('Does_Not_Exist__c', value)
+        );
+    }
+
+    @IsTest
     static void testUnbounceIntakeModel_DefaultSourceTypeUsesAdvertisingCompatibleValue() {
         String sourceTypeValue = UnbounceIntakeModel.getDefaultSourceTypeValue();
 
@@ -806,6 +840,51 @@ public class UnbounceIntakeApiTest {
         System.assertEquals('555-987-6543', intake.litify_pm__Phone__c);
         System.assertEquals('Need help', intake.litify_pm__Description__c);
         System.assertEquals('https://example.com/landing', intake.litify_pm__lit_Exact_Source__c);
+    }
+
+    @IsTest
+    static void testUnbounceIntakeModel_RequestMappingsApplyForBothDirection() {
+        Map<String, Object> payload = new Map<String, Object>{
+            'tracking_id' => 'mapped-gclid',
+            'notes' => 'Mapped description'
+        };
+        String configuration =
+            '{' +
+                '"inbound":[' +
+                    '{"externalKey":"tracking_id","value":"$intake.GCLID__c","sortOrder":1},' +
+                    '{"externalKey":"notes","value":"$intake.litify_pm__Description__c","sortOrder":2}' +
+                '],' +
+                '"outbound":[]' +
+            '}';
+
+        litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(
+            payload,
+            configuration,
+            'Both'
+        );
+
+        System.assertEquals('mapped-gclid', intake.GCLID__c);
+        System.assertEquals('Mapped description', intake.litify_pm__Description__c);
+    }
+
+    @IsTest
+    static void testUnbounceIntakeModel_RequestMappingsSkipInboundWhenOutboundOnly() {
+        Map<String, Object> payload = new Map<String, Object>{
+            'tracking_id' => 'mapped-gclid'
+        };
+        String configuration =
+            '{' +
+                '"inbound":[{"externalKey":"tracking_id","value":"$intake.GCLID__c","sortOrder":1}],' +
+                '"outbound":[]' +
+            '}';
+
+        litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(
+            payload,
+            configuration,
+            'Outbound'
+        );
+
+        System.assertEquals(null, intake.GCLID__c);
     }
 
     @IsTest

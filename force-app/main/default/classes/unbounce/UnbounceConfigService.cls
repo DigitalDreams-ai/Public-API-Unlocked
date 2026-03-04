@@ -16,7 +16,7 @@ public without sharing class UnbounceConfigService {
         public String outboundHeaderValue;
         public String outboundAdditionalHeadersJson;
         public String outboundContentType;
-        public String outboundPayloadConfiguration;
+        public String requestFieldMappingsConfiguration;
     }
 
     public static Config getConfigForApiKey(String apiKey) {
@@ -36,7 +36,7 @@ public without sharing class UnbounceConfigService {
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
+                   Request_Field_Mappings__c
             FROM Unbounce_Integration_Config__c
             WHERE Is_Active__c = true
             AND API_Key__c = :apiKey.trim()
@@ -71,7 +71,7 @@ public without sharing class UnbounceConfigService {
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
+                   Request_Field_Mappings__c
             FROM Unbounce_Integration_Config__c
             WHERE Id = :configId
             AND Is_Active__c = true
@@ -98,7 +98,7 @@ public without sharing class UnbounceConfigService {
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
+                   Request_Field_Mappings__c
             FROM Unbounce_Integration_Config__c
             WHERE Id IN :configIds
             AND Is_Active__c = true
@@ -121,7 +121,7 @@ public without sharing class UnbounceConfigService {
         c.outboundHeaderValue = setting.Outbound_Header_Value__c;
         c.outboundAdditionalHeadersJson = setting.Outbound_Additional_Headers_JSON__c;
         c.outboundContentType = setting.Outbound_Content_Type__c;
-        c.outboundPayloadConfiguration = setting.Outbound_Payload_Configuration__c;
+        c.requestFieldMappingsConfiguration = setting.Request_Field_Mappings__c;
         return c;
     }
 }
