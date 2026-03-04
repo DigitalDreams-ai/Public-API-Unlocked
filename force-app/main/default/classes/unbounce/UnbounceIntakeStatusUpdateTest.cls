@@ -584,21 +584,19 @@ private class UnbounceIntakeStatusUpdateTest {
     }
 
     private static litify_pm__Intake__c createUnbounceIntake() {
+        Unbounce_Integration_Config__c config = [
+            SELECT Id
+            FROM Unbounce_Integration_Config__c
+            WHERE API_Key__c = :TEST_API_KEY
+            LIMIT 1
+        ];
         String uniqueEmail =
             'status.webhook+' + String.valueOf(Crypto.getRandomLong()).replace('-', '0') + '@example.com';
-        Map<String, Object> payload = new Map<String, Object>{
-            'first_name' => 'Status',
-            'last_name' => 'Webhook',
-            'email' => uniqueEmail,
-            'phone' => '555-222-4444',
-            'gclid' => 'test-gclid',
-            'description' => 'Track status changes',
-            'caseType' => 'Auto Accident'
-        };
-
-        litify_pm__Intake__c created = UnbounceIntakeService.createIntakeFromUnbounce(
-            payload,
-            UnbounceConfigService.getConfigForApiKey(TEST_API_KEY)
+        litify_pm__Intake__c created = createTrackedIntakeForConfig(
+            config.Id,
+            'Status',
+            'Webhook',
+            uniqueEmail
         );
         List<Unbounce_Intake_Tracking__c> tracking = [
             SELECT Id, Intake_Id__c, Unbounce_Integration_Config__c
@@ -633,9 +631,17 @@ private class UnbounceIntakeStatusUpdateTest {
             litify_pm__Last_Name__c = lastName,
             litify_pm__Email__c = email,
             litify_pm__Status__c = 'Lead Generated',
-            GCLID__c = 'tracked-gclid'
+            GCLID__c = firstName == 'Status' ? 'test-gclid' : 'tracked-gclid',
+            Created_By_Unbounce_API__c = true
         );
         insert intake;
+        update new litify_pm__Intake__c(
+            Id = intake.Id,
+            litify_pm__First_Name__c = firstName,
+            litify_pm__Last_Name__c = lastName,
+            litify_pm__Email__c = email,
+            GCLID__c = firstName == 'Status' ? 'test-gclid' : 'tracked-gclid'
+        );
         UnbounceIntakeTrackingService.trackIntake(intake.Id, configId);
         return intake;
     }
