@@ -15,13 +15,43 @@ public without sharing class UnbounceWebhookDeliveryRecordService {
         String requestJson,
         DeliveryResult result
     ) {
+        Unbounce_Webhook_Delivery__c delivery = buildDeliveryRecord(
+            configId,
+            intakeId,
+            triggeredStatus,
+            webhookUrl,
+            requestJson,
+            result
+        );
+        if (delivery == null) {
+            return null;
+        }
+
+        Map<Id, Unbounce_Integration_Config__c> summaryUpdatesByConfig =
+            new Map<Id, Unbounce_Integration_Config__c>();
+        mergeLatestDeliverySummary(summaryUpdatesByConfig, delivery);
+        persistDeliveryResults(
+            new List<Unbounce_Webhook_Delivery__c>{ delivery },
+            summaryUpdatesByConfig
+        );
+        return delivery;
+    }
+
+    public static Unbounce_Webhook_Delivery__c buildDeliveryRecord(
+        Id configId,
+        Id intakeId,
+        String triggeredStatus,
+        String webhookUrl,
+        String requestJson,
+        DeliveryResult result
+    ) {
         if (configId == null || result == null) {
             return null;
         }
 
         Datetime attemptedAt = Datetime.now();
         String responseJson = buildResponseJson(result, attemptedAt);
-        Unbounce_Webhook_Delivery__c delivery = new Unbounce_Webhook_Delivery__c(
+        return new Unbounce_Webhook_Delivery__c(
             Unbounce_Integration_Config__c = configId,
             Intake__c = intakeId,
             Triggered_Status__c = triggeredStatus,
@@ -32,39 +62,67 @@ public without sharing class UnbounceWebhookDeliveryRecordService {
             Request_JSON__c = truncateForLongText(requestJson),
             Response_JSON__c = responseJson
         );
-
-        try {
-            insert delivery;
-            updateLatestDeliverySummary(configId, attemptedAt, delivery.Status__c, delivery.Request_JSON__c, responseJson);
-            return delivery;
-        } catch (DmlException e) {
-            System.debug('Failed to create Unbounce webhook delivery record: ' + e.getMessage());
-            return null;
-        }
     }
 
-    @TestVisible
-    private static void updateLatestDeliverySummary(
-        Id configId,
-        Datetime attemptedAt,
-        String status,
-        String requestJson,
-        String responseJson
+    public static void mergeLatestDeliverySummary(
+        Map<Id, Unbounce_Integration_Config__c> summaryUpdatesByConfig,
+        Unbounce_Webhook_Delivery__c delivery
     ) {
-        if (configId == null) {
+        if (summaryUpdatesByConfig == null ||
+            delivery == null ||
+            delivery.Unbounce_Integration_Config__c == null) {
             return;
         }
 
-        try {
-            update new Unbounce_Integration_Config__c(
+        Id configId = delivery.Unbounce_Integration_Config__c;
+        Unbounce_Integration_Config__c existingSummary = summaryUpdatesByConfig.get(configId);
+        if (existingSummary != null &&
+            existingSummary.Last_Webhook_Delivery_Attempt__c != null &&
+            delivery.Delivery_Attempt__c != null &&
+            existingSummary.Last_Webhook_Delivery_Attempt__c.getTime() >
+                delivery.Delivery_Attempt__c.getTime()) {
+            return;
+        }
+
+        summaryUpdatesByConfig.put(
+            configId,
+            new Unbounce_Integration_Config__c(
                 Id = configId,
-                Last_Webhook_Delivery_Attempt__c = attemptedAt,
-                Last_Webhook_Delivery_Status__c = status,
-                Last_Webhook_Request_JSON__c = truncateForLongText(requestJson),
-                Last_Webhook_Response_JSON__c = truncateForLongText(responseJson)
-            );
-        } catch (DmlException e) {
-            System.debug('Failed to update Unbounce Integration Config delivery summary: ' + e.getMessage());
+                Last_Webhook_Delivery_Attempt__c = delivery.Delivery_Attempt__c,
+                Last_Webhook_Delivery_Status__c = delivery.Status__c,
+                Last_Webhook_Request_JSON__c = truncateForLongText(delivery.Request_JSON__c),
+                Last_Webhook_Response_JSON__c = truncateForLongText(delivery.Response_JSON__c)
+            )
+        );
+    }
+
+    public static void persistDeliveryResults(
+        List<Unbounce_Webhook_Delivery__c> deliveries,
+        Map<Id, Unbounce_Integration_Config__c> summaryUpdatesByConfig
+    ) {
+        if (deliveries != null && !deliveries.isEmpty()) {
+            Database.SaveResult[] deliveryResults = Database.insert(deliveries, false);
+            for (Integer index = 0; index < deliveryResults.size(); index++) {
+                if (!deliveryResults[index].isSuccess()) {
+                    System.debug(
+                        'Failed to create Unbounce webhook delivery record: ' +
+                        deliveryResults[index].getErrors()[0].getMessage()
+                    );
+                }
+            }
+        }
+
+        if (summaryUpdatesByConfig != null && !summaryUpdatesByConfig.isEmpty()) {
+            List<Unbounce_Integration_Config__c> summaryUpdates = summaryUpdatesByConfig.values();
+            Database.SaveResult[] summaryResults = Database.update(summaryUpdates, false);
+            for (Integer index = 0; index < summaryResults.size(); index++) {
+                if (!summaryResults[index].isSuccess()) {
+                    System.debug(
+                        'Failed to update Unbounce Integration Config delivery summary: ' +
+                        summaryResults[index].getErrors()[0].getMessage()
+                    );
+                }
+            }
         }
     }
 

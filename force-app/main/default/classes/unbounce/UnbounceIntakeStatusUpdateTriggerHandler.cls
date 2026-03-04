@@ -23,6 +23,7 @@ public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
             return;
         }
 
+        Set<Id> candidateIntakeIds = new Set<Id>();
         for (litify_pm__Intake__c newIntake : newIntakes) {
             litify_pm__Intake__c oldIntake = oldMap.get(newIntake.Id);
             if (oldIntake == null || !didStatusChange(newIntake, oldIntake)) {
@@ -34,6 +35,25 @@ public without sharing class UnbounceIntakeStatusUpdateTriggerHandler {
                 continue;
             }
 
+            candidateIntakeIds.add(newIntake.Id);
+        }
+        if (candidateIntakeIds.isEmpty()) {
+            return;
+        }
+
+        Map<Id, Unbounce_Intake_Tracking__c> trackingByIntakeId =
+            UnbounceIntakeTrackingService.getTrackingByIntakeId(candidateIntakeIds);
+        if (trackingByIntakeId.isEmpty()) {
+            return;
+        }
+
+        for (litify_pm__Intake__c newIntake : newIntakes) {
+            if (!candidateIntakeIds.contains(newIntake.Id) ||
+                !trackingByIntakeId.containsKey(newIntake.Id)) {
+                continue;
+            }
+
+            String currentStatus = normalizeStatus((String) newIntake.get('litify_pm__Status__c'));
             stampGoogleAdsConversionFields(newIntake, currentStatus);
         }
     }

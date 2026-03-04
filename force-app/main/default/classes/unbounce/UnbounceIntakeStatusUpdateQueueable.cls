@@ -73,6 +73,9 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
         Map<Id, litify_pm__Intake__c> intakesById = queryIntakes(items);
         Map<Id, UnbounceConfigService.Config> configsById = resolveConfigsById(items);
         Http http = new Http();
+        List<Unbounce_Webhook_Delivery__c> deliveryRecords = new List<Unbounce_Webhook_Delivery__c>();
+        Map<Id, Unbounce_Integration_Config__c> summaryUpdatesByConfig =
+            new Map<Id, Unbounce_Integration_Config__c>();
 
         for (DeliveryItem item : items) {
             litify_pm__Intake__c intake = intakesById.get(item.intakeId);
@@ -84,31 +87,25 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
                 continue;
             }
 
-            Map<String, Object> payloadMap = applyPayloadConfiguration(buildPayload(intake, item), config);
-            String payload = JSON.serialize(payloadMap);
-            HttpRequest request = new HttpRequest();
-            request.setMethod('POST');
-            request.setEndpoint(config.statusUpdateWebhookUrl);
-            request.setBody(payload);
+            String payload;
+            UnbounceWebhookDeliveryRecordService.DeliveryResult result;
 
             try {
+                Map<String, Object> payloadMap = applyPayloadConfiguration(buildPayload(intake, item), config);
+                payload = JSON.serialize(payloadMap);
+                HttpRequest request = new HttpRequest();
+                request.setMethod('POST');
+                request.setEndpoint(config.statusUpdateWebhookUrl);
+                request.setBody(payload);
                 applyRequestConfiguration(request, config, payload);
                 HttpResponse response = http.send(request);
-                UnbounceWebhookDeliveryRecordService.DeliveryResult result =
+                result =
                     buildDeliveryResult(
                         response.getStatusCode() >= 200 && response.getStatusCode() < 300,
                         response.getStatusCode(),
                         response.getBody(),
                         response.getStatus()
                     );
-                UnbounceWebhookDeliveryRecordService.createDeliveryRecord(
-                    item.configId,
-                    intake.Id,
-                    item.currentStatus,
-                    config.statusUpdateWebhookUrl,
-                    payload,
-                    result
-                );
 
                 if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
                     System.debug(
@@ -119,9 +116,16 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
                     );
                 }
             } catch (Exception e) {
-                UnbounceWebhookDeliveryRecordService.DeliveryResult result =
+                result =
                     buildDeliveryResult(false, null, null, null, e.getMessage());
-                UnbounceWebhookDeliveryRecordService.createDeliveryRecord(
+                System.debug(
+                    LoggingLevel.WARN,
+                    'Unbounce intake status webhook callout failed for Intake ' + intake.Id + ': ' + e.getMessage()
+                );
+            }
+
+            Unbounce_Webhook_Delivery__c deliveryRecord =
+                UnbounceWebhookDeliveryRecordService.buildDeliveryRecord(
                     item.configId,
                     intake.Id,
                     item.currentStatus,
@@ -129,13 +133,19 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
                     payload,
                     result
                 );
-                System.debug(
-                    LoggingLevel.WARN,
-                    'Unbounce intake status webhook callout failed for Intake ' + intake.Id + ': ' + e.getMessage()
+            if (deliveryRecord != null) {
+                deliveryRecords.add(deliveryRecord);
+                UnbounceWebhookDeliveryRecordService.mergeLatestDeliverySummary(
+                    summaryUpdatesByConfig,
+                    deliveryRecord
                 );
             }
         }
 
+        UnbounceWebhookDeliveryRecordService.persistDeliveryResults(
+            deliveryRecords,
+            summaryUpdatesByConfig
+        );
         enqueueSerializedItems(remainingSerialized);
     }
 

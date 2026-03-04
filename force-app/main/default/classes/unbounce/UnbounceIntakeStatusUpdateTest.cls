@@ -344,6 +344,14 @@ private class UnbounceIntakeStatusUpdateTest {
 
         System.assertEquals(0, capturedRequests.size());
         System.assertEquals(0, [SELECT Count() FROM Unbounce_Webhook_Delivery__c WHERE Intake__c = :intake.Id]);
+        litify_pm__Intake__c refreshed = [
+            SELECT Google_Ads_Conversion_Event__c,
+                   Google_Ads_Conversion_Time__c
+            FROM litify_pm__Intake__c
+            WHERE Id = :intake.Id
+        ];
+        System.assertEquals(null, refreshed.Google_Ads_Conversion_Event__c);
+        System.assertEquals(null, refreshed.Google_Ads_Conversion_Time__c);
     }
 
     @IsTest
@@ -455,6 +463,126 @@ private class UnbounceIntakeStatusUpdateTest {
         System.assertNotEquals(null, refreshed.Google_Ads_Conversion_Time__c);
     }
 
+    @IsTest
+    static void testStatusChange_MalformedPayloadTemplateFailsOneDeliveryWithoutAbortingBatch() {
+        resetCapturedRequests();
+        Test.setMock(HttpCalloutMock.class, new StatusUpdateCalloutMock());
+
+        Unbounce_Integration_Config__c badConfig = [
+            SELECT Id, Outbound_Payload_Configuration__c
+            FROM Unbounce_Integration_Config__c
+            WHERE API_Key__c = :TEST_API_KEY
+            LIMIT 1
+        ];
+        badConfig.Outbound_Payload_Configuration__c = '{"lead":';
+        update badConfig;
+
+        Unbounce_Integration_Config__c goodConfig = new Unbounce_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'status-test-key-good',
+            Outbound_Webhook_URL__c = 'https://example.com/unbounce/status/good',
+            Outbound_Webhook_Secret__c = 'status-secret-good'
+        );
+        insert goodConfig;
+
+        litify_pm__Intake__c badIntake = createTrackedIntakeForConfig(
+            badConfig.Id,
+            'Bad',
+            'Payload',
+            'bad.payload@example.com'
+        );
+        litify_pm__Intake__c goodIntake = createTrackedIntakeForConfig(
+            goodConfig.Id,
+            'Good',
+            'Payload',
+            'good.payload@example.com'
+        );
+
+        String nextStatus = getRequiredStatusValue('Converted');
+        resetCapturedRequests();
+
+        Test.startTest();
+        update new List<litify_pm__Intake__c>{
+            new litify_pm__Intake__c(Id = badIntake.Id, litify_pm__Status__c = nextStatus),
+            new litify_pm__Intake__c(Id = goodIntake.Id, litify_pm__Status__c = nextStatus)
+        };
+        Test.stopTest();
+
+        System.assertEquals(1, capturedRequests.size());
+        System.assert(capturedRequests[0].getBody().contains('good.payload@example.com'));
+
+        Map<Id, Unbounce_Webhook_Delivery__c> deliveriesByIntake = new Map<Id, Unbounce_Webhook_Delivery__c>();
+        for (Unbounce_Webhook_Delivery__c delivery : [
+            SELECT Intake__c,
+                   Status__c,
+                   Request_JSON__c,
+                   Response_JSON__c
+            FROM Unbounce_Webhook_Delivery__c
+            WHERE Intake__c IN :new Set<Id>{ badIntake.Id, goodIntake.Id }
+        ]) {
+            deliveriesByIntake.put(delivery.Intake__c, delivery);
+        }
+        System.assertEquals(2, deliveriesByIntake.size());
+        System.assertEquals('Failed', deliveriesByIntake.get(badIntake.Id).Status__c);
+        System.assert(deliveriesByIntake.get(badIntake.Id).Response_JSON__c.contains('"exceptionMessage"'));
+        System.assertEquals('Success', deliveriesByIntake.get(goodIntake.Id).Status__c);
+    }
+
+    @IsTest
+    static void testPersistDeliveryResults_UsesBulkDmlStatements() {
+        Unbounce_Integration_Config__c config = [
+            SELECT Id
+            FROM Unbounce_Integration_Config__c
+            WHERE API_Key__c = :TEST_API_KEY
+            LIMIT 1
+        ];
+        litify_pm__Intake__c firstIntake = new litify_pm__Intake__c(
+            litify_pm__First_Name__c = 'Bulk',
+            litify_pm__Last_Name__c = 'One',
+            litify_pm__Email__c = 'bulk.one@example.com',
+            litify_pm__Status__c = 'Lead Generated'
+        );
+        litify_pm__Intake__c secondIntake = new litify_pm__Intake__c(
+            litify_pm__First_Name__c = 'Bulk',
+            litify_pm__Last_Name__c = 'Two',
+            litify_pm__Email__c = 'bulk.two@example.com',
+            litify_pm__Status__c = 'Lead Generated'
+        );
+        insert new List<litify_pm__Intake__c>{ firstIntake, secondIntake };
+
+        UnbounceWebhookDeliveryRecordService.DeliveryResult successResult =
+            UnbounceIntakeStatusUpdateQueueable.buildDeliveryResult(true, 200, 'ok', 'OK');
+        Unbounce_Webhook_Delivery__c firstDelivery = UnbounceWebhookDeliveryRecordService.buildDeliveryRecord(
+            config.Id,
+            firstIntake.Id,
+            'Converted',
+            'https://example.com/one',
+            '{"first":1}',
+            successResult
+        );
+        Unbounce_Webhook_Delivery__c secondDelivery = UnbounceWebhookDeliveryRecordService.buildDeliveryRecord(
+            config.Id,
+            secondIntake.Id,
+            'Referred Out',
+            'https://example.com/two',
+            '{"second":2}',
+            successResult
+        );
+        Map<Id, Unbounce_Integration_Config__c> summaryUpdatesByConfig =
+            new Map<Id, Unbounce_Integration_Config__c>();
+        UnbounceWebhookDeliveryRecordService.mergeLatestDeliverySummary(summaryUpdatesByConfig, firstDelivery);
+        UnbounceWebhookDeliveryRecordService.mergeLatestDeliverySummary(summaryUpdatesByConfig, secondDelivery);
+
+        Integer dmlStatementsBefore = Limits.getDmlStatements();
+        UnbounceWebhookDeliveryRecordService.persistDeliveryResults(
+            new List<Unbounce_Webhook_Delivery__c>{ firstDelivery, secondDelivery },
+            summaryUpdatesByConfig
+        );
+        Integer dmlStatementsUsed = Limits.getDmlStatements() - dmlStatementsBefore;
+
+        System.assertEquals(2, dmlStatementsUsed);
+    }
+
     private static litify_pm__Intake__c createUnbounceIntake() {
         String uniqueEmail =
             'status.webhook+' + String.valueOf(Crypto.getRandomLong()).replace('-', '0') + '@example.com';
@@ -492,6 +620,24 @@ private class UnbounceIntakeStatusUpdateTest {
             FROM litify_pm__Intake__c
             WHERE Id = :created.Id
         ];
+    }
+
+    private static litify_pm__Intake__c createTrackedIntakeForConfig(
+        Id configId,
+        String firstName,
+        String lastName,
+        String email
+    ) {
+        litify_pm__Intake__c intake = new litify_pm__Intake__c(
+            litify_pm__First_Name__c = firstName,
+            litify_pm__Last_Name__c = lastName,
+            litify_pm__Email__c = email,
+            litify_pm__Status__c = 'Lead Generated',
+            GCLID__c = 'tracked-gclid'
+        );
+        insert intake;
+        UnbounceIntakeTrackingService.trackIntake(intake.Id, configId);
+        return intake;
     }
 
     private static void resetCapturedRequests() {
