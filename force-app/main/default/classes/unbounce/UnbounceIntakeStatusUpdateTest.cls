@@ -55,11 +55,6 @@ private class UnbounceIntakeStatusUpdateTest {
         System.assertEquals('Webhook', payload.get('lastName'));
         System.assertEquals(intake.litify_pm__Email__c, payload.get('email'));
         System.assertEquals('test-gclid', payload.get('gclid'));
-        System.assertEquals(5, payload.size());
-        System.assert(payload.containsKey('createdDate'));
-        System.assertEquals(false, payload.containsKey('status'));
-        System.assertEquals(false, payload.containsKey('previousStatus'));
-        System.assertEquals(false, payload.containsKey('phone'));
 
         List<Unbounce_Webhook_Delivery__c> deliveries = [
             SELECT Intake__c,
@@ -99,6 +94,13 @@ private class UnbounceIntakeStatusUpdateTest {
             FROM litify_pm__Intake__c
             WHERE Id = :intake.Id
         ];
+        System.assertEquals(formatAsIso8601(refreshed.Google_Ads_Conversion_Time__c), payload.get('conversionTime'));
+        System.assertEquals(6, payload.size());
+        System.assert(payload.containsKey('createdDate'));
+        System.assert(payload.containsKey('conversionTime'));
+        System.assertEquals(false, payload.containsKey('status'));
+        System.assertEquals(false, payload.containsKey('previousStatus'));
+        System.assertEquals(false, payload.containsKey('phone'));
         System.assertEquals('Referred Out', refreshed.Google_Ads_Conversion_Event__c);
         System.assertNotEquals(null, refreshed.Google_Ads_Conversion_Time__c);
     }
