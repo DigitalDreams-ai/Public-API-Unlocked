@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Outbound_Auth_Mode__c</fullName>
+    <description>Optional authentication mode for outbound status update webhook requests.</description>
+    <label>Outbound Auth Mode</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>None</fullName>
+                <default>false</default>
+                <label>None</label>
+            </value>
+            <value>
+                <fullName>ApiKeyHeader</fullName>
+                <default>false</default>
+                <label>API Key Header</label>
+            </value>
+            <value>
+                <fullName>BearerToken</fullName>
+                <default>false</default>
+                <label>Bearer Token</label>
+            </value>
+            <value>
+                <fullName>BasicAuth</fullName>
+                <default>false</default>
+                <label>Basic Auth</label>
+            </value>
+            <value>
+                <fullName>HmacSignature</fullName>
+                <default>false</default>
+                <label>HMAC Signature</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

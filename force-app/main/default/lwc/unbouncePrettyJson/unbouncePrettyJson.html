@@ -1,0 +1,35 @@
+<template>
+    <div class={themeClass}>
+        <div class="slds-card slds-card_boundary">
+            <div class="slds-card__body slds-card__body_inner">
+                <lightning-button-icon
+                    icon-name="utility:copy"
+                    alternative-text="Copy to clipboard"
+                    title="Copy to clipboard"
+                    variant="border-filled"
+                    onclick={handleCopyToClipboard}
+                    disabled={hasErrorOrNoJson}
+                    class="copy-button">
+                </lightning-button-icon>
+                <template if:true={hasError}>
+                    <div class="slds-text-color_error slds-m-around_medium">
+                        <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
+                        Invalid JSON: {errorMessage}
+                    </div>
+                </template>
+                <template if:false={hasError}>
+                    <div class="json-container">
+                        <template if:true={formattedJson}>
+                            <div class="json-output"></div>
+                        </template>
+                        <template if:false={formattedJson}>
+                            <div class="slds-text-color_weak slds-text-align_center slds-m-around_medium">
+                                No JSON provided
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</template>

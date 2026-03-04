@@ -29,7 +29,7 @@ public without sharing class UnbounceIntegrationConfigTriggerHandler {
             if (!shouldProvisionRemoteSite(newConfig, oldMap != null ? oldMap.get(newConfig.Id) : null)) {
                 continue;
             }
-            webhookUrls.add(newConfig.Status_Update_Webhook_URL__c.trim());
+            webhookUrls.add(newConfig.Outbound_Webhook_URL__c.trim());
         }
 
         if (!webhookUrls.isEmpty()) {
@@ -44,14 +44,14 @@ public without sharing class UnbounceIntegrationConfigTriggerHandler {
         Unbounce_Integration_Config__c newConfig,
         Unbounce_Integration_Config__c oldConfig
     ) {
-        if (newConfig == null || String.isBlank(newConfig.Status_Update_Webhook_URL__c)) {
+        if (newConfig == null || String.isBlank(newConfig.Outbound_Webhook_URL__c)) {
             return false;
         }
         if (oldConfig == null) {
             return true;
         }
-        return normalizeUrl(newConfig.Status_Update_Webhook_URL__c) !=
-            normalizeUrl(oldConfig.Status_Update_Webhook_URL__c);
+        return normalizeUrl(newConfig.Outbound_Webhook_URL__c) !=
+            normalizeUrl(oldConfig.Outbound_Webhook_URL__c);
     }
 
     private static String normalizeUrl(String value) {

@@ -7,23 +7,30 @@ Postman collection and environments for testing the Unbounce Intake API (`POST /
 | File | Purpose |
 |------|---------|
 | `Unbounce Intake API.postman_collection.json` | Requests and test scripts for the Unbounce intake endpoint. |
-| `Unbounce Intake API Environment (Dev).postman_environment.json` | Dev org base URL and `rest_path`: `services/apexrest`. |
-| `Unbounce Intake API Environment (Experience Cloud).postman_environment.json` | Experience Cloud site base URL and `rest_path`: `services/apexrest`. |
+| `Unbounce Intake API Environment (Dev Scratch Org).postman_environment.json` | Dev scratch-org Experience Cloud base URL and `rest_path`: `services/apexrest`. |
+| `Unbounce Intake API Environment (Beta).postman_environment.json` | Beta Experience Cloud base URL and `rest_path`: `services/apexrest`. |
+| `Unbounce Intake API Environment (Production).postman_environment.json` | Production Experience Cloud base URL placeholder and `rest_path`: `services/apexrest`. |
 
 ## Import
 
-1. Postman → **Import** → select the collection and one environment file above.
+1. Postman → **Import** → select the collection and one or more environment files above.
 2. Choose the imported environment in the environment dropdown.
 
 ## Environment variables
 
-- **base_url** – Org URL (Dev) or site URL (Experience Cloud). Set to your org/site; leave placeholders only for reference.
-- **rest_path** – `services/apexrest` for both the direct org URL and the Experience Cloud site URL. Pre-set in each environment.
+- **base_url** – Site base URL. Include any site path prefix such as `/api` when the site uses one.
+- **rest_path** – `services/apexrest` for all environments. Pre-set in each environment.
 - **api_key** – Required. Sent as the `X-Api-Key` header and must match exactly one active **Unbounce Integration Config** record.
 - **webhook_secret** – Optional; only if you use Unbounce webhook signature verification.
 - **intake_id** – Set by the collection when a create request returns 201.
 
 The API is public and uses **X-Api-Key** only (no session or OAuth). Set **api_key** in your Postman environment to match the specific active **Unbounce Integration Config** record you want to route through.
+
+Current environment defaults:
+
+- **Dev Scratch Org**: `https://drive-saas-1388-dev-ed.scratch.my.salesforce-sites.com`
+- **Beta**: `https://shulman-hill--beta.sandbox.my.salesforce-sites.com/api`
+- **Production**: placeholder only; replace with the live production site URL before use
 
 ## Requests
 
@@ -37,8 +44,9 @@ The API is public and uses **X-Api-Key** only (no session or OAuth). Set **api_k
 ## Prerequisites
 
 - At least one active **Unbounce Integration Config** record with a unique **API Key**.
-- If you also use outbound status updates, saving **Status Update Webhook URL** auto-provisions a Remote Site Setting for that webhook domain.
+- If you also use outbound status updates, saving **Outbound Webhook URL** auto-provisions a Remote Site Setting for that webhook domain.
 - For Experience Cloud: **Unbounce Intake API (Guest)** permission set assigned to the site guest profile.
+- For Beta and Production, keep `/api` in **base_url** if the site path prefix is `api`.
 
 ## Reference: Shulman API Postman
 

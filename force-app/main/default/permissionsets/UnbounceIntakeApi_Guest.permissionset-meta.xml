@@ -34,17 +34,22 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>Unbounce_Integration_Config__c.Is_Active__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>Unbounce_Integration_Config__c.Referred_By_Party_Name__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>Unbounce_Integration_Config__c.Status_Update_Webhook_Secret__c</field>
+        <field>Unbounce_Integration_Config__c.Outbound_Webhook_Secret__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>Unbounce_Integration_Config__c.Status_Update_Webhook_URL__c</field>
+        <field>Unbounce_Integration_Config__c.Outbound_Webhook_URL__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -60,6 +65,76 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>litify_pm__Intake__c.Created_By_Unbounce_API__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__Case_Type__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__Client__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__Description__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__Email__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__First_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__Last_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__lit_Exact_Source__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__Phone__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__Source_Type__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__UTM_Campaign__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__UTM_Content__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__UTM_Medium__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>litify_pm__Intake__c.litify_pm__UTM_Source__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <objectPermissions>
