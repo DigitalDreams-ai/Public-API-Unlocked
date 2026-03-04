@@ -1,13 +1,13 @@
 {
   "info": {
     "_postman_id": "c3d4e5f6-a7b8-9012-cdef-234567890123",
-    "name": "Unbounce Intake API",
-    "description": "Post forms to the Unbounce Intake API. Use with **Unbounce Intake API Environment (Dev Scratch Org)**, **Unbounce Intake API Environment (Beta)**, or **Unbounce Intake API Environment (Production)**.\n\n**URL:** Requests use `{{base_url}}/{{rest_path}}/v1/unbounce/intakes`. Use `services/apexrest` for `rest_path`. Set **base_url** to your site root, including any site path prefix such as `/api`.\n\n**Auth:** Send **X-Api-Key** on every request. The value must match exactly one active Unbounce Integration Config record.\n\n**Setup:** Create one or more active Unbounce Integration Config records with unique API keys. The matched record determines `Referred_By__c`, webhook signature validation, and outbound status update routing. Assign **Unbounce Intake API (Guest)** to the Experience Cloud guest profile when using the site URL.\n\n**Mapped fields:** email, name, first_name, last_name, phone_number, phone, page_url, utm_source, campaignid, utm_medium, utm_content, how_can_we_help_you, description, casetype, caseType, and case_type. `litify_pm__Source_Type__c` is set to the org's supported advertising value, preferring `Advertising` and falling back to `Advertisement`. Unsupported payload shapes must be normalized in Unbounce before they reach Salesforce.",
+    "name": "Public API Submissions",
+    "description": "Post forms to the Public API guest endpoint. Use with **Public API Environment (Dev Scratch Org)**, **Public API Environment (Beta)**, or **Public API Environment (Production)**.\n\n**URL:** Requests use `{{base_url}}/{{rest_path}}/v1/publicapi/submissions`. Use `services/apexrest` for `rest_path`. Set **base_url** to your site root, including any site path prefix such as `/api`.\n\n**Auth:** Send **X-Api-Key** on every request. The value must match exactly one active Public API Integration Config record.\n\n**Setup:** Create one or more active Public API Integration Config records with unique API keys. The matched record determines signature verification and outbound status update routing.\n\n**Mapped fields:** Controlled from `Request_Field_Mappings__c` using submission references such as `$submission.Email__c`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "Create Intake",
+      "name": "Create Submission",
       "event": [
         {
           "listen": "test",
@@ -17,15 +17,15 @@
               "    pm.response.to.have.status(201);",
               "});",
               "",
-              "pm.test(\"Response has intakeId\", function () {",
+              "pm.test(\"Response has recordId\", function () {",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData).to.have.property('intakeId');",
-              "    pm.environment.set('intake_id', jsonData.intakeId);",
+              "    pm.expect(jsonData).to.have.property('recordId');",
+              "    pm.environment.set('record_id', jsonData.recordId);",
               "});",
               "",
               "pm.test(\"Success message returned\", function () {",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.message).to.eql('Intake created successfully');",
+              "    pm.expect(jsonData.message).to.eql('Submission created successfully');",
               "});"
             ],
             "type": "text/javascript"
@@ -36,23 +36,23 @@
         "method": "POST",
         "header": [
           {"key": "Content-Type", "value": "application/json", "type": "text"},
-          {"key": "X-Api-Key", "value": "{{api_key}}", "type": "text", "description": "Required. Must match exactly one active Unbounce Integration Config record."}
+          {"key": "X-Api-Key", "value": "{{api_key}}", "type": "text", "description": "Required. Must match exactly one active Public API Integration Config record."}
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"jane.smith@example.com\",\n  \"name\": \"Jane\",\n  \"last_name\": \"Smith\",\n  \"phone_number\": \"(555) 123-4567\",\n  \"page_url\": \"https://example.com/landing\",\n  \"utm_source\": \"google\",\n  \"campaignid\": \"summer-2025\",\n  \"utm_medium\": \"cpc\",\n  \"utm_content\": \"ad-variant-a\",\n  \"how_can_we_help_you\": \"Lead from Unbounce landing page\",\n  \"casetype\": \"Auto Accident\"\n}",
+          "raw": "{\n  \"email\": \"jane.smith@example.com\",\n  \"name\": \"Jane\",\n  \"last_name\": \"Smith\",\n  \"phone_number\": \"(555) 123-4567\",\n  \"page_url\": \"https://example.com/landing\",\n  \"utm_source\": \"google\",\n  \"campaignid\": \"summer-2025\",\n  \"utm_medium\": \"cpc\",\n  \"utm_content\": \"ad-variant-a\",\n  \"description\": \"Lead from landing page\",\n  \"gclid\": \"test-gclid\"\n}",
           "options": {"raw": {"language": "json"}}
         },
         "url": {
-          "raw": "{{base_url}}/{{rest_path}}/v1/unbounce/intakes",
+          "raw": "{{base_url}}/{{rest_path}}/v1/publicapi/submissions",
           "host": ["{{base_url}}"],
-          "path": ["{{rest_path}}", "v1", "unbounce", "intakes"]
+          "path": ["{{rest_path}}", "v1", "publicapi", "submissions"]
         }
       },
-      "description": "Creates an intake with supported Unbounce-style keys: email, name, last_name, phone_number, page_url, utm_source, campaignid, utm_medium, utm_content, how_can_we_help_you, casetype."
+      "description": "Creates a submission with canonical key/value payload fields."
     },
     {
-      "name": "Create Intake (with data wrapper)",
+      "name": "Create Submission (with data wrapper)",
       "event": [
         {
           "listen": "test",
@@ -61,9 +61,9 @@
               "pm.test(\"Status code is 201\", function () {",
               "    pm.response.to.have.status(201);",
               "});",
-              "pm.test(\"Response has intakeId\", function () {",
+              "pm.test(\"Response has recordId\", function () {",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData).to.have.property('intakeId');",
+              "    pm.expect(jsonData).to.have.property('recordId');",
               "});"
             ],
             "type": "text/javascript"
@@ -82,15 +82,15 @@
           "options": {"raw": {"language": "json"}}
         },
         "url": {
-          "raw": "{{base_url}}/{{rest_path}}/v1/unbounce/intakes",
+          "raw": "{{base_url}}/{{rest_path}}/v1/publicapi/submissions",
           "host": ["{{base_url}}"],
-          "path": ["{{rest_path}}", "v1", "unbounce", "intakes"]
+          "path": ["{{rest_path}}", "v1", "publicapi", "submissions"]
         }
       },
-      "description": "Payload with a \"data\" wrapper (e.g. Unbounce webhooks). Same canonical keys as the flat payload."
+      "description": "Payload with a \"data\" wrapper (e.g. PublicApi webhooks). Same canonical keys as the flat payload."
     },
     {
-      "name": "Create Intake (with signature)",
+      "name": "Create Submission (with signature)",
       "event": [
         {
           "listen": "test",
@@ -109,7 +109,7 @@
         "header": [
           {"key": "Content-Type", "value": "application/json", "type": "text"},
           {"key": "X-Api-Key", "value": "{{api_key}}", "type": "text"},
-          {"key": "x-unbounce-signature", "value": "{{x_unbounce_signature}}", "type": "text", "description": "HMAC-SHA256 of raw body (hex). Set in pre-request or leave empty if no Webhook Secret."}
+          {"key": "x-publicapi-signature", "value": "{{x_publicapi_signature}}", "type": "text", "description": "HMAC-SHA256 of raw body (hex). Set in pre-request or leave empty if no Webhook Secret."}
         ],
         "body": {
           "mode": "raw",
@@ -117,15 +117,15 @@
           "options": {"raw": {"language": "json"}}
         },
         "url": {
-          "raw": "{{base_url}}/{{rest_path}}/v1/unbounce/intakes",
+          "raw": "{{base_url}}/{{rest_path}}/v1/publicapi/submissions",
           "host": ["{{base_url}}"],
-          "path": ["{{rest_path}}", "v1", "unbounce", "intakes"]
+          "path": ["{{rest_path}}", "v1", "publicapi", "submissions"]
         }
       },
-      "description": "When Unbounce Integration Config has a Webhook Secret, send x-unbounce-signature (HMAC-SHA256 of raw body, hex). If no secret, signature is optional."
+      "description": "When Public API Integration Config has a Webhook Secret, send x-publicapi-signature (HMAC-SHA256 of raw body, hex). If no secret, signature is optional."
     },
     {
-      "name": "Create Intake – Invalid JSON (expect 400)",
+      "name": "Create Submission – Invalid JSON (expect 400)",
       "event": [
         {
           "listen": "test",
@@ -155,16 +155,16 @@
           "options": {"raw": {"language": "json"}}
         },
         "url": {
-          "raw": "{{base_url}}/{{rest_path}}/v1/unbounce/intakes",
+          "raw": "{{base_url}}/{{rest_path}}/v1/publicapi/submissions",
           "host": ["{{base_url}}"],
-          "path": ["{{rest_path}}", "v1", "unbounce", "intakes"]
+          "path": ["{{rest_path}}", "v1", "publicapi", "submissions"]
         }
       },
       "description": "Sends invalid JSON to verify the API returns 400 with an error message."
     }
   ],
   "variable": [
-    {"key": "intake_id", "value": "", "type": "string"},
-    {"key": "x_unbounce_signature", "value": "", "type": "string"}
+    {"key": "record_id", "value": "", "type": "string"},
+    {"key": "x_publicapi_signature", "value": "", "type": "string"}
   ]
 }

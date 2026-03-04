@@ -8,7 +8,7 @@
 __pycache__
 
 # Robot Framework results
-robot/Unbounce-Unlocked/results/
+robot/PublicApi-Unlocked/results/
 
 # Salesforce cache
 .sf/

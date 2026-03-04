@@ -1,15 +1,15 @@
-# Postman – Unbounce Intake API
+# Postman – Public API Submissions
 
-Postman collection and environments for testing the Unbounce Intake API (`POST /v1/unbounce/intakes`). Layout and conventions follow the **Shulman API** Postman assets in `stash/force-app/main/default/docs/postman` (e.g. `Shulman API.postman_collection.json`, `Referral API Environment (Staging).postman_environment.json`).
+Postman collection and environments for testing the public guest API (`POST /v1/publicapi/submissions`). Layout and conventions follow the **Shulman API** Postman assets in `stash/force-app/main/default/docs/postman` (e.g. `Shulman API.postman_collection.json`, `Referral API Environment (Staging).postman_environment.json`).
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `Unbounce Intake API.postman_collection.json` | Requests and test scripts for the Unbounce intake endpoint. |
-| `Unbounce Intake API Environment (Dev Scratch Org).postman_environment.json` | Dev scratch-org Experience Cloud base URL and `rest_path`: `services/apexrest`. |
-| `Unbounce Intake API Environment (Beta).postman_environment.json` | Beta Experience Cloud base URL and `rest_path`: `services/apexrest`. |
-| `Unbounce Intake API Environment (Production).postman_environment.json` | Production Experience Cloud base URL placeholder and `rest_path`: `services/apexrest`. |
+| `PublicApi Intake API.postman_collection.json` | Requests and test scripts for the public submissions endpoint. |
+| `PublicApi Intake API Environment (Dev Scratch Org).postman_environment.json` | Dev scratch-org Experience Cloud base URL and `rest_path`: `services/apexrest`. |
+| `PublicApi Intake API Environment (Beta).postman_environment.json` | Beta Experience Cloud base URL and `rest_path`: `services/apexrest`. |
+| `PublicApi Intake API Environment (Production).postman_environment.json` | Production Experience Cloud base URL and `rest_path`: `services/apexrest`. |
 
 ## Import
 
@@ -20,11 +20,11 @@ Postman collection and environments for testing the Unbounce Intake API (`POST /
 
 - **base_url** – Site base URL. Include any site path prefix such as `/api` when the site uses one.
 - **rest_path** – `services/apexrest` for all environments. Pre-set in each environment.
-- **api_key** – Required. Sent as the `X-Api-Key` header and must match exactly one active **Unbounce Integration Config** record.
-- **webhook_secret** – Optional; only if you use Unbounce webhook signature verification.
-- **intake_id** – Set by the collection when a create request returns 201.
+- **api_key** – Required. Sent as the `X-Api-Key` header and must match exactly one active **Public API Integration Config** record.
+- **webhook_secret** – Optional; only if you use webhook signature verification.
+- **record_id** – Set by the collection when a create request returns 201.
 
-The API is public and uses **X-Api-Key** only (no session or OAuth). Set **api_key** in your Postman environment to match the specific active **Unbounce Integration Config** record you want to route through.
+The API is public and uses **X-Api-Key** only (no session or OAuth). Set **api_key** in your Postman environment to match the specific active **Public API Integration Config** record you want to route through.
 
 Current environment defaults:
 
@@ -36,16 +36,16 @@ Current environment defaults:
 
 | Request | Purpose |
 |--------|---------|
-| **Create Intake** | Flat payload (first_name, last_name, email, etc.); asserts 201 and `intakeId`. |
-| **Create Intake (with data wrapper)** | Payload with a `data` object. |
-| **Create Intake (with signature)** | Optional `x-unbounce-signature` header. |
-| **Create Intake – Invalid JSON** | Expects 400 and `errorMessage`. |
+| **Create Submission** | Flat payload (first_name, last_name, email, etc.); asserts 201 and `recordId`. |
+| **Create Submission (with data wrapper)** | Payload with a `data` object. |
+| **Create Submission (with signature)** | Optional `x-publicapi-signature` header. |
+| **Create Submission – Invalid JSON** | Expects 400 and `errorMessage`. |
 
 ## Prerequisites
 
-- At least one active **Unbounce Integration Config** record with a unique **API Key**.
+- At least one active **Public API Integration Config** record with a unique **API Key**.
 - If you also use outbound status updates, saving **Outbound Webhook URL** auto-provisions a Remote Site Setting for that webhook domain.
-- For Experience Cloud: **Unbounce Intake API (Guest)** permission set assigned to the site guest profile.
+- For Experience Cloud: **Public API Guest Access** permission set assigned to the site guest profile.
 - For Beta and Production, keep `/api` in **base_url** if the site path prefix is `api`.
 
 ## Reference: Shulman API Postman
@@ -55,4 +55,4 @@ The over‑engineered Shulman API in `stash/force-app/main/default/docs/postman`
 - **Shulman API.postman_collection.json** – Referrals, Intakes, Webhooks, OAuth token, validation examples.
 - **Referral API Environment (Staging | Production)** – `base_url`, OAuth `client_id`/`client_secret`, `partner_api_key`, `access_token`, etc.
 
-Unbounce Intake API is a single-endpoint, public API using X-Api-Key only; the Unbounce collection mirrors the same folder layout, test script style, and environment variable usage as the Shulman collection.
+Public API submissions is a single-endpoint, public API using X-Api-Key only; the collection mirrors the same folder layout, test script style, and environment variable usage as the Shulman collection.
