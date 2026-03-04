@@ -72,6 +72,16 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Unbounce_Integration_Config__c.Request_Field_Mappings__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Unbounce_Integration_Config__c.Sync_Inbound_And_Outbound__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>Unbounce_Integration_Config__c.Outbound_Header_Name__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -137,6 +147,10 @@
     </fieldPermissions>
     <classAccesses>
         <apexClass>UnbounceJsonPayloadBuilderController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>UnbounceRequestMappingService</apexClass>
         <enabled>true</enabled>
     </classAccesses>
     <hasActivationRequired>false</hasActivationRequired>

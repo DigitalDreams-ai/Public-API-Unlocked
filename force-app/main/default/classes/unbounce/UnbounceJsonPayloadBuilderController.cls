@@ -1,4 +1,11 @@
 public with sharing class UnbounceJsonPayloadBuilderController {
+    public class PayloadSettings {
+        @AuraEnabled public Boolean syncInboundAndOutbound;
+        @AuraEnabled public String configurationJson;
+        @AuraEnabled public String defaultJson;
+        @AuraEnabled public List<String> availableFieldReferences;
+    }
+
     public class HeaderSettings {
         @AuraEnabled public String authMode;
         @AuraEnabled public String contentType;
@@ -9,23 +16,28 @@ public with sharing class UnbounceJsonPayloadBuilderController {
     }
 
     @AuraEnabled(cacheable=true)
-    public static String getDefaultPayloadSchema() {
-        return JSON.serializePretty(UnbouncePayloadTemplateService.getDefaultTemplateSchema());
-    }
-
-    @AuraEnabled(cacheable=true)
-    public static String getConfiguration(Id recordId) {
+    public static PayloadSettings getPayloadSettings(Id recordId) {
         if (recordId == null) {
             return null;
         }
 
         List<Unbounce_Integration_Config__c> records = [
-            SELECT Outbound_Payload_Configuration__c
+            SELECT Sync_Inbound_And_Outbound__c,
+                   Request_Field_Mappings__c
             FROM Unbounce_Integration_Config__c
             WHERE Id = :recordId
             LIMIT 1
         ];
-        return records.isEmpty() ? null : records[0].Outbound_Payload_Configuration__c;
+        if (records.isEmpty()) {
+            return null;
+        }
+
+        PayloadSettings settings = new PayloadSettings();
+        settings.syncInboundAndOutbound = records[0].Sync_Inbound_And_Outbound__c;
+        settings.configurationJson = records[0].Request_Field_Mappings__c;
+        settings.defaultJson = UnbounceRequestMappingService.getDefaultMappingsJson();
+        settings.availableFieldReferences = UnbounceRequestMappingService.getAvailableFieldReferences();
+        return settings;
     }
 
     @AuraEnabled(cacheable=true)
@@ -61,18 +73,19 @@ public with sharing class UnbounceJsonPayloadBuilderController {
     }
 
     @AuraEnabled
-    public static void saveConfiguration(Id recordId, String configJson) {
+    public static void savePayloadSettings(Id recordId, Boolean syncInboundAndOutbound, String configJson) {
         if (recordId == null) {
             AuraHandledException ex = new AuraHandledException('Record ID is required.');
             ex.setMessage('Record ID is required.');
             throw ex;
         }
 
-        validateConfigurationJson(configJson, false);
+        validateMappingConfigurationJson(configJson);
 
         update new Unbounce_Integration_Config__c(
             Id = recordId,
-            Outbound_Payload_Configuration__c = String.isNotBlank(configJson) ? configJson : null
+            Sync_Inbound_And_Outbound__c = syncInboundAndOutbound,
+            Request_Field_Mappings__c = String.isNotBlank(configJson) ? configJson : null
         );
     }
 
@@ -110,23 +123,52 @@ public with sharing class UnbounceJsonPayloadBuilderController {
 
         try {
             Object parsed = JSON.deserializeUntyped(configJson);
-            if (!(parsed instanceof Map<String, Object>) && !(allowArray && parsed instanceof List<Object>)) {
-                AuraHandledException ex = new AuraHandledException(
-                    allowArray
-                        ? 'Configuration must be a JSON object or array.'
-                        : 'Configuration must be a JSON object, not an array or primitive.'
-                );
-                ex.setMessage(
-                    allowArray
-                        ? 'Configuration must be a JSON object or array.'
-                        : 'Configuration must be a JSON object, not an array or primitive.'
-                );
+            Boolean isValid =
+                parsed instanceof Map<String, Object> ||
+                (allowArray && parsed instanceof List<Object>);
+            if (!isValid) {
+                String message = allowArray
+                    ? 'Configuration must be a JSON object or array.'
+                    : 'Configuration must be a JSON object.';
+                AuraHandledException ex = new AuraHandledException(message);
+                ex.setMessage(message);
                 throw ex;
             }
         } catch (JSONException e) {
             String message = 'Invalid JSON: ' + e.getMessage();
             AuraHandledException ex = new AuraHandledException(message);
             ex.setMessage(message);
+            throw ex;
+        }
+    }
+
+    private static void validateMappingConfigurationJson(String configJson) {
+        if (String.isBlank(configJson)) {
+            return;
+        }
+
+        try {
+            UnbounceRequestMappingService.MappingConfiguration mappings =
+                UnbounceRequestMappingService.parseConfiguration(configJson);
+            if (mappings.inboundMappings.isEmpty() && mappings.outboundMappings.isEmpty()) {
+                AuraHandledException ex = new AuraHandledException(
+                    'Mappings configuration must contain at least one valid row.'
+                );
+                ex.setMessage('Mappings configuration must contain at least one valid row.');
+                throw ex;
+            }
+            UnbounceRequestMappingService.validateMappings(
+                configJson,
+                UnbounceRequestMappingService.getDefaultDirection()
+            );
+        } catch (JSONException e) {
+            String message = 'Invalid JSON: ' + e.getMessage();
+            AuraHandledException ex = new AuraHandledException(message);
+            ex.setMessage(message);
+            throw ex;
+        } catch (UnbounceIntakeServiceException e) {
+            AuraHandledException ex = new AuraHandledException(e.getMessage());
+            ex.setMessage(e.getMessage());
             throw ex;
         }
     }

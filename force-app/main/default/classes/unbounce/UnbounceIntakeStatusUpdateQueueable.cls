@@ -70,8 +70,8 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
             return;
         }
 
-        Map<Id, litify_pm__Intake__c> intakesById = queryIntakes(items);
         Map<Id, UnbounceConfigService.Config> configsById = resolveConfigsById(items);
+        Map<Id, litify_pm__Intake__c> intakesById = queryIntakes(items, configsById);
         Http http = new Http();
         List<Unbounce_Webhook_Delivery__c> deliveryRecords = new List<Unbounce_Webhook_Delivery__c>();
         Map<Id, Unbounce_Integration_Config__c> summaryUpdatesByConfig =
@@ -87,11 +87,11 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
                 continue;
             }
 
-            String payload;
-            UnbounceWebhookDeliveryRecordService.DeliveryResult result;
+            String payload = null;
+            UnbounceWebhookDeliveryRecordService.DeliveryResult result = null;
 
             try {
-                Map<String, Object> payloadMap = applyPayloadConfiguration(buildPayload(intake, item), config);
+                Map<String, Object> payloadMap = buildPayload(intake, item, config);
                 payload = JSON.serialize(payloadMap);
                 HttpRequest request = new HttpRequest();
                 request.setMethod('POST');
@@ -162,25 +162,15 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
     }
 
     @TestVisible
-    private static Map<String, Object> buildPayload(litify_pm__Intake__c intake, DeliveryItem item) {
-        return new Map<String, Object>{
-            'firstName' => intake.litify_pm__First_Name__c,
-            'lastName' => intake.litify_pm__Last_Name__c,
-            'email' => intake.litify_pm__Email__c,
-            'gclid' => (String) intake.get('GCLID__c'),
-            'conversionTime' => formatAsIso8601((Datetime) intake.get('Google_Ads_Conversion_Time__c')),
-            'createdDate' => formatAsIso8601(intake.CreatedDate)
-        };
-    }
-
-    @TestVisible
-    private static Map<String, Object> applyPayloadConfiguration(
-        Map<String, Object> payload,
+    private static Map<String, Object> buildPayload(
+        litify_pm__Intake__c intake,
+        DeliveryItem item,
         UnbounceConfigService.Config config
     ) {
-        return UnbouncePayloadTemplateService.applyTemplateConfiguration(
-            config == null ? null : config.outboundPayloadConfiguration,
-            payload
+        return UnbounceRequestMappingService.buildOutboundPayload(
+            intake,
+            config == null ? null : config.requestFieldMappingsConfiguration,
+            UnbounceRequestMappingService.getDefaultDirection()
         );
     }
 
@@ -322,7 +312,10 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
         System.enqueueJob(new UnbounceIntakeStatusUpdateQueueable(remainingSerialized));
     }
 
-    private static Map<Id, litify_pm__Intake__c> queryIntakes(List<DeliveryItem> items) {
+    private static Map<Id, litify_pm__Intake__c> queryIntakes(
+        List<DeliveryItem> items,
+        Map<Id, UnbounceConfigService.Config> configsById
+    ) {
         Set<Id> intakeIds = new Set<Id>();
         for (DeliveryItem item : items) {
             if (item != null && item.intakeId != null) {
@@ -333,17 +326,22 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
             return new Map<Id, litify_pm__Intake__c>();
         }
 
-        return new Map<Id, litify_pm__Intake__c>([
-            SELECT Id,
-                   CreatedDate,
-                   GCLID__c,
-                   Google_Ads_Conversion_Time__c,
-                   litify_pm__First_Name__c,
-                   litify_pm__Last_Name__c,
-                   litify_pm__Email__c
-            FROM litify_pm__Intake__c
-            WHERE Id IN :intakeIds
-        ]);
+        Set<String> selectedFields = new Set<String>{ 'Id' };
+        for (UnbounceConfigService.Config config : configsById.values()) {
+            selectedFields.addAll(
+                UnbounceRequestMappingService.getOutboundFieldApiNames(
+                    config == null ? null : config.requestFieldMappingsConfiguration,
+                    UnbounceRequestMappingService.getDefaultDirection()
+                )
+            );
+        }
+
+        List<litify_pm__Intake__c> queriedIntakes =
+            (List<litify_pm__Intake__c>) Database.query(
+                'SELECT ' + String.join(new List<String>(selectedFields), ', ') +
+                ' FROM litify_pm__Intake__c WHERE Id IN :intakeIds'
+            );
+        return new Map<Id, litify_pm__Intake__c>(queriedIntakes);
     }
 
     private static Map<Id, UnbounceConfigService.Config> resolveConfigsById(List<DeliveryItem> items) {
@@ -355,6 +353,19 @@ public without sharing class UnbounceIntakeStatusUpdateQueueable implements Queu
             }
         }
         return UnbounceConfigService.getConfigsById(configIds);
+    }
+
+    private static Set<Id> getConfigIds(List<DeliveryItem> items) {
+        Set<Id> configIds = new Set<Id>();
+        if (items == null) {
+            return configIds;
+        }
+        for (DeliveryItem item : items) {
+            if (item != null && item.configId != null) {
+                configIds.add(item.configId);
+            }
+        }
+        return configIds;
     }
 
     @TestVisible

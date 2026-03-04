@@ -34,7 +34,11 @@ public without sharing class UnbounceIntakeService {
             );
         }
 
-        litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(payload);
+        litify_pm__Intake__c intake = UnbounceIntakeModel.fromUnbouncePayload(
+            payload,
+            config.requestFieldMappingsConfiguration,
+            UnbounceRequestMappingService.getDefaultDirection()
+        );
         intake.Created_By_Unbounce_API__c = true;
 
         // Client lookup: use email to find or create an Account and set the Intake Client lookup.

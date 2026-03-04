@@ -27,6 +27,10 @@
         <apexClass>UnbounceIntakeTrackingService</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>UnbounceRequestMappingService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <fieldPermissions>
         <editable>false</editable>
         <field>Unbounce_Integration_Config__c.API_Key__c</field>
@@ -55,6 +59,16 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>Unbounce_Integration_Config__c.Webhook_Secret__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Unbounce_Integration_Config__c.Request_Field_Mappings__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Unbounce_Integration_Config__c.Sync_Inbound_And_Outbound__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
