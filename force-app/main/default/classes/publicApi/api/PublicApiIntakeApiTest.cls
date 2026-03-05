@@ -4,7 +4,8 @@ private class PublicApiIntakeApiTest {
     static void testCreateSubmissionSuccess() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
-            API_Key__c = 'api-test-key-1'
+            API_Key__c = 'api-test-key-1',
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultMappingsJson()
         );
         insert config;
 
@@ -125,7 +126,8 @@ private class PublicApiIntakeApiTest {
     static void testCreateSubmissionFormEncodedPayload() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
-            API_Key__c = 'api-test-key-4'
+            API_Key__c = 'api-test-key-4',
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultMappingsJson()
         );
         insert config;
 

@@ -23,24 +23,8 @@ public without sharing class PublicApiConfigService {
             return null;
         }
 
-        List<PublicApi_Integration_Config__c> settings = [
-            SELECT Id,
-                   Webhook_Secret__c,
-                   API_Key__c,
-                   Outbound_Webhook_URL__c,
-                   Outbound_Webhook_Secret__c,
-                   Outbound_Auth_Mode__c,
-                   Outbound_Header_Name__c,
-                   Outbound_Header_Value__c,
-                   Outbound_Additional_Headers_JSON__c,
-                   Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
-            FROM PublicApi_Integration_Config__c
-            WHERE Is_Active__c = true
-            AND API_Key__c = :apiKey.trim()
-            ORDER BY CreatedDate DESC
-            LIMIT 2
-        ];
+        List<PublicApi_Integration_Config__c> settings =
+            PublicApiConfigRepository.findActiveByApiKey(apiKey, 2);
         if (settings.isEmpty()) {
             return null;
         }
@@ -53,28 +37,8 @@ public without sharing class PublicApiConfigService {
     }
 
     public static Config getConfigById(Id configId) {
-        if (configId == null) {
-            return null;
-        }
-
-        List<PublicApi_Integration_Config__c> settings = [
-            SELECT Id,
-                   Webhook_Secret__c,
-                   API_Key__c,
-                   Outbound_Webhook_URL__c,
-                   Outbound_Webhook_Secret__c,
-                   Outbound_Auth_Mode__c,
-                   Outbound_Header_Name__c,
-                   Outbound_Header_Value__c,
-                   Outbound_Additional_Headers_JSON__c,
-                   Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
-            FROM PublicApi_Integration_Config__c
-            WHERE Id = :configId
-            AND Is_Active__c = true
-            LIMIT 1
-        ];
-        return settings.isEmpty() ? null : fromSetting(settings[0]);
+        PublicApi_Integration_Config__c setting = PublicApiConfigRepository.findActiveById(configId);
+        return setting == null ? null : fromSetting(setting);
     }
 
     public static Map<Id, Config> getConfigsById(Set<Id> configIds) {
@@ -83,22 +47,7 @@ public without sharing class PublicApiConfigService {
             return configsById;
         }
 
-        for (PublicApi_Integration_Config__c setting : [
-            SELECT Id,
-                   Webhook_Secret__c,
-                   API_Key__c,
-                   Outbound_Webhook_URL__c,
-                   Outbound_Webhook_Secret__c,
-                   Outbound_Auth_Mode__c,
-                   Outbound_Header_Name__c,
-                   Outbound_Header_Value__c,
-                   Outbound_Additional_Headers_JSON__c,
-                   Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
-            FROM PublicApi_Integration_Config__c
-            WHERE Id IN :configIds
-            AND Is_Active__c = true
-        ]) {
+        for (PublicApi_Integration_Config__c setting : PublicApiConfigRepository.findActiveByIds(configIds)) {
             configsById.put(setting.Id, fromSetting(setting));
         }
         return configsById;

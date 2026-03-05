@@ -21,21 +21,18 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             return null;
         }
 
-        List<PublicApi_Integration_Config__c> records = [
-            SELECT Outbound_Payload_Configuration__c
-            FROM PublicApi_Integration_Config__c
-            WHERE Id = :recordId
-            LIMIT 1
-        ];
-        if (records.isEmpty()) {
+        PublicApi_Integration_Config__c record = PublicApiConfigRepository.findById(recordId);
+        if (record == null) {
             return null;
         }
 
         PayloadSettings settings = new PayloadSettings();
-        settings.configurationJson = records[0].Outbound_Payload_Configuration__c;
-        settings.syncInboundAndOutbound = inferSyncInboundAndOutbound(settings.configurationJson);
-        settings.defaultJson = PublicApiRequestMappingService.getDefaultMappingsJson();
-        settings.availableFieldReferences = PublicApiRequestMappingService.getAvailableFieldReferences();
+        settings.configurationJson = record.Outbound_Payload_Configuration__c;
+        settings.syncInboundAndOutbound = PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(
+            settings.configurationJson
+        );
+        settings.defaultJson = PublicApiPayloadTemplateService.getDefaultMappingsJson();
+        settings.availableFieldReferences = PublicApiPayloadTemplateService.getAvailableFieldReferences();
         return settings;
     }
 
@@ -45,22 +42,11 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             return null;
         }
 
-        List<PublicApi_Integration_Config__c> records = [
-            SELECT Outbound_Auth_Mode__c,
-                   Outbound_Content_Type__c,
-                   Outbound_Header_Name__c,
-                   Outbound_Header_Value__c,
-                   Outbound_Additional_Headers_JSON__c,
-                   Outbound_Webhook_Secret__c
-            FROM PublicApi_Integration_Config__c
-            WHERE Id = :recordId
-            LIMIT 1
-        ];
-        if (records.isEmpty()) {
+        PublicApi_Integration_Config__c record = PublicApiConfigRepository.findById(recordId);
+        if (record == null) {
             return null;
         }
 
-        PublicApi_Integration_Config__c record = records[0];
         HeaderSettings settings = new HeaderSettings();
         settings.authMode = record.Outbound_Auth_Mode__c;
         settings.contentType = record.Outbound_Content_Type__c;
@@ -175,45 +161,4 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         return String.isBlank(value) ? null : value.trim();
     }
 
-    @TestVisible
-    private static Boolean inferSyncInboundAndOutbound(String configJson) {
-        if (String.isBlank(configJson)) {
-            return true;
-        }
-
-        try {
-            PublicApiRequestMappingService.MappingConfiguration config =
-                PublicApiRequestMappingService.parseConfiguration(configJson);
-            return areMappingsEquivalent(config.inboundMappings, config.outboundMappings);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private static Boolean areMappingsEquivalent(
-        List<PublicApiRequestMappingService.MappingConfig> left,
-        List<PublicApiRequestMappingService.MappingConfig> right
-    ) {
-        List<PublicApiRequestMappingService.MappingConfig> safeLeft =
-            left == null ? new List<PublicApiRequestMappingService.MappingConfig>() : left;
-        List<PublicApiRequestMappingService.MappingConfig> safeRight =
-            right == null ? new List<PublicApiRequestMappingService.MappingConfig>() : right;
-        if (safeLeft.size() != safeRight.size()) {
-            return false;
-        }
-
-        for (Integer index = 0; index < safeLeft.size(); index++) {
-            PublicApiRequestMappingService.MappingConfig leftRow = safeLeft[index];
-            PublicApiRequestMappingService.MappingConfig rightRow = safeRight[index];
-            if (!String.valueOf(leftRow == null ? null : leftRow.externalKey)
-                    .equalsIgnoreCase(String.valueOf(rightRow == null ? null : rightRow.externalKey))) {
-                return false;
-            }
-            if (!String.valueOf(leftRow == null ? null : leftRow.value)
-                    .equalsIgnoreCase(String.valueOf(rightRow == null ? null : rightRow.value))) {
-                return false;
-            }
-        }
-        return true;
-    }
 }

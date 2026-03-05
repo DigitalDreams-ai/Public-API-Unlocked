@@ -23,58 +23,8 @@ public without sharing class PublicApiRequestMappingService {
         @AuraEnabled public List<MappingConfig> outboundMappings = new List<MappingConfig>();
     }
 
-    @TestVisible
-    static final List<MappingConfig> DEFAULT_INBOUND_MAPPINGS = new List<MappingConfig>{
-        new MappingConfig('name', '$intakes.First_Name__c', 10),
-        new MappingConfig('first_name', '$intakes.First_Name__c', 20),
-        new MappingConfig('last_name', '$intakes.Last_Name__c', 30),
-        new MappingConfig('email', '$intakes.Email__c', 40),
-        new MappingConfig('phone_number', '$intakes.Phone__c', 50),
-        new MappingConfig('phone', '$intakes.Phone__c', 60),
-        new MappingConfig('how_can_we_help_you', '$intakes.Description__c', 70),
-        new MappingConfig('description', '$intakes.Description__c', 80),
-        new MappingConfig('page_url', '$intakes.Page_URL__c', 90),
-        new MappingConfig('utm_source', '$intakes.UTM_Source__c', 100),
-        new MappingConfig('utm_medium', '$intakes.UTM_Medium__c', 110),
-        new MappingConfig('campaignid', '$intakes.Campaign_Id__c', 120),
-        new MappingConfig('utm_content', '$intakes.UTM_Content__c', 130),
-        new MappingConfig('gclid', '$intakes.GCLID__c', 140)
-    };
-
-    @TestVisible
-    static final List<MappingConfig> DEFAULT_OUTBOUND_MAPPINGS = new List<MappingConfig>{
-        new MappingConfig('name', '$intakes.First_Name__c', 10),
-        new MappingConfig('last_name', '$intakes.Last_Name__c', 20),
-        new MappingConfig('email', '$intakes.Email__c', 30),
-        new MappingConfig('phone', '$intakes.Phone__c', 40),
-        new MappingConfig('gclid', '$intakes.GCLID__c', 50),
-        new MappingConfig('createdDate', '$intakes.CreatedDate', 60)
-    };
-
     public static String getDefaultDirection() {
         return DIRECTION_BOTH;
-    }
-
-    public static String getDefaultMappingsJson() {
-        return JSON.serializePretty(toSerializableMap(getDefaultConfiguration()));
-    }
-
-    public static List<String> getAvailableFieldReferences() {
-        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-        if (!globalDescribe.containsKey(SUBMISSION_OBJECT_API_NAME)) {
-            return new List<String>();
-        }
-
-        List<String> references = new List<String>();
-        Map<String, Schema.SObjectField> fieldMap =
-            globalDescribe.get(SUBMISSION_OBJECT_API_NAME).getDescribe().fields.getMap();
-        List<String> fieldNames = new List<String>(fieldMap.keySet());
-        fieldNames.sort();
-        for (String fieldName : fieldNames) {
-            references.add(RECORD_REFERENCE_PREFIX + fieldName);
-        }
-        references.add(RECORD_REFERENCE_PREFIX + 'CreatedDate');
-        return references;
     }
 
     public static void applyInboundMappings(
@@ -226,9 +176,7 @@ public without sharing class PublicApiRequestMappingService {
         if (normalizeDirection(direction) == DIRECTION_BOTH && !config.inboundMappings.isEmpty() && config.outboundMappings.isEmpty()) {
             config.outboundMappings = cloneMappings(config.inboundMappings);
         }
-        return config.inboundMappings.isEmpty()
-            ? cloneMappings(DEFAULT_INBOUND_MAPPINGS)
-            : cloneMappings(config.inboundMappings);
+        return cloneMappings(config.inboundMappings);
     }
 
     @TestVisible
@@ -240,9 +188,7 @@ public without sharing class PublicApiRequestMappingService {
         if (normalizeDirection(direction) == DIRECTION_BOTH && !config.inboundMappings.isEmpty() && config.outboundMappings.isEmpty()) {
             config.outboundMappings = cloneMappings(config.inboundMappings);
         }
-        return config.outboundMappings.isEmpty()
-            ? cloneMappings(DEFAULT_OUTBOUND_MAPPINGS)
-            : cloneMappings(config.outboundMappings);
+        return cloneMappings(config.outboundMappings);
     }
 
     private static MappingConfiguration parseConfigurationSafely(String configJson) {
@@ -251,13 +197,6 @@ public without sharing class PublicApiRequestMappingService {
         } catch (Exception e) {
             return new MappingConfiguration();
         }
-    }
-
-    private static MappingConfiguration getDefaultConfiguration() {
-        MappingConfiguration config = new MappingConfiguration();
-        config.inboundMappings = cloneMappings(DEFAULT_INBOUND_MAPPINGS);
-        config.outboundMappings = cloneMappings(DEFAULT_OUTBOUND_MAPPINGS);
-        return config;
     }
 
     private static List<MappingConfig> parseMappingArray(Object rawMappings) {
@@ -539,13 +478,6 @@ public without sharing class PublicApiRequestMappingService {
     private static List<MappingConfig> sortMappings(List<MappingConfig> mappings) {
         mappings.sort(new MappingSortComparator());
         return mappings;
-    }
-
-    private static Map<String, Object> toSerializableMap(MappingConfiguration config) {
-        Map<String, Object> payload = new Map<String, Object>();
-        payload.put('inbound', cloneMappings(config == null ? null : config.inboundMappings));
-        payload.put('outbound', cloneMappings(config == null ? null : config.outboundMappings));
-        return payload;
     }
 
     private static Integer parseInteger(Object value) {
