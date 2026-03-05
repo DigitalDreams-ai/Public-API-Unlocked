@@ -34,9 +34,9 @@ private class PublicApiStatusUpdateQueueableTest {
 
         request = new HttpRequest();
         config = new PublicApiConfigService.Config();
-        config.statusUpdateWebhookSecret = 'legacy-secret';
+        config.statusUpdateWebhookSecret = 'blank-auth-secret';
         PublicApiStatusUpdateQueueable.applyAuthHeaders(request, config, '{"x":1}');
-        System.assertNotEquals(null, request.getHeader(PublicApiStatusUpdateQueueable.DEFAULT_SIGNATURE_HEADER));
+        System.assertEquals(null, request.getHeader(PublicApiStatusUpdateQueueable.DEFAULT_SIGNATURE_HEADER));
     }
 
     @IsTest

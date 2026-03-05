@@ -113,7 +113,7 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
-    static void testValidateMappingsRejectsLegacyPrefixes() {
+    static void testValidateMappingsRejectsNonCanonicalPrefixes() {
         String mappingsJson =
             '{"inbound":[' +
                 '{"externalKey":"email","value":"$submission.Email__c","sortOrder":1}' +
@@ -124,7 +124,7 @@ private class PublicApiRequestMappingServiceTest {
                 mappingsJson,
                 PublicApiRequestMappingService.DIRECTION_BOTH
             );
-            System.assert(false, 'Expected legacy prefixes to be rejected.');
+            System.assert(false, 'Expected non-canonical prefixes to be rejected.');
         } catch (PublicApiIntakeServiceException e) {
             System.assert(e.getMessage().contains('Invalid field reference'));
         }

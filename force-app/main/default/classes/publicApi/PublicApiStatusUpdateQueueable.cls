@@ -161,7 +161,6 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
 
         String authMode = normalizeConfigValue(config.outboundAuthMode);
         if (String.isBlank(authMode)) {
-            applyLegacySignature(request, config, payload);
             return;
         }
         if (authMode == AUTH_MODE_NONE) {
@@ -332,16 +331,6 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
         return result;
     }
 
-    private static void applyLegacySignature(HttpRequest request, PublicApiConfigService.Config config, String payload) {
-        if (String.isBlank(config.statusUpdateWebhookSecret)) {
-            return;
-        }
-        String signature = PublicApiClient.generateWebhookSignature(payload, config.statusUpdateWebhookSecret);
-        if (String.isNotBlank(signature)) {
-            request.setHeader(DEFAULT_SIGNATURE_HEADER, signature);
-        }
-    }
-
     private static void applySignatureHeader(HttpRequest request, PublicApiConfigService.Config config, String payload) {
         String secret = normalizeConfigValue(config.statusUpdateWebhookSecret);
         if (String.isBlank(secret)) {
@@ -396,9 +385,6 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
         }
 
         String authMode = normalizeConfigValue(config.outboundAuthMode);
-        if (String.isBlank(authMode) && normalizedHeader == DEFAULT_SIGNATURE_HEADER.toLowerCase()) {
-            return true;
-        }
         if (authMode == AUTH_MODE_NONE || String.isBlank(authMode)) {
             return false;
         }

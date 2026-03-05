@@ -2,6 +2,8 @@
 
 Postman collection and environments for testing the public guest API (`POST /v1/publicapi/submissions`). Layout and conventions follow the **Shulman API** Postman assets in `stash/force-app/main/default/docs/postman` (e.g. `Shulman API.postman_collection.json`, `Referral API Environment (Staging).postman_environment.json`).
 
+For complete endpoint and webhook documentation, see [docs/content](../content/README.md).
+
 ## Files
 
 | File | Purpose |
