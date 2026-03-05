@@ -4,6 +4,7 @@ This documentation set mirrors the structure used by Shulman-API docs and is org
 
 ## Sections
 
+- [`00.architecture`](./00.architecture)
 - [`01.getting-started`](./01.getting-started)
 - [`02.submissions`](./02.submissions)
 - [`03.webhooks`](./03.webhooks)
