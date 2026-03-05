@@ -3,6 +3,10 @@ public with sharing class PublicApiRemoteSiteSettingService {
     private static final String REMOTE_SITE_NAME_PREFIX = 'PublicApiWebhook_';
 
     public static String ensureStatusWebhookRemoteSite(String webhookUrl) {
+        return ensureStatusWebhookRemoteSite(webhookUrl, null);
+    }
+
+    public static String ensureStatusWebhookRemoteSite(String webhookUrl, String sessionId) {
         if (String.isBlank(webhookUrl)) {
             return null;
         }
@@ -19,12 +23,17 @@ public with sharing class PublicApiRemoteSiteSettingService {
             fullName,
             domainUrl,
             'Remote Site Setting for PublicApi status webhook domain: ' + domainUrl,
-            true
+            true,
+            sessionId
         );
     }
 
-    @future(callout=true)
     public static void ensureStatusWebhookRemoteSitesAsync(List<String> webhookUrls) {
+        ensureStatusWebhookRemoteSitesAsync(webhookUrls, UserInfo.getSessionId());
+    }
+
+    @future(callout=true)
+    public static void ensureStatusWebhookRemoteSitesAsync(List<String> webhookUrls, String sessionId) {
         if (webhookUrls == null || webhookUrls.isEmpty()) {
             return;
         }
@@ -40,7 +49,7 @@ public with sharing class PublicApiRemoteSiteSettingService {
                 continue;
             }
             processedDomains.add(domainUrl);
-            ensureStatusWebhookRemoteSite(domainUrl);
+            ensureStatusWebhookRemoteSite(domainUrl, sessionId);
         }
     }
 
@@ -49,6 +58,16 @@ public with sharing class PublicApiRemoteSiteSettingService {
         String url,
         String description,
         Boolean isActive
+    ) {
+        return createRemoteSiteSetting(fullName, url, description, isActive, null);
+    }
+
+    public static String createRemoteSiteSetting(
+        String fullName,
+        String url,
+        String description,
+        Boolean isActive,
+        String sessionId
     ) {
         if (String.isBlank(fullName)) {
             throw new PublicApiRemoteSiteSettingException('fullName is required');
@@ -66,7 +85,7 @@ public with sharing class PublicApiRemoteSiteSettingService {
         request.setMethod('POST');
         request.setHeader('Content-Type', 'text/xml; charset=UTF-8');
         request.setHeader('SOAPAction', '""');
-        request.setBody(buildCreateRemoteSiteSoapBody(fullName, url, description, isActive));
+        request.setBody(buildCreateRemoteSiteSoapBody(fullName, url, description, isActive, resolveSessionId(sessionId)));
 
         HttpResponse response = new Http().send(request);
         String responseBody = response.getBody();
@@ -103,8 +122,7 @@ public with sharing class PublicApiRemoteSiteSettingService {
         return createdFullName != null ? createdFullName : fullName;
     }
 
-    @TestVisible
-    private static String extractDomainFromUrl(String webhookUrl) {
+    public static String extractDomainFromUrl(String webhookUrl) {
         if (String.isBlank(webhookUrl)) {
             return null;
         }
@@ -182,7 +200,8 @@ public with sharing class PublicApiRemoteSiteSettingService {
         String fullName,
         String url,
         String description,
-        Boolean isActive
+        Boolean isActive,
+        String sessionId
     ) {
         return '<?xml version="1.0" encoding="UTF-8"?>' +
             '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" ' +
@@ -190,7 +209,7 @@ public with sharing class PublicApiRemoteSiteSettingService {
             'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
             '<soapenv:Header>' +
             '<met:SessionHeader>' +
-            '<met:sessionId>' + escapeXml(UserInfo.getSessionId()) + '</met:sessionId>' +
+            '<met:sessionId>' + escapeXml(sessionId) + '</met:sessionId>' +
             '</met:SessionHeader>' +
             '</soapenv:Header>' +
             '<soapenv:Body>' +
@@ -205,6 +224,18 @@ public with sharing class PublicApiRemoteSiteSettingService {
             '</met:createMetadata>' +
             '</soapenv:Body>' +
             '</soapenv:Envelope>';
+    }
+
+    private static String resolveSessionId(String explicitSessionId) {
+        String resolvedSessionId = String.isNotBlank(explicitSessionId)
+            ? explicitSessionId.trim()
+            : UserInfo.getSessionId();
+        if (String.isBlank(resolvedSessionId)) {
+            throw new PublicApiRemoteSiteSettingException(
+                'Unable to create Remote Site Setting because no Salesforce session is available.'
+            );
+        }
+        return resolvedSessionId;
     }
 
     private static Boolean extractSuccess(String responseBody) {

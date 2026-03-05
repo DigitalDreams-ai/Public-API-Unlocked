@@ -100,7 +100,8 @@ public without sharing class PublicApiStatusUpdateHandler {
                 tracking.PublicApi_Integration_Config__c,
                 normalizeStatus(oldRecord.Status__c),
                 currentStatus,
-                System.now()
+                System.now(),
+                UserInfo.getSessionId()
             ));
         }
 

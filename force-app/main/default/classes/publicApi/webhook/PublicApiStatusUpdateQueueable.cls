@@ -18,15 +18,28 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
         public String previousStatus;
         public String currentStatus;
         public Datetime changedAt;
+        public String sessionId;
 
         public DeliveryItem() {}
 
         public DeliveryItem(Id recordId, Id configId, String previousStatus, String currentStatus, Datetime changedAt) {
+            this(recordId, configId, previousStatus, currentStatus, changedAt, null);
+        }
+
+        public DeliveryItem(
+            Id recordId,
+            Id configId,
+            String previousStatus,
+            String currentStatus,
+            Datetime changedAt,
+            String sessionId
+        ) {
             this.recordId = recordId;
             this.configId = configId;
             this.previousStatus = previousStatus;
             this.currentStatus = currentStatus;
             this.changedAt = changedAt;
+            this.sessionId = sessionId;
         }
     }
 
@@ -78,7 +91,7 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
             }
 
             PublicApiStatusUpdateDeliveryService.SendOutcome outcome =
-                PublicApiStatusUpdateDeliveryService.sendStatusUpdate(http, record, config);
+                PublicApiStatusUpdateDeliveryService.sendStatusUpdate(http, record, config, item.sessionId);
             String payload = outcome == null ? null : outcome.payloadJson;
             PublicApiWebhookDeliveryRecordService.DeliveryResult result =
                 outcome == null ? null : outcome.deliveryResult;

@@ -3,6 +3,20 @@ private class PublicApiStatusUpdateTest {
     private class SuccessMock implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest req) {
             HttpResponse res = new HttpResponse();
+            if (req.getEndpoint() != null && req.getEndpoint().contains('/services/Soap/m/61.0')) {
+                res.setStatusCode(200);
+                res.setBody(
+                    '<?xml version="1.0" encoding="UTF-8"?>' +
+                    '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">' +
+                    '<soapenv:Body>' +
+                    '<createMetadataResponse xmlns="http://soap.sforce.com/2006/04/metadata">' +
+                    '<result><success>true</success><fullName>PublicApiWebhook_Example</fullName></result>' +
+                    '</createMetadataResponse>' +
+                    '</soapenv:Body>' +
+                    '</soapenv:Envelope>'
+                );
+                return res;
+            }
             res.setStatusCode(200);
             res.setBody('{"ok":true}');
             return res;
