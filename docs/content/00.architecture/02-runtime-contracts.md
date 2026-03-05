@@ -13,6 +13,8 @@
 - Outbound mapping configuration is required and validated per delivery item.
 - Invalid mapping config does not crash the queueable batch; delivery is recorded as `Failed`.
 - Empty mapped payloads are treated as configuration failures and recorded as `Failed`.
+- Remote Site Setting provisioning is delivery-driven (no config trigger path).
+- Provisioning is domain-scoped and attempted once per domain per transaction.
 
 ## Mapping Token Format
 
