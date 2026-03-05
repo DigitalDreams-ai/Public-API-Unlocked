@@ -510,6 +510,9 @@
                         <valueListItems>
                             <value>Status_Code__c</value>
                         </valueListItems>
+                        <valueListItems>
+                            <value>Error_Code__c</value>
+                        </valueListItems>
                     </valueList>
                 </componentInstanceProperties>
                 <componentInstanceProperties>

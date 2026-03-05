@@ -5,9 +5,15 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
 
     private class MetadataAndWebhookMock implements HttpCalloutMock {
         private Boolean metadataShouldFail;
+        private Integer webhookStatusCode;
 
         MetadataAndWebhookMock(Boolean metadataShouldFail) {
+            this(metadataShouldFail, 202);
+        }
+
+        MetadataAndWebhookMock(Boolean metadataShouldFail, Integer webhookStatusCode) {
             this.metadataShouldFail = metadataShouldFail;
+            this.webhookStatusCode = webhookStatusCode;
         }
 
         public HttpResponse respond(HttpRequest request) {
@@ -34,8 +40,8 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
             }
 
             webhookCallCount++;
-            response.setStatusCode(202);
-            response.setStatus('Accepted');
+            response.setStatusCode(webhookStatusCode);
+            response.setStatus(webhookStatusCode == 202 ? 'Accepted' : 'Error');
             response.setBody('ok');
             return response;
         }
@@ -79,6 +85,10 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
         System.assertNotEquals(null, outcome);
         System.assertNotEquals(null, outcome.deliveryResult);
         System.assertEquals(false, outcome.deliveryResult.success);
+        System.assertEquals(
+            PublicApiStatusUpdateDeliveryService.ERROR_CODE_MAPPING_ERROR,
+            outcome.deliveryResult.errorCode
+        );
         System.assert(
             String.valueOf(outcome.deliveryResult.exceptionMessage).contains('Unexpected')
             || String.valueOf(outcome.deliveryResult.exceptionMessage).contains('Invalid')
@@ -138,8 +148,42 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
         System.assertNotEquals(null, outcome);
         System.assertNotEquals(null, outcome.deliveryResult);
         System.assertEquals(false, outcome.deliveryResult.success);
+        System.assertEquals(
+            PublicApiStatusUpdateDeliveryService.ERROR_CODE_REMOTE_SITE_ERROR,
+            outcome.deliveryResult.errorCode
+        );
         System.assert(String.valueOf(outcome.deliveryResult.exceptionMessage).contains('Metadata API callout failed'));
         System.assertEquals(1, metadataCallCount);
         System.assertEquals(0, webhookCallCount, 'Webhook send should not run when provisioning fails.');
+    }
+
+    @IsTest
+    static void testSendStatusUpdate_Maps401ToAuthHeaderErrorCode() {
+        metadataCallCount = 0;
+        webhookCallCount = 0;
+        PublicApiStatusUpdateDeliveryService.provisionedWebhookDomainsInTransaction.clear();
+        Test.setMock(HttpCalloutMock.class, new MetadataAndWebhookMock(false, 401));
+
+        PublicApiConfigService.Config config = new PublicApiConfigService.Config();
+        config.statusUpdateWebhookUrl = 'https://example.com/webhook';
+        config.requestFieldMappingsConfiguration =
+            '{"inbound":[],"outbound":[{"externalKey":"email","value":"$intakes.Email__c","sortOrder":1}]}';
+
+        PublicApi_Submission__c submission = new PublicApi_Submission__c(
+            Email__c = 'delivery@example.com'
+        );
+
+        Test.startTest();
+        PublicApiStatusUpdateDeliveryService.SendOutcome outcome =
+            PublicApiStatusUpdateDeliveryService.sendStatusUpdate(new Http(), submission, config, 'test-session');
+        Test.stopTest();
+
+        System.assertEquals(false, outcome.deliveryResult.success);
+        System.assertEquals(
+            PublicApiStatusUpdateDeliveryService.ERROR_CODE_AUTH_HEADER_ERROR,
+            outcome.deliveryResult.errorCode
+        );
+        System.assertEquals(1, metadataCallCount);
+        System.assertEquals(1, webhookCallCount);
     }
 }

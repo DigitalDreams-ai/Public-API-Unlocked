@@ -177,6 +177,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>PublicApi_Webhook_Delivery__c.Error_Code__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>PublicApi_Webhook_Delivery__c.Intake__c</field>
         <readable>true</readable>
     </fieldPermissions>

@@ -10,6 +10,12 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
     @TestVisible static final String AUTH_MODE_BEARER_TOKEN = 'BearerToken';
     @TestVisible static final String AUTH_MODE_BASIC_AUTH = 'BasicAuth';
     @TestVisible static final String AUTH_MODE_HMAC_SIGNATURE = 'HmacSignature';
+    @TestVisible public static final String ERROR_CODE_MAPPING_ERROR = 'MAPPING_ERROR';
+    @TestVisible public static final String ERROR_CODE_AUTH_HEADER_ERROR = 'AUTH_HEADER_ERROR';
+    @TestVisible public static final String ERROR_CODE_REMOTE_SITE_ERROR = 'REMOTE_SITE_ERROR';
+    @TestVisible public static final String ERROR_CODE_WEBHOOK_RESPONSE_ERROR = 'WEBHOOK_RESPONSE_ERROR';
+    @TestVisible public static final String ERROR_CODE_WEBHOOK_CALLOUT_ERROR = 'WEBHOOK_CALLOUT_ERROR';
+    @TestVisible public static final String ERROR_CODE_UNKNOWN_ERROR = 'UNKNOWN_ERROR';
 
     public class SendOutcome {
         public String payloadJson;
@@ -57,15 +63,24 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
             applyRequestConfiguration(request, config, outcome.payloadJson);
 
             HttpResponse response = http.send(request);
+            Boolean isSuccess = response.getStatusCode() >= 200 && response.getStatusCode() < 300;
             outcome.deliveryResult = buildDeliveryResult(
-                response.getStatusCode() >= 200 && response.getStatusCode() < 300,
+                isSuccess,
                 response.getStatusCode(),
+                isSuccess ? null : resolveHttpErrorCode(response.getStatusCode()),
                 response.getBody(),
                 response.getStatus(),
                 null
             );
         } catch (Exception e) {
-            outcome.deliveryResult = buildDeliveryResult(false, null, null, null, e.getMessage());
+            outcome.deliveryResult = buildDeliveryResult(
+                false,
+                null,
+                resolveExceptionErrorCode(e),
+                null,
+                null,
+                e.getMessage()
+            );
         }
         return outcome;
     }
@@ -159,6 +174,7 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
         if (String.isBlank(authMode) || authMode == AUTH_MODE_NONE) {
             return;
         }
+        validateAuthConfiguration(config, authMode);
         if (authMode == AUTH_MODE_API_KEY_HEADER) {
             String headerValue = normalizeConfigValue(config.outboundHeaderValue);
             if (String.isNotBlank(headerValue)) {
@@ -193,39 +209,46 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
             return;
         }
 
-        Object parsedHeaders = JSON.deserializeUntyped(config.outboundAdditionalHeadersJson);
-        if (parsedHeaders instanceof Map<String, Object>) {
-            Map<String, Object> headers = (Map<String, Object>) parsedHeaders;
-            for (String headerName : headers.keySet()) {
-                String headerValue = stringifyHeaderValue(headers.get(headerName));
-                if (String.isNotBlank(headerName) && headerValue != null && !isManagedHeaderName(headerName, config)) {
-                    request.setHeader(headerName, headerValue);
+        try {
+            Object parsedHeaders = JSON.deserializeUntyped(config.outboundAdditionalHeadersJson);
+            if (parsedHeaders instanceof Map<String, Object>) {
+                Map<String, Object> headers = (Map<String, Object>) parsedHeaders;
+                for (String headerName : headers.keySet()) {
+                    String headerValue = stringifyHeaderValue(headers.get(headerName));
+                    if (String.isNotBlank(headerName) && headerValue != null && !isManagedHeaderName(headerName, config)) {
+                        request.setHeader(headerName, headerValue);
+                    }
                 }
+                return;
             }
-            return;
-        }
 
-        if (parsedHeaders instanceof List<Object>) {
-            for (Object entry : (List<Object>) parsedHeaders) {
-                if (!(entry instanceof Map<String, Object>)) {
-                    continue;
-                }
-                Map<String, Object> headerConfig = (Map<String, Object>) entry;
-                String headerName = firstNonBlank(
-                    stringifyHeaderValue(headerConfig.get('name')),
-                    stringifyHeaderValue(headerConfig.get('header'))
-                );
-                String headerValue = stringifyHeaderValue(headerConfig.get('value'));
-                if (String.isNotBlank(headerName) && headerValue != null && !isManagedHeaderName(headerName, config)) {
-                    request.setHeader(headerName, headerValue);
+            if (parsedHeaders instanceof List<Object>) {
+                for (Object entry : (List<Object>) parsedHeaders) {
+                    if (!(entry instanceof Map<String, Object>)) {
+                        continue;
+                    }
+                    Map<String, Object> headerConfig = (Map<String, Object>) entry;
+                    String headerName = firstNonBlank(
+                        stringifyHeaderValue(headerConfig.get('name')),
+                        stringifyHeaderValue(headerConfig.get('header'))
+                    );
+                    String headerValue = stringifyHeaderValue(headerConfig.get('value'));
+                    if (String.isNotBlank(headerName) && headerValue != null && !isManagedHeaderName(headerName, config)) {
+                        request.setHeader(headerName, headerValue);
+                    }
                 }
             }
+        } catch (JSONException e) {
+            throw new PublicApiIntakeServiceException(
+                'Outbound header configuration is invalid: ' + e.getMessage()
+            );
         }
     }
 
     private static PublicApiWebhookDeliveryRecordService.DeliveryResult buildDeliveryResult(
         Boolean success,
         Integer statusCode,
+        String errorCode,
         String responseBody,
         String message,
         String exceptionMessage
@@ -234,10 +257,73 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
             new PublicApiWebhookDeliveryRecordService.DeliveryResult();
         result.success = success;
         result.statusCode = statusCode;
+        result.errorCode = errorCode;
         result.responseBody = responseBody;
         result.message = message;
         result.exceptionMessage = exceptionMessage;
         return result;
+    }
+
+    private static void validateAuthConfiguration(PublicApiConfigService.Config config, String authMode) {
+        if (config == null || String.isBlank(authMode)) {
+            return;
+        }
+
+        String headerValue = normalizeConfigValue(config.outboundHeaderValue);
+        if ((authMode == AUTH_MODE_API_KEY_HEADER ||
+            authMode == AUTH_MODE_BEARER_TOKEN ||
+            authMode == AUTH_MODE_BASIC_AUTH) &&
+            String.isBlank(headerValue)) {
+            throw new PublicApiIntakeServiceException(
+                'Outbound auth configuration is invalid: Outbound Header Value is required for auth mode ' + authMode + '.'
+            );
+        }
+
+        String webhookSecret = normalizeConfigValue(config.statusUpdateWebhookSecret);
+        if (authMode == AUTH_MODE_HMAC_SIGNATURE && String.isBlank(webhookSecret)) {
+            throw new PublicApiIntakeServiceException(
+                'Outbound auth configuration is invalid: Outbound Webhook Secret is required for HMAC signature mode.'
+            );
+        }
+    }
+
+    @TestVisible
+    static String resolveHttpErrorCode(Integer statusCode) {
+        if (statusCode == null) {
+            return ERROR_CODE_WEBHOOK_RESPONSE_ERROR;
+        }
+        if (statusCode == 401 || statusCode == 403) {
+            return ERROR_CODE_AUTH_HEADER_ERROR;
+        }
+        return ERROR_CODE_WEBHOOK_RESPONSE_ERROR;
+    }
+
+    @TestVisible
+    static String resolveExceptionErrorCode(Exception ex) {
+        if (ex == null) {
+            return ERROR_CODE_UNKNOWN_ERROR;
+        }
+        if (ex instanceof PublicApiRemoteSiteSettingException) {
+            return ERROR_CODE_REMOTE_SITE_ERROR;
+        }
+        if (ex instanceof JSONException) {
+            return ERROR_CODE_MAPPING_ERROR;
+        }
+        if (ex instanceof CalloutException) {
+            return ERROR_CODE_WEBHOOK_CALLOUT_ERROR;
+        }
+
+        String message = String.valueOf(ex.getMessage()).toLowerCase();
+        if (message.contains('mapping') || message.contains('field reference') || message.contains('outbound payload')) {
+            return ERROR_CODE_MAPPING_ERROR;
+        }
+        if (message.contains('auth configuration') || message.contains('header configuration') || message.contains('authorization')) {
+            return ERROR_CODE_AUTH_HEADER_ERROR;
+        }
+        if (message.contains('remote site') || message.contains('metadata api')) {
+            return ERROR_CODE_REMOTE_SITE_ERROR;
+        }
+        return ERROR_CODE_UNKNOWN_ERROR;
     }
 
     private static void applySignatureHeader(HttpRequest request, PublicApiConfigService.Config config, String payload) {

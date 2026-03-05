@@ -1,16 +1,6 @@
 public without sharing class PublicApiStatusUpdateQueueable implements Queueable, Database.AllowsCallouts {
     @TestVisible static final Integer MAX_DELIVERIES_PER_JOB = 90;
-    @TestVisible static final String DEFAULT_CONTENT_TYPE = 'application/json';
-    @TestVisible static final String DEFAULT_API_KEY_HEADER = 'X-API-KEY';
-    @TestVisible static final String DEFAULT_AUTHORIZATION_HEADER = 'Authorization';
-    @TestVisible static final String DEFAULT_SIGNATURE_HEADER = 'x-publicapi-signature';
     @TestVisible static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
-
-    @TestVisible static final String AUTH_MODE_NONE = 'None';
-    @TestVisible static final String AUTH_MODE_API_KEY_HEADER = 'ApiKeyHeader';
-    @TestVisible static final String AUTH_MODE_BEARER_TOKEN = 'BearerToken';
-    @TestVisible static final String AUTH_MODE_BASIC_AUTH = 'BasicAuth';
-    @TestVisible static final String AUTH_MODE_HMAC_SIGNATURE = 'HmacSignature';
 
     public class DeliveryItem {
         public Id recordId;
@@ -96,7 +86,14 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
             PublicApiWebhookDeliveryRecordService.DeliveryResult result =
                 outcome == null ? null : outcome.deliveryResult;
             if (result == null) {
-                result = buildDeliveryResult(false, null, null, null, 'Status update did not produce a result.');
+                result = buildDeliveryResult(
+                    false,
+                    null,
+                    PublicApiStatusUpdateDeliveryService.ERROR_CODE_UNKNOWN_ERROR,
+                    null,
+                    null,
+                    'Status update did not produce a result.'
+                );
             }
 
             PublicApi_Webhook_Delivery__c deliveryRecord = PublicApiWebhookDeliveryRecordService.buildDeliveryRecord(
@@ -131,26 +128,6 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
             }
         }
         return items;
-    }
-
-    @TestVisible
-    static void applyRequestConfiguration(HttpRequest request, PublicApiConfigService.Config config, String payload) {
-        PublicApiStatusUpdateDeliveryService.applyRequestConfiguration(request, config, payload);
-    }
-
-    @TestVisible
-    static String getContentType(PublicApiConfigService.Config config) {
-        return PublicApiStatusUpdateDeliveryService.getContentType(config);
-    }
-
-    @TestVisible
-    static void applyAuthHeaders(HttpRequest request, PublicApiConfigService.Config config, String payload) {
-        PublicApiStatusUpdateDeliveryService.applyAuthHeaders(request, config, payload);
-    }
-
-    @TestVisible
-    static void applyAdditionalHeaders(HttpRequest request, PublicApiConfigService.Config config) {
-        PublicApiStatusUpdateDeliveryService.applyAdditionalHeaders(request, config);
     }
 
     @TestVisible
@@ -206,6 +183,7 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
     static PublicApiWebhookDeliveryRecordService.DeliveryResult buildDeliveryResult(
         Boolean success,
         Integer statusCode,
+        String errorCode,
         String responseBody,
         String message,
         String exceptionMessage
@@ -214,6 +192,7 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
             new PublicApiWebhookDeliveryRecordService.DeliveryResult();
         result.success = success;
         result.statusCode = statusCode;
+        result.errorCode = errorCode;
         result.responseBody = responseBody;
         result.message = message;
         result.exceptionMessage = exceptionMessage;

@@ -2,6 +2,7 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
     public class DeliveryResult {
         public Boolean success;
         public Integer statusCode;
+        public String errorCode;
         public String responseBody;
         public String message;
         public String exceptionMessage;
@@ -57,6 +58,7 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
             Triggered_Status__c = triggeredStatus,
             Status__c = result.success ? 'Success' : 'Failed',
             Status_Code__c = result.statusCode,
+            Error_Code__c = result.errorCode,
             Delivery_Attempt__c = attemptedAt,
             Webhook_URL__c = webhookUrl,
             Request_JSON__c = truncateForLongText(requestJson),
@@ -130,6 +132,7 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
     private static String buildResponseJson(DeliveryResult result, Datetime attemptedAt) {
         Map<String, Object> responseData = new Map<String, Object>{
             'statusCode' => result.statusCode,
+            'errorCode' => result.errorCode,
             'responseBody' => result.responseBody,
             'message' => result.message,
             'exceptionMessage' => result.exceptionMessage,
