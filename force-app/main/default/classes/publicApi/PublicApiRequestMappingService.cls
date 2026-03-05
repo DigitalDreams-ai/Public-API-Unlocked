@@ -345,13 +345,40 @@ public without sharing class PublicApiRequestMappingService {
         if (String.isBlank(externalKey)) {
             return null;
         }
-        if (data != null && data.containsKey(externalKey)) {
-            return data.get(externalKey);
+
+        Object value = getValueByPath(data, externalKey);
+        if (value != null) {
+            return value;
         }
-        if (payload != null && payload.containsKey(externalKey)) {
-            return payload.get(externalKey);
+
+        if (payload == data) {
+            return null;
         }
-        return null;
+
+        return getValueByPath(payload, externalKey);
+    }
+
+    private static Object getValueByPath(Map<String, Object> root, String path) {
+        if (root == null || String.isBlank(path)) {
+            return null;
+        }
+
+        if (root.containsKey(path)) {
+            return root.get(path);
+        }
+
+        Object current = root;
+        for (String token : path.split('\\.')) {
+            if (!(current instanceof Map<String, Object>)) {
+                return null;
+            }
+            Map<String, Object> currentMap = (Map<String, Object>) current;
+            if (!currentMap.containsKey(token)) {
+                return null;
+            }
+            current = currentMap.get(token);
+        }
+        return current;
     }
 
     private static Object normalizeInboundValue(Object rawValue, Schema.DescribeFieldResult describe) {
@@ -391,9 +418,35 @@ public without sharing class PublicApiRequestMappingService {
             return Datetime.valueOf(stringValue);
         }
         if (describe.getLength() > 0 && stringValue != null && stringValue.length() > describe.getLength()) {
+            if (typeValue == Schema.DisplayType.Email) {
+                return clampEmail(stringValue, describe.getLength());
+            }
             return stringValue.substring(0, describe.getLength());
         }
         return stringValue;
+    }
+
+    private static String clampEmail(String value, Integer maxLength) {
+        if (String.isBlank(value) || maxLength == null || maxLength <= 0 || value.length() <= maxLength) {
+            return value;
+        }
+
+        Integer atIndex = value.indexOf('@');
+        if (atIndex <= 0) {
+            return value.substring(0, maxLength);
+        }
+
+        String domain = value.substring(atIndex);
+        Integer maxLocalPartLength = maxLength - domain.length();
+        if (maxLocalPartLength <= 0) {
+            return value.substring(0, maxLength);
+        }
+
+        String localPart = value.substring(0, atIndex);
+        if (localPart.length() > maxLocalPartLength) {
+            localPart = localPart.substring(0, maxLocalPartLength);
+        }
+        return localPart + domain;
     }
 
     private static Object normalizeOutboundValue(Object value) {
