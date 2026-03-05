@@ -26,11 +26,17 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
         }
 
         try {
+            validateOutboundMappings(config.requestFieldMappingsConfiguration);
             Map<String, Object> payloadMap = PublicApiRequestMappingService.buildOutboundPayload(
                 record,
                 config.requestFieldMappingsConfiguration,
                 PublicApiRequestMappingService.getDefaultDirection()
             );
+            if (payloadMap == null || payloadMap.isEmpty()) {
+                throw new PublicApiIntakeServiceException(
+                    'Outbound mapping produced an empty payload. Ensure outbound mappings are configured and valid.'
+                );
+            }
             outcome.payloadJson = JSON.serialize(payloadMap);
 
             HttpRequest request = new HttpRequest();
@@ -51,6 +57,16 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
             outcome.deliveryResult = buildDeliveryResult(false, null, null, null, e.getMessage());
         }
         return outcome;
+    }
+
+    @TestVisible
+    static void validateOutboundMappings(String mappingConfigurationJson) {
+        if (String.isBlank(mappingConfigurationJson)) {
+            throw new PublicApiIntakeServiceException(
+                'Outbound mapping configuration is required on Public API Integration Config.'
+            );
+        }
+        PublicApiRequestMappingService.validateMappings(mappingConfigurationJson, 'Outbound');
     }
 
     public static Map<Id, SObject> queryRecords(

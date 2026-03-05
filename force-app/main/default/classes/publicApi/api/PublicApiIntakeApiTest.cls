@@ -145,4 +145,52 @@ private class PublicApiIntakeApiTest {
         PublicApiIntakeApi.createSubmission();
         System.assertEquals(201, res.statusCode);
     }
+
+    @IsTest
+    static void testCreateSubmissionRejectsMissingInboundMappingConfiguration() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-5'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"first_name":"NoMap"}');
+        req.headers.put('x-api-key', 'api-test-key-5');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(400, res.statusCode);
+        System.assert(res.responseBody.toString().contains('Inbound mapping configuration is required'));
+    }
+
+    @IsTest
+    static void testCreateSubmissionRejectsInvalidInboundMappingConfiguration() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-6',
+            Outbound_Payload_Configuration__c =
+                '{"inbound":[{"externalKey":"name","value":"$intakes.Does_Not_Exist__c","sortOrder":1}],"outbound":[]}'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"name":"Bad Field"}');
+        req.headers.put('x-api-key', 'api-test-key-6');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(400, res.statusCode);
+        System.assert(res.responseBody.toString().contains('Inbound mapping configuration is invalid'));
+    }
 }

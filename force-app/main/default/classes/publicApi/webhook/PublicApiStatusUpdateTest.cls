@@ -49,7 +49,7 @@ private class PublicApiStatusUpdateTest {
     }
 
     @IsTest
-    static void testInvalidOutboundFieldMappingDoesNotBreakBatch() {
+    static void testInvalidOutboundFieldMappingLogsFailedDelivery() {
         Test.setMock(HttpCalloutMock.class, new SuccessMock());
 
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
@@ -57,7 +57,7 @@ private class PublicApiStatusUpdateTest {
             API_Key__c = 'status-test-key-2',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[],"outbound":[{"externalKey":"bad","value":"$intakes.Does_Not_Exist__c","sortOrder":1}]}'
+                '{"inbound":[],"outbound":[{"externalKey":"bad","value":"$submission.Email__c","sortOrder":1}]}'
         );
         insert config;
 
@@ -75,11 +75,18 @@ private class PublicApiStatusUpdateTest {
         update new PublicApi_Submission__c(Id = submission.Id, Status__c = 'Referred Out');
         Test.stopTest();
 
-        Integer deliveryCount = [
-            SELECT COUNT()
+        List<PublicApi_Webhook_Delivery__c> deliveries = [
+            SELECT Status__c, Response_JSON__c
             FROM PublicApi_Webhook_Delivery__c
             WHERE Intake__c = :submission.Id
         ];
-        System.assertEquals(1, deliveryCount);
+        System.assertEquals(1, deliveries.size());
+        System.assertEquals('Failed', deliveries[0].Status__c);
+        String responseJson = String.valueOf(deliveries[0].Response_JSON__c);
+        System.assert(String.isNotBlank(responseJson));
+        System.assert(
+            responseJson.contains('Invalid field reference') ||
+            responseJson.contains('Outbound mapping configuration')
+        );
     }
 }
