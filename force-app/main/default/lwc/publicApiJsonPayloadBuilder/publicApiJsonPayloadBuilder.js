@@ -6,7 +6,8 @@ import savePayloadSettings from '@salesforce/apex/PublicApiPayloadBuilderCtrl.sa
 import saveHeaderSettings from '@salesforce/apex/PublicApiPayloadBuilderCtrl.saveHeaderSettings';
 
 const DEFAULT_CONTENT_TYPE = 'application/json';
-const VALUE_PLACEHOLDER = '$submission.First_Name__c';
+const VALUE_PLACEHOLDER = '$intakes.First_Name__c';
+const INTAKE_REFERENCE_PREFIX = '$intakes.';
 const SUGGESTION_LIMIT = 12;
 
 let headerCounter = 0;
@@ -447,16 +448,12 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         if (!normalizedReference) {
             return null;
         }
-        const referencePrefix = normalizedReference.startsWith('$submission.')
-            ? '$submission.'
-            : normalizedReference.startsWith('$intake.')
-                ? '$intake.'
-                : null;
-        if (!referencePrefix) {
+        const lowerReference = normalizedReference.toLowerCase();
+        if (!lowerReference.startsWith(INTAKE_REFERENCE_PREFIX)) {
             return null;
         }
 
-        const fieldApiName = normalizedReference.substring(referencePrefix.length).toLowerCase();
+        const fieldApiName = normalizedReference.substring(INTAKE_REFERENCE_PREFIX.length).toLowerCase();
         const previewValues = {
             'first_name__c': 'Jane',
             'last_name__c': 'Smith',
@@ -605,7 +602,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             if (hasAnyValue && !(row?.value || '').trim()) {
                 message = 'Value is required.';
             } else if ((row?.value || '').trim() && !this.isValidFieldReference(row.value)) {
-                message = 'Enter a valid submission field reference, for example $submission.First_Name__c.';
+                message = 'Enter a valid intake field reference, for example $intakes.First_Name__c.';
             }
             input.setCustomValidity(message);
             input.reportValidity();

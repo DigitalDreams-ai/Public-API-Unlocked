@@ -14,18 +14,17 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertNotEquals(null, initialSettings.defaultJson);
 
         String configJson =
-            '{"inbound":[{"externalKey":"first_name","value":"$submission.First_Name__c","sortOrder":1}],' +
-            '"outbound":[{"externalKey":"first_name","value":"$submission.First_Name__c","sortOrder":1}]}';
+            '{"inbound":[{"externalKey":"first_name","value":"$intakes.First_Name__c","sortOrder":1}],' +
+            '"outbound":[{"externalKey":"first_name","value":"$intakes.First_Name__c","sortOrder":1}]}';
 
         PublicApiPayloadBuilderCtrl.savePayloadSettings(config.Id, true, configJson);
 
         PublicApi_Integration_Config__c updated = [
-            SELECT Request_Field_Mappings__c, Sync_Inbound_And_Outbound__c
+            SELECT Outbound_Payload_Configuration__c
             FROM PublicApi_Integration_Config__c
             WHERE Id = :config.Id
         ];
-        System.assertEquals(configJson, updated.Request_Field_Mappings__c);
-        System.assertEquals(true, updated.Sync_Inbound_And_Outbound__c);
+        System.assertEquals(configJson, updated.Outbound_Payload_Configuration__c);
     }
 
     @IsTest

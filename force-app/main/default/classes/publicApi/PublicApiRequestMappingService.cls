@@ -2,9 +2,8 @@ public without sharing class PublicApiRequestMappingService {
     @TestVisible static final String DIRECTION_INBOUND = 'Inbound';
     @TestVisible static final String DIRECTION_OUTBOUND = 'Outbound';
     @TestVisible static final String DIRECTION_BOTH = 'Both';
-    @TestVisible static final String RECORD_REFERENCE_PREFIX = '$submission.';
-    @TestVisible static final String LEGACY_REFERENCE_PREFIX = '$intake.';
     @TestVisible static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
+    @TestVisible static final String RECORD_REFERENCE_PREFIX = '$intakes.';
 
     public class MappingConfig {
         @AuraEnabled public String externalKey;
@@ -26,30 +25,30 @@ public without sharing class PublicApiRequestMappingService {
 
     @TestVisible
     static final List<MappingConfig> DEFAULT_INBOUND_MAPPINGS = new List<MappingConfig>{
-        new MappingConfig('name', '$submission.First_Name__c', 10),
-        new MappingConfig('first_name', '$submission.First_Name__c', 20),
-        new MappingConfig('last_name', '$submission.Last_Name__c', 30),
-        new MappingConfig('email', '$submission.Email__c', 40),
-        new MappingConfig('phone_number', '$submission.Phone__c', 50),
-        new MappingConfig('phone', '$submission.Phone__c', 60),
-        new MappingConfig('how_can_we_help_you', '$submission.Description__c', 70),
-        new MappingConfig('description', '$submission.Description__c', 80),
-        new MappingConfig('page_url', '$submission.Page_URL__c', 90),
-        new MappingConfig('utm_source', '$submission.UTM_Source__c', 100),
-        new MappingConfig('utm_medium', '$submission.UTM_Medium__c', 110),
-        new MappingConfig('campaignid', '$submission.Campaign_Id__c', 120),
-        new MappingConfig('utm_content', '$submission.UTM_Content__c', 130),
-        new MappingConfig('gclid', '$submission.GCLID__c', 140)
+        new MappingConfig('name', '$intakes.First_Name__c', 10),
+        new MappingConfig('first_name', '$intakes.First_Name__c', 20),
+        new MappingConfig('last_name', '$intakes.Last_Name__c', 30),
+        new MappingConfig('email', '$intakes.Email__c', 40),
+        new MappingConfig('phone_number', '$intakes.Phone__c', 50),
+        new MappingConfig('phone', '$intakes.Phone__c', 60),
+        new MappingConfig('how_can_we_help_you', '$intakes.Description__c', 70),
+        new MappingConfig('description', '$intakes.Description__c', 80),
+        new MappingConfig('page_url', '$intakes.Page_URL__c', 90),
+        new MappingConfig('utm_source', '$intakes.UTM_Source__c', 100),
+        new MappingConfig('utm_medium', '$intakes.UTM_Medium__c', 110),
+        new MappingConfig('campaignid', '$intakes.Campaign_Id__c', 120),
+        new MappingConfig('utm_content', '$intakes.UTM_Content__c', 130),
+        new MappingConfig('gclid', '$intakes.GCLID__c', 140)
     };
 
     @TestVisible
     static final List<MappingConfig> DEFAULT_OUTBOUND_MAPPINGS = new List<MappingConfig>{
-        new MappingConfig('name', '$submission.First_Name__c', 10),
-        new MappingConfig('last_name', '$submission.Last_Name__c', 20),
-        new MappingConfig('email', '$submission.Email__c', 30),
-        new MappingConfig('phone', '$submission.Phone__c', 40),
-        new MappingConfig('gclid', '$submission.GCLID__c', 50),
-        new MappingConfig('createdDate', '$submission.CreatedDate', 60)
+        new MappingConfig('name', '$intakes.First_Name__c', 10),
+        new MappingConfig('last_name', '$intakes.Last_Name__c', 20),
+        new MappingConfig('email', '$intakes.Email__c', 30),
+        new MappingConfig('phone', '$intakes.Phone__c', 40),
+        new MappingConfig('gclid', '$intakes.GCLID__c', 50),
+        new MappingConfig('createdDate', '$intakes.CreatedDate', 60)
     };
 
     public static String getDefaultDirection() {
@@ -215,11 +214,8 @@ public without sharing class PublicApiRequestMappingService {
             return null;
         }
         String trimmed = fieldReference.trim();
-        if (trimmed.startsWith(RECORD_REFERENCE_PREFIX)) {
+        if (trimmed.toLowerCase().startsWith(RECORD_REFERENCE_PREFIX)) {
             return trimmed.substring(RECORD_REFERENCE_PREFIX.length());
-        }
-        if (trimmed.startsWith(LEGACY_REFERENCE_PREFIX)) {
-            return trimmed.substring(LEGACY_REFERENCE_PREFIX.length());
         }
         return null;
     }

@@ -22,8 +22,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         }
 
         List<PublicApi_Integration_Config__c> records = [
-            SELECT Sync_Inbound_And_Outbound__c,
-                   Request_Field_Mappings__c
+            SELECT Outbound_Payload_Configuration__c
             FROM PublicApi_Integration_Config__c
             WHERE Id = :recordId
             LIMIT 1
@@ -33,8 +32,8 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         }
 
         PayloadSettings settings = new PayloadSettings();
-        settings.syncInboundAndOutbound = records[0].Sync_Inbound_And_Outbound__c;
-        settings.configurationJson = records[0].Request_Field_Mappings__c;
+        settings.configurationJson = records[0].Outbound_Payload_Configuration__c;
+        settings.syncInboundAndOutbound = inferSyncInboundAndOutbound(settings.configurationJson);
         settings.defaultJson = PublicApiRequestMappingService.getDefaultMappingsJson();
         settings.availableFieldReferences = PublicApiRequestMappingService.getAvailableFieldReferences();
         return settings;
@@ -84,8 +83,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
 
         update new PublicApi_Integration_Config__c(
             Id = recordId,
-            Sync_Inbound_And_Outbound__c = syncInboundAndOutbound,
-            Request_Field_Mappings__c = String.isNotBlank(configJson) ? configJson : null
+            Outbound_Payload_Configuration__c = String.isNotBlank(configJson) ? configJson : null
         );
     }
 
@@ -175,5 +173,47 @@ public with sharing class PublicApiPayloadBuilderCtrl {
 
     private static String normalizeBlank(String value) {
         return String.isBlank(value) ? null : value.trim();
+    }
+
+    @TestVisible
+    private static Boolean inferSyncInboundAndOutbound(String configJson) {
+        if (String.isBlank(configJson)) {
+            return true;
+        }
+
+        try {
+            PublicApiRequestMappingService.MappingConfiguration config =
+                PublicApiRequestMappingService.parseConfiguration(configJson);
+            return areMappingsEquivalent(config.inboundMappings, config.outboundMappings);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static Boolean areMappingsEquivalent(
+        List<PublicApiRequestMappingService.MappingConfig> left,
+        List<PublicApiRequestMappingService.MappingConfig> right
+    ) {
+        List<PublicApiRequestMappingService.MappingConfig> safeLeft =
+            left == null ? new List<PublicApiRequestMappingService.MappingConfig>() : left;
+        List<PublicApiRequestMappingService.MappingConfig> safeRight =
+            right == null ? new List<PublicApiRequestMappingService.MappingConfig>() : right;
+        if (safeLeft.size() != safeRight.size()) {
+            return false;
+        }
+
+        for (Integer index = 0; index < safeLeft.size(); index++) {
+            PublicApiRequestMappingService.MappingConfig leftRow = safeLeft[index];
+            PublicApiRequestMappingService.MappingConfig rightRow = safeRight[index];
+            if (!String.valueOf(leftRow == null ? null : leftRow.externalKey)
+                    .equalsIgnoreCase(String.valueOf(rightRow == null ? null : rightRow.externalKey))) {
+                return false;
+            }
+            if (!String.valueOf(leftRow == null ? null : leftRow.value)
+                    .equalsIgnoreCase(String.valueOf(rightRow == null ? null : rightRow.value))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -34,7 +34,7 @@ public without sharing class PublicApiConfigService {
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Request_Field_Mappings__c
+                   Outbound_Payload_Configuration__c
             FROM PublicApi_Integration_Config__c
             WHERE Is_Active__c = true
             AND API_Key__c = :apiKey.trim()
@@ -68,7 +68,7 @@ public without sharing class PublicApiConfigService {
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Request_Field_Mappings__c
+                   Outbound_Payload_Configuration__c
             FROM PublicApi_Integration_Config__c
             WHERE Id = :configId
             AND Is_Active__c = true
@@ -94,7 +94,7 @@ public without sharing class PublicApiConfigService {
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Request_Field_Mappings__c
+                   Outbound_Payload_Configuration__c
             FROM PublicApi_Integration_Config__c
             WHERE Id IN :configIds
             AND Is_Active__c = true
@@ -116,7 +116,7 @@ public without sharing class PublicApiConfigService {
         c.outboundHeaderValue = setting.Outbound_Header_Value__c;
         c.outboundAdditionalHeadersJson = setting.Outbound_Additional_Headers_JSON__c;
         c.outboundContentType = setting.Outbound_Content_Type__c;
-        c.requestFieldMappingsConfiguration = setting.Request_Field_Mappings__c;
+        c.requestFieldMappingsConfiguration = setting.Outbound_Payload_Configuration__c;
         return c;
     }
 }

@@ -89,6 +89,16 @@
                 <identifier>RecordReferred_By_Party_Name_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Webhook_Secret__c</fieldItem>
+                <identifier>RecordWebhook_Secret_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-c463296a-a8bc-4589-b5cc-897695b84374</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -148,7 +158,7 @@
                     <value>none</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.Outbound_Webhook_URL__c</fieldItem>
-                <identifier>RecordStatus_Update_Webhook_URL_cField</identifier>
+                <identifier>RecordOutbound_Webhook_URL_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <itemInstances>
@@ -158,7 +168,7 @@
                     <value>none</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.Outbound_Webhook_Secret__c</fieldItem>
-                <identifier>RecordStatus_Update_Webhook_Secret_cField</identifier>
+                <identifier>RecordOutbound_Webhook_Secret_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <name>Facet-outboundLeft</name>

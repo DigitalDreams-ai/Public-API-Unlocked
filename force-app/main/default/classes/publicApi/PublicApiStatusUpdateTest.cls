@@ -17,8 +17,8 @@ private class PublicApiStatusUpdateTest {
             Is_Active__c = true,
             API_Key__c = 'status-test-key-1',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
-            Request_Field_Mappings__c =
-                '{"inbound":[],"outbound":[{"externalKey":"email","value":"$submission.Email__c","sortOrder":1}]}'
+            Outbound_Payload_Configuration__c =
+                '{"inbound":[],"outbound":[{"externalKey":"email","value":"$intakes.Email__c","sortOrder":1}]}'
         );
         insert config;
 
@@ -56,8 +56,8 @@ private class PublicApiStatusUpdateTest {
             Is_Active__c = true,
             API_Key__c = 'status-test-key-2',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
-            Request_Field_Mappings__c =
-                '{"inbound":[],"outbound":[{"externalKey":"bad","value":"$submission.Does_Not_Exist__c","sortOrder":1}]}'
+            Outbound_Payload_Configuration__c =
+                '{"inbound":[],"outbound":[{"externalKey":"bad","value":"$intakes.Does_Not_Exist__c","sortOrder":1}]}'
         );
         insert config;
 

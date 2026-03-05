@@ -49,11 +49,6 @@ global with sharing class PublicApiIntakeApi {
         }
     }
 
-    // Backward-compatible method name retained for older tests/callers.
-    global static void createIntake() {
-        createSubmission();
-    }
-
     @TestVisible
     private static Map<String, Object> parsePayload(String requestBody, String contentType) {
         if (String.isBlank(requestBody)) {

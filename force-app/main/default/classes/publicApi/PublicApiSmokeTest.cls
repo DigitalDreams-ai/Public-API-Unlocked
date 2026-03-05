@@ -17,9 +17,9 @@ private class PublicApiSmokeTest {
             Is_Active__c = true,
             API_Key__c = 'smoke-key',
             Outbound_Webhook_URL__c = 'https://example.com/smoke-webhook',
-            Request_Field_Mappings__c =
-                '{"inbound":[{"externalKey":"email","value":"$submission.Email__c","sortOrder":1}],' +
-                '"outbound":[{"externalKey":"email","value":"$submission.Email__c","sortOrder":1}]}'
+            Outbound_Payload_Configuration__c =
+                '{"inbound":[{"externalKey":"email","value":"$intakes.Email__c","sortOrder":1}],' +
+                '"outbound":[{"externalKey":"email","value":"$intakes.Email__c","sortOrder":1}]}'
         );
         insert config;
 
