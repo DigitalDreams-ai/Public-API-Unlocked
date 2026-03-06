@@ -99,6 +99,26 @@
                 <identifier>RecordWebhook_Secret_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Inbound_Target_Object_API_Name__c</fieldItem>
+                <identifier>RecordInbound_Target_Object_API_Name_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Outbound_Source_Object_API_Name__c</fieldItem>
+                <identifier>RecordOutbound_Source_Object_API_Name_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-c463296a-a8bc-4589-b5cc-897695b84374</name>
         <type>Facet</type>
     </flexiPageRegions>

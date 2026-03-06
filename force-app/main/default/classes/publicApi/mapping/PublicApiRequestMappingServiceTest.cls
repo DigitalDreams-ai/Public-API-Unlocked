@@ -11,9 +11,9 @@ private class PublicApiRequestMappingServiceTest {
 
         String mappingsJson =
             '{"inbound":[' +
-                '{"externalKey":"name","value":"$intakes.First_Name__c","sortOrder":1},' +
-                '{"externalKey":"last_name","value":"$intakes.Last_Name__c","sortOrder":2},' +
-                '{"externalKey":"email","value":"$intakes.Email__c","sortOrder":3}' +
+                '{"externalKey":"name","value":"$PublicApi_Submission__c.First_Name__c","sortOrder":1},' +
+                '{"externalKey":"last_name","value":"$PublicApi_Submission__c.Last_Name__c","sortOrder":2},' +
+                '{"externalKey":"email","value":"$PublicApi_Submission__c.Email__c","sortOrder":3}' +
             '],"outbound":[]}';
 
         PublicApiRequestMappingService.applyInboundMappings(
@@ -44,8 +44,8 @@ private class PublicApiRequestMappingServiceTest {
 
         String mappingsJson =
             '{"inbound":[],"outbound":[' +
-                '{"externalKey":"first_name","value":"$intakes.First_Name__c","sortOrder":1},' +
-                '{"externalKey":"createdDate","value":"$intakes.CreatedDate","sortOrder":2}' +
+                '{"externalKey":"first_name","value":"$PublicApi_Submission__c.First_Name__c","sortOrder":1},' +
+                '{"externalKey":"createdDate","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":2}' +
             ']}';
 
         Map<String, Object> payload = PublicApiRequestMappingService.buildOutboundPayload(
@@ -74,7 +74,7 @@ private class PublicApiRequestMappingServiceTest {
 
         String mappingsJson =
             '{"inbound":[' +
-                '{"externalKey":"contact.email","value":"$intakes.Email__c","sortOrder":1}' +
+                '{"externalKey":"contact.email","value":"$PublicApi_Submission__c.Email__c","sortOrder":1}' +
             '],"outbound":[]}';
 
         PublicApiRequestMappingService.applyInboundMappings(
@@ -96,7 +96,7 @@ private class PublicApiRequestMappingServiceTest {
 
         String mappingsJson =
             '{"inbound":[' +
-                '{"externalKey":"email","value":"$intakes.Email__c","sortOrder":1}' +
+                '{"externalKey":"email","value":"$PublicApi_Submission__c.Email__c","sortOrder":1}' +
             '],"outbound":[]}';
 
         PublicApiRequestMappingService.applyInboundMappings(
@@ -126,7 +126,10 @@ private class PublicApiRequestMappingServiceTest {
             );
             System.assert(false, 'Expected non-canonical prefixes to be rejected.');
         } catch (PublicApiIntakeServiceException e) {
-            System.assert(e.getMessage().contains('Invalid field reference'));
+            System.assert(
+                e.getMessage().contains('Invalid field reference') ||
+                e.getMessage().contains('does not match configured object')
+            );
         }
     }
 }

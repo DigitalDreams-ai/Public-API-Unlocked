@@ -14,10 +14,16 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertNotEquals(null, initialSettings.defaultJson);
 
         String configJson =
-            '{"inbound":[{"externalKey":"first_name","value":"$intakes.First_Name__c","sortOrder":1}],' +
-            '"outbound":[{"externalKey":"first_name","value":"$intakes.First_Name__c","sortOrder":1}]}';
+            '{"inbound":[{"externalKey":"first_name","value":"$PublicApi_Submission__c.First_Name__c","sortOrder":1}],' +
+            '"outbound":[{"externalKey":"first_name","value":"$PublicApi_Submission__c.First_Name__c","sortOrder":1}]}';
 
-        PublicApiPayloadBuilderCtrl.savePayloadSettings(config.Id, true, configJson);
+        PublicApiPayloadBuilderCtrl.savePayloadSettings(
+            config.Id,
+            true,
+            'PublicApi_Submission__c',
+            'PublicApi_Submission__c',
+            configJson
+        );
 
         PublicApi_Integration_Config__c updated = [
             SELECT Outbound_Payload_Configuration__c
@@ -62,7 +68,13 @@ private class PublicApiPayloadBuilderCtrlTest {
         insert config;
 
         try {
-            PublicApiPayloadBuilderCtrl.savePayloadSettings(config.Id, true, '{ bad }');
+            PublicApiPayloadBuilderCtrl.savePayloadSettings(
+                config.Id,
+                true,
+                'PublicApi_Submission__c',
+                'PublicApi_Submission__c',
+                '{ bad }'
+            );
             System.assert(false, 'Expected AuraHandledException for invalid JSON.');
         } catch (AuraHandledException e) {
             System.assert(e.getMessage().contains('Invalid JSON'));

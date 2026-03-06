@@ -175,7 +175,7 @@ private class PublicApiIntakeApiTest {
             Is_Active__c = true,
             API_Key__c = 'api-test-key-6',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[{"externalKey":"name","value":"$intakes.Does_Not_Exist__c","sortOrder":1}],"outbound":[]}'
+                '{"inbound":[{"externalKey":"name","value":"$PublicApi_Submission__c.Does_Not_Exist__c","sortOrder":1}],"outbound":[]}'
         );
         insert config;
 

@@ -72,6 +72,16 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>PublicApi_Integration_Config__c.Inbound_Target_Object_API_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PublicApi_Integration_Config__c.Outbound_Source_Object_API_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>PublicApi_Integration_Config__c.Last_Webhook_Delivery_Attempt__c</field>
         <readable>true</readable>
     </fieldPermissions>

@@ -1,6 +1,5 @@
 public without sharing class PublicApiStatusUpdateQueueable implements Queueable, Database.AllowsCallouts {
     @TestVisible static final Integer MAX_DELIVERIES_PER_JOB = 90;
-    @TestVisible static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
 
     public class DeliveryItem {
         public Id recordId;
@@ -166,7 +165,7 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
         List<DeliveryItem> items,
         Map<Id, PublicApiConfigService.Config> configsById
     ) {
-        return PublicApiStatusUpdateDeliveryService.queryRecords(items, configsById, SUBMISSION_OBJECT_API_NAME);
+        return PublicApiStatusUpdateDeliveryService.queryRecords(items, configsById);
     }
 
     private static Map<Id, PublicApiConfigService.Config> resolveConfigsById(List<DeliveryItem> items) {

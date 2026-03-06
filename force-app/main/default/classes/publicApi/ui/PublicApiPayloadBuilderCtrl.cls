@@ -3,7 +3,11 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         @AuraEnabled public Boolean syncInboundAndOutbound;
         @AuraEnabled public String configurationJson;
         @AuraEnabled public String defaultJson;
-        @AuraEnabled public List<String> availableFieldReferences;
+        @AuraEnabled public String inboundTargetObjectApiName;
+        @AuraEnabled public String outboundSourceObjectApiName;
+        @AuraEnabled public List<String> availableObjectApiNames;
+        @AuraEnabled public List<String> availableInboundFieldReferences;
+        @AuraEnabled public List<String> availableOutboundFieldReferences;
     }
 
     public class HeaderSettings {
@@ -31,8 +35,22 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         settings.syncInboundAndOutbound = PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(
             settings.configurationJson
         );
+        settings.inboundTargetObjectApiName = String.isBlank(record.Inbound_Target_Object_API_Name__c)
+            ? PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME
+            : record.Inbound_Target_Object_API_Name__c.trim();
+        settings.outboundSourceObjectApiName = String.isBlank(record.Outbound_Source_Object_API_Name__c)
+            ? PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME
+            : record.Outbound_Source_Object_API_Name__c.trim();
         settings.defaultJson = PublicApiPayloadTemplateService.getDefaultMappingsJson();
-        settings.availableFieldReferences = PublicApiPayloadTemplateService.getAvailableFieldReferences();
+        settings.availableObjectApiNames = PublicApiPayloadTemplateService.getAvailableObjectApiNames();
+        settings.availableInboundFieldReferences = PublicApiPayloadTemplateService.getAvailableFieldReferences(
+            settings.inboundTargetObjectApiName,
+            true
+        );
+        settings.availableOutboundFieldReferences = PublicApiPayloadTemplateService.getAvailableFieldReferences(
+            settings.outboundSourceObjectApiName,
+            false
+        );
         return settings;
     }
 
@@ -57,18 +75,46 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         return settings;
     }
 
+    @AuraEnabled(cacheable=true)
+    public static List<String> getFieldReferences(String objectApiName, Boolean inboundMode) {
+        if (String.isBlank(objectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableFieldReferences(objectApiName.trim(), inboundMode);
+    }
+
     @AuraEnabled
-    public static void savePayloadSettings(Id recordId, Boolean syncInboundAndOutbound, String configJson) {
+    public static void savePayloadSettings(
+        Id recordId,
+        Boolean syncInboundAndOutbound,
+        String inboundTargetObjectApiName,
+        String outboundSourceObjectApiName,
+        String configJson
+    ) {
         if (recordId == null) {
             AuraHandledException ex = new AuraHandledException('Record ID is required.');
             ex.setMessage('Record ID is required.');
             throw ex;
         }
 
-        validateMappingConfigurationJson(configJson);
+        String normalizedInboundObjectApiName = normalizeObjectApiName(
+            inboundTargetObjectApiName,
+            'Inbound target object API name is required.'
+        );
+        String normalizedOutboundObjectApiName = normalizeObjectApiName(
+            outboundSourceObjectApiName,
+            'Outbound source object API name is required.'
+        );
+        validateMappingConfigurationJson(
+            configJson,
+            normalizedInboundObjectApiName,
+            normalizedOutboundObjectApiName
+        );
 
         update new PublicApi_Integration_Config__c(
             Id = recordId,
+            Inbound_Target_Object_API_Name__c = normalizedInboundObjectApiName,
+            Outbound_Source_Object_API_Name__c = normalizedOutboundObjectApiName,
             Outbound_Payload_Configuration__c = String.isNotBlank(configJson) ? configJson : null
         );
     }
@@ -126,7 +172,11 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         }
     }
 
-    private static void validateMappingConfigurationJson(String configJson) {
+    private static void validateMappingConfigurationJson(
+        String configJson,
+        String inboundTargetObjectApiName,
+        String outboundSourceObjectApiName
+    ) {
         if (String.isBlank(configJson)) {
             return;
         }
@@ -143,7 +193,9 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             }
             PublicApiRequestMappingService.validateMappings(
                 configJson,
-                PublicApiRequestMappingService.getDefaultDirection()
+                PublicApiRequestMappingService.getDefaultDirection(),
+                inboundTargetObjectApiName,
+                outboundSourceObjectApiName
             );
         } catch (JSONException e) {
             String message = 'Invalid JSON: ' + e.getMessage();
@@ -159,6 +211,23 @@ public with sharing class PublicApiPayloadBuilderCtrl {
 
     private static String normalizeBlank(String value) {
         return String.isBlank(value) ? null : value.trim();
+    }
+
+    private static String normalizeObjectApiName(String objectApiName, String requiredMessage) {
+        String normalized = normalizeBlank(objectApiName);
+        if (String.isBlank(normalized)) {
+            AuraHandledException ex = new AuraHandledException(requiredMessage);
+            ex.setMessage(requiredMessage);
+            throw ex;
+        }
+
+        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+        if (!globalDescribe.containsKey(normalized)) {
+            AuraHandledException ex = new AuraHandledException('Unknown object API name: ' + normalized);
+            ex.setMessage('Unknown object API name: ' + normalized);
+            throw ex;
+        }
+        return normalized;
     }
 
 }

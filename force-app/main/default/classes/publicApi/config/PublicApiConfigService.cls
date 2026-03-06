@@ -3,6 +3,8 @@
  * Intake creation authenticates requests by matching the supplied API key to one active config record.
  */
 public without sharing class PublicApiConfigService {
+    @TestVisible
+    public static final String DEFAULT_SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
 
     public class Config {
         public Id id;
@@ -16,6 +18,8 @@ public without sharing class PublicApiConfigService {
         public String outboundAdditionalHeadersJson;
         public String outboundContentType;
         public String requestFieldMappingsConfiguration;
+        public String inboundTargetObjectApiName;
+        public String outboundSourceObjectApiName;
     }
 
     public static Config getConfigForApiKey(String apiKey) {
@@ -66,6 +70,12 @@ public without sharing class PublicApiConfigService {
         c.outboundAdditionalHeadersJson = setting.Outbound_Additional_Headers_JSON__c;
         c.outboundContentType = setting.Outbound_Content_Type__c;
         c.requestFieldMappingsConfiguration = setting.Outbound_Payload_Configuration__c;
+        c.inboundTargetObjectApiName = String.isBlank(setting.Inbound_Target_Object_API_Name__c)
+            ? DEFAULT_SUBMISSION_OBJECT_API_NAME
+            : setting.Inbound_Target_Object_API_Name__c.trim();
+        c.outboundSourceObjectApiName = String.isBlank(setting.Outbound_Source_Object_API_Name__c)
+            ? DEFAULT_SUBMISSION_OBJECT_API_NAME
+            : setting.Outbound_Source_Object_API_Name__c.trim();
         return c;
     }
 }

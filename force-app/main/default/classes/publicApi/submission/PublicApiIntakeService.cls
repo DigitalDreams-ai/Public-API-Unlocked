@@ -1,7 +1,5 @@
 public without sharing class PublicApiIntakeService {
     @TestVisible
-    static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
-    @TestVisible
     static final Integer RAW_PAYLOAD_MAX_LENGTH = 131072;
     @TestVisible
     static final String DIRECTION_INBOUND = 'Inbound';
@@ -20,17 +18,27 @@ public without sharing class PublicApiIntakeService {
         }
 
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-        if (!globalDescribe.containsKey(SUBMISSION_OBJECT_API_NAME)) {
-            throw new PublicApiIntakeServiceException('Submission object not found: ' + SUBMISSION_OBJECT_API_NAME);
+        String inboundTargetObjectApiName = String.isBlank(config.inboundTargetObjectApiName)
+            ? PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME
+            : config.inboundTargetObjectApiName.trim();
+        if (!globalDescribe.containsKey(inboundTargetObjectApiName)) {
+            throw new PublicApiIntakeServiceException('Submission object not found: ' + inboundTargetObjectApiName);
         }
-        validateInboundMappings(config.requestFieldMappingsConfiguration);
+        validateInboundMappings(config.requestFieldMappingsConfiguration, inboundTargetObjectApiName);
+        Schema.DescribeSObjectResult objectDescribe = globalDescribe.get(inboundTargetObjectApiName).getDescribe();
+        if (!objectDescribe.isCreateable()) {
+            throw new PublicApiIntakeServiceException(
+                'Configured inbound target object is not createable: ' + inboundTargetObjectApiName
+            );
+        }
 
-        SObject submission = globalDescribe.get(SUBMISSION_OBJECT_API_NAME).newSObject();
+        SObject submission = globalDescribe.get(inboundTargetObjectApiName).newSObject();
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             payload,
             config.requestFieldMappingsConfiguration,
-            PublicApiRequestMappingService.getDefaultDirection()
+            PublicApiRequestMappingService.getDefaultDirection(),
+            inboundTargetObjectApiName
         );
 
         putIfFieldExists(submission, 'PublicApi_Integration_Config__c', config.id);
@@ -80,14 +88,19 @@ public without sharing class PublicApiIntakeService {
     }
 
     @TestVisible
-    private static void validateInboundMappings(String mappingConfigurationJson) {
+    private static void validateInboundMappings(String mappingConfigurationJson, String inboundTargetObjectApiName) {
         if (String.isBlank(mappingConfigurationJson)) {
             throw new PublicApiIntakeServiceException(
                 'Inbound mapping configuration is required on Public API Integration Config.'
             );
         }
         try {
-            PublicApiRequestMappingService.validateMappings(mappingConfigurationJson, DIRECTION_INBOUND);
+            PublicApiRequestMappingService.validateMappings(
+                mappingConfigurationJson,
+                DIRECTION_INBOUND,
+                inboundTargetObjectApiName,
+                null
+            );
         } catch (PublicApiIntakeServiceException e) {
             throw new PublicApiIntakeServiceException('Inbound mapping configuration is invalid: ' + e.getMessage());
         }

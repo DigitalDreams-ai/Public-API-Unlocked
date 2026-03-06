@@ -1,56 +1,91 @@
 public without sharing class PublicApiPayloadTemplateService {
     @TestVisible static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
-    @TestVisible static final String RECORD_REFERENCE_PREFIX = '$intakes.';
 
     @TestVisible
     static final List<PublicApiRequestMappingService.MappingConfig> DEFAULT_INBOUND_MAPPINGS =
         new List<PublicApiRequestMappingService.MappingConfig>{
-            new PublicApiRequestMappingService.MappingConfig('name', '$intakes.First_Name__c', 10),
-            new PublicApiRequestMappingService.MappingConfig('first_name', '$intakes.First_Name__c', 20),
-            new PublicApiRequestMappingService.MappingConfig('last_name', '$intakes.Last_Name__c', 30),
-            new PublicApiRequestMappingService.MappingConfig('email', '$intakes.Email__c', 40),
-            new PublicApiRequestMappingService.MappingConfig('phone_number', '$intakes.Phone__c', 50),
-            new PublicApiRequestMappingService.MappingConfig('phone', '$intakes.Phone__c', 60),
-            new PublicApiRequestMappingService.MappingConfig('how_can_we_help_you', '$intakes.Description__c', 70),
-            new PublicApiRequestMappingService.MappingConfig('description', '$intakes.Description__c', 80),
-            new PublicApiRequestMappingService.MappingConfig('page_url', '$intakes.Page_URL__c', 90),
-            new PublicApiRequestMappingService.MappingConfig('utm_source', '$intakes.UTM_Source__c', 100),
-            new PublicApiRequestMappingService.MappingConfig('utm_medium', '$intakes.UTM_Medium__c', 110),
-            new PublicApiRequestMappingService.MappingConfig('campaignid', '$intakes.Campaign_Id__c', 120),
-            new PublicApiRequestMappingService.MappingConfig('utm_content', '$intakes.UTM_Content__c', 130),
-            new PublicApiRequestMappingService.MappingConfig('gclid', '$intakes.GCLID__c', 140)
+            new PublicApiRequestMappingService.MappingConfig('name', '$PublicApi_Submission__c.First_Name__c', 10),
+            new PublicApiRequestMappingService.MappingConfig('first_name', '$PublicApi_Submission__c.First_Name__c', 20),
+            new PublicApiRequestMappingService.MappingConfig('last_name', '$PublicApi_Submission__c.Last_Name__c', 30),
+            new PublicApiRequestMappingService.MappingConfig('email', '$PublicApi_Submission__c.Email__c', 40),
+            new PublicApiRequestMappingService.MappingConfig('phone_number', '$PublicApi_Submission__c.Phone__c', 50),
+            new PublicApiRequestMappingService.MappingConfig('phone', '$PublicApi_Submission__c.Phone__c', 60),
+            new PublicApiRequestMappingService.MappingConfig('how_can_we_help_you', '$PublicApi_Submission__c.Description__c', 70),
+            new PublicApiRequestMappingService.MappingConfig('description', '$PublicApi_Submission__c.Description__c', 80),
+            new PublicApiRequestMappingService.MappingConfig('page_url', '$PublicApi_Submission__c.Page_URL__c', 90),
+            new PublicApiRequestMappingService.MappingConfig('utm_source', '$PublicApi_Submission__c.UTM_Source__c', 100),
+            new PublicApiRequestMappingService.MappingConfig('utm_medium', '$PublicApi_Submission__c.UTM_Medium__c', 110),
+            new PublicApiRequestMappingService.MappingConfig('campaignid', '$PublicApi_Submission__c.Campaign_Id__c', 120),
+            new PublicApiRequestMappingService.MappingConfig('utm_content', '$PublicApi_Submission__c.UTM_Content__c', 130),
+            new PublicApiRequestMappingService.MappingConfig('gclid', '$PublicApi_Submission__c.GCLID__c', 140)
         };
 
     @TestVisible
     static final List<PublicApiRequestMappingService.MappingConfig> DEFAULT_OUTBOUND_MAPPINGS =
         new List<PublicApiRequestMappingService.MappingConfig>{
-            new PublicApiRequestMappingService.MappingConfig('name', '$intakes.First_Name__c', 10),
-            new PublicApiRequestMappingService.MappingConfig('last_name', '$intakes.Last_Name__c', 20),
-            new PublicApiRequestMappingService.MappingConfig('email', '$intakes.Email__c', 30),
-            new PublicApiRequestMappingService.MappingConfig('phone', '$intakes.Phone__c', 40),
-            new PublicApiRequestMappingService.MappingConfig('gclid', '$intakes.GCLID__c', 50),
-            new PublicApiRequestMappingService.MappingConfig('createdDate', '$intakes.CreatedDate', 60)
+            new PublicApiRequestMappingService.MappingConfig('name', '$PublicApi_Submission__c.First_Name__c', 10),
+            new PublicApiRequestMappingService.MappingConfig('last_name', '$PublicApi_Submission__c.Last_Name__c', 20),
+            new PublicApiRequestMappingService.MappingConfig('email', '$PublicApi_Submission__c.Email__c', 30),
+            new PublicApiRequestMappingService.MappingConfig('phone', '$PublicApi_Submission__c.Phone__c', 40),
+            new PublicApiRequestMappingService.MappingConfig('gclid', '$PublicApi_Submission__c.GCLID__c', 50),
+            new PublicApiRequestMappingService.MappingConfig('createdDate', '$PublicApi_Submission__c.CreatedDate', 60)
         };
 
     public static String getDefaultMappingsJson() {
         return JSON.serializePretty(toSerializableMap(getDefaultConfiguration()));
     }
 
-    public static List<String> getAvailableFieldReferences() {
+    public static List<String> getAvailableObjectApiNames() {
+        List<String> objectApiNames = new List<String>();
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-        if (!globalDescribe.containsKey(SUBMISSION_OBJECT_API_NAME)) {
+        if (globalDescribe == null || globalDescribe.isEmpty()) {
+            return objectApiNames;
+        }
+
+        for (String objectApiName : globalDescribe.keySet()) {
+            if (String.isBlank(objectApiName)) {
+                continue;
+            }
+            Schema.DescribeSObjectResult describe = globalDescribe.get(objectApiName).getDescribe();
+            if (describe == null || !describe.isQueryable()) {
+                continue;
+            }
+            if (!describe.isCreateable() && !describe.isUpdateable()) {
+                continue;
+            }
+            objectApiNames.add(describe.getName());
+        }
+        objectApiNames.sort();
+        return objectApiNames;
+    }
+
+    public static List<String> getAvailableFieldReferences(
+        String objectApiName,
+        Boolean inboundMode
+    ) {
+        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+        if (String.isBlank(objectApiName) || !globalDescribe.containsKey(objectApiName)) {
             return new List<String>();
         }
 
         List<String> references = new List<String>();
-        Map<String, Schema.SObjectField> fieldMap =
-            globalDescribe.get(SUBMISSION_OBJECT_API_NAME).getDescribe().fields.getMap();
+        Map<String, Schema.SObjectField> fieldMap = globalDescribe.get(objectApiName).getDescribe().fields.getMap();
         List<String> fieldNames = new List<String>(fieldMap.keySet());
         fieldNames.sort();
         for (String fieldName : fieldNames) {
-            references.add(RECORD_REFERENCE_PREFIX + fieldName);
+            Schema.DescribeFieldResult describe = fieldMap.get(fieldName).getDescribe();
+            if (inboundMode == true && !describe.isCreateable()) {
+                continue;
+            }
+            if (inboundMode == false && !describe.isAccessible()) {
+                continue;
+            }
+            references.add('$' + objectApiName + '.' + fieldName);
         }
-        references.add(RECORD_REFERENCE_PREFIX + 'CreatedDate');
+        if (inboundMode == false) {
+            references.add('$' + objectApiName + '.CreatedDate');
+        }
+        references.sort();
         return references;
     }
 

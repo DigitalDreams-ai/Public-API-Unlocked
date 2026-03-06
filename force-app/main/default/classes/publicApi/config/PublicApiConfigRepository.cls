@@ -17,7 +17,9 @@ public without sharing class PublicApiConfigRepository {
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
+                   Outbound_Payload_Configuration__c,
+                   Inbound_Target_Object_API_Name__c,
+                   Outbound_Source_Object_API_Name__c
             FROM PublicApi_Integration_Config__c
             WHERE Is_Active__c = true
             AND API_Key__c = :trimmedApiKey
@@ -43,7 +45,9 @@ public without sharing class PublicApiConfigRepository {
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
+                   Outbound_Payload_Configuration__c,
+                   Inbound_Target_Object_API_Name__c,
+                   Outbound_Source_Object_API_Name__c
             FROM PublicApi_Integration_Config__c
             WHERE Id = :configId
             LIMIT 1
@@ -73,7 +77,9 @@ public without sharing class PublicApiConfigRepository {
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
+                   Outbound_Payload_Configuration__c,
+                   Inbound_Target_Object_API_Name__c,
+                   Outbound_Source_Object_API_Name__c
             FROM PublicApi_Integration_Config__c
             WHERE Id IN :configIds
             AND Is_Active__c = true

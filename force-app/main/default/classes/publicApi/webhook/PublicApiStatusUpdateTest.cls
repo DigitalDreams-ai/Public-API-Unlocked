@@ -32,7 +32,7 @@ private class PublicApiStatusUpdateTest {
             API_Key__c = 'status-test-key-1',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[],"outbound":[{"externalKey":"email","value":"$intakes.Email__c","sortOrder":1}]}'
+                '{"inbound":[],"outbound":[{"externalKey":"email","value":"$PublicApi_Submission__c.Email__c","sortOrder":1}]}'
         );
         insert config;
 
@@ -71,7 +71,7 @@ private class PublicApiStatusUpdateTest {
             API_Key__c = 'status-test-key-2',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[],"outbound":[{"externalKey":"bad","value":"$submission.Email__c","sortOrder":1}]}'
+                '{"inbound":[],"outbound":[{"externalKey":"bad","value":"$Account.Name","sortOrder":1}]}'
         );
         insert config;
 
@@ -100,7 +100,8 @@ private class PublicApiStatusUpdateTest {
         System.assert(String.isNotBlank(responseJson));
         System.assert(
             responseJson.contains('Invalid field reference') ||
-            responseJson.contains('Outbound mapping configuration')
+            responseJson.contains('Outbound mapping configuration') ||
+            responseJson.contains('does not match configured object')
         );
     }
 }

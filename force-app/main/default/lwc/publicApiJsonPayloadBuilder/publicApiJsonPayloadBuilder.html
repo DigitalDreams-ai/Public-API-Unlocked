@@ -24,7 +24,7 @@
                                         <div>
                                             <h3 class="slds-text-heading_small">Payload Mappings</h3>
                                             <p class="slds-text-body_small slds-text-color_weak">
-                                                The payload builder is the source of truth for inbound and outbound mappings.<br>Use submission field references like 
+                                                The payload builder is the source of truth for inbound and outbound mappings.<br>Use object field references like 
                                                 <code>{inputValuePlaceholder}</code>.
                                             </p>
                                         </div>
@@ -46,6 +46,23 @@
                                                 checked={syncDirections}
                                                 onchange={handleSyncDirectionsChange}>
                                             </lightning-input>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                            <lightning-combobox
+                                                label="Inbound Target Object"
+                                                value={inboundTargetObjectApiName}
+                                                options={availableObjectApiNames}
+                                                onchange={handleInboundObjectChange}>
+                                            </lightning-combobox>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                            <lightning-combobox
+                                                label="Outbound Source Object"
+                                                value={outboundSourceObjectApiName}
+                                                options={availableObjectApiNames}
+                                                onchange={handleOutboundObjectChange}
+                                                disabled={syncDirections}>
+                                            </lightning-combobox>
                                         </div>
                                     </div>
                                     <div class="builder-help slds-m-top_small">
@@ -101,7 +118,7 @@
                                                                                 data-id={row.id}
                                                                                 type="text"
                                                                                 label="Value"
-                                                                                placeholder={inputValuePlaceholder}
+                                                                                placeholder={inboundValuePlaceholder}
                                                                                 value={row.value}
                                                                                 onfocus={handleMappingValueFocus}
                                                                                 onblur={handleMappingValueBlur}
@@ -126,7 +143,7 @@
                                                                                     </template>
                                                                                     <template if:false={row.hasSuggestions}>
                                                                                         <div class="suggestion-empty">
-                                                                                            No matching submission fields.
+                                                                                            No matching fields for the selected object.
                                                                                         </div>
                                                                                     </template>
                                                                                 </div>
@@ -199,7 +216,7 @@
                                                                                 data-id={row.id}
                                                                                 type="text"
                                                                                 label="Value"
-                                                                                placeholder={inputValuePlaceholder}
+                                                                                placeholder={outboundValuePlaceholder}
                                                                                 value={row.value}
                                                                                 onfocus={handleMappingValueFocus}
                                                                                 onblur={handleMappingValueBlur}
@@ -224,7 +241,7 @@
                                                                                     </template>
                                                                                     <template if:false={row.hasSuggestions}>
                                                                                         <div class="suggestion-empty">
-                                                                                            No matching submission fields.
+                                                                                            No matching fields for the selected object.
                                                                                         </div>
                                                                                     </template>
                                                                                 </div>
