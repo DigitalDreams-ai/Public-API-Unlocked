@@ -5,8 +5,6 @@ project:
         name: PublicApiUnlocked
         name_managed: PublicApi-Unlocked
         api_version: "61.0"
-    dependencies:
-        - github: https://github.com/Nimba-Solutions/Shulman-Core
     #     - version_id: 04t8b000001ZxNVAA0 # FlowActionsBasePack Version: 3.18
     #     - version_id: 04t5G000004fz7mQAA # FlowScreenComponentsBasePack Version: 3.3.4
     #     - version_id: 04t5G0000043xu3QAA # https://unofficialsf.com/from-josh-dayment-improved-file-upload-in-flow-screens/
