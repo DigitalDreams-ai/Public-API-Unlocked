@@ -29,6 +29,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Dependency hygiene check
+        run: python scripts/check_dependency_hygiene.py
+
       - name: Use Node.js 20.x
         uses: actions/setup-node@v3
         with:
