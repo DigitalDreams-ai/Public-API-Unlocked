@@ -24,7 +24,7 @@ Use this sequence for daily development:
 9. Run UAT tests: `cci task run run_tests --org shulman-beta`.
 
 Useful targeted test command while iterating:
-- `sf apex run test -n UnbounceUnlockedServiceTest -r human`
+- `sf apex run test -n PublicApiUnlockedServiceTest -r human`
 
 ## Coding Style & Naming Conventions
 - Use 4-space indentation in Apex and metadata.

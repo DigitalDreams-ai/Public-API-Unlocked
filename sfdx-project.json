@@ -3,10 +3,10 @@
         {
             "path": "force-app",
             "default": true,
-            "package": "Unbounce-Unlocked",
+            "package": "PublicApi-Unlocked",
             "versionName": "ver 1.0",
             "versionNumber": "1.0.0.NEXT",
-            "versionDescription": "Initial version of the Unbounce-Unlocked Package"
+            "versionDescription": "Initial version of the PublicApi-Unlocked Package"
         },
         {
             "path": "unpackaged"

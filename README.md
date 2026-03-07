@@ -56,7 +56,9 @@ We strongly advocate adhering to a "Release Train" development methodology for S
 7. Submit a PR.
 8. Monitor for Success/Failure
 
-To test the Unbounce Intake API in dev via Experience Cloud (guest, no session), see [Experience Cloud site setup for API testing](docs/experience-site-dev-setup.md).
+To test the Public API Intake API in dev via Experience Cloud (guest, no session), see [Experience Cloud site setup for API testing](docs/experience-site-dev-setup.md).
+
+Full API documentation (Shulman-style structure) is available at [docs/content](docs/content/README.md).
 
 ----
 

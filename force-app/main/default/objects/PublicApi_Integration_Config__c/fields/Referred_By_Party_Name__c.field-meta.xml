@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Referred_By_Party_Name__c</fullName>
+    <description>Name of the Party record to set on Referred_By__c (e.g. PMAX-PublicApi). Looked up by Name; leave blank to not set Referred_By.</description>
+    <externalId>false</externalId>
+    <label>Referred By Party Name</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+</CustomField>

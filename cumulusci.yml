@@ -1,9 +1,9 @@
 minimum_cumulusci_version: "3.78.0"
 project:
-    name: Unbounce-Unlocked
+    name: PublicApi-Unlocked
     package:
-        name: UnbounceUnlocked
-        name_managed: Unbounce-Unlocked
+        name: PublicApiUnlocked
+        name_managed: PublicApi-Unlocked
         api_version: "61.0"
     dependencies:
         - github: https://github.com/Nimba-Solutions/Shulman-Core
@@ -20,14 +20,14 @@ project:
 tasks:
     robot:
         options:
-            suites: robot/Unbounce-Unlocked/tests
+            suites: robot/PublicApi-Unlocked/tests
             options:
-                outputdir: robot/Unbounce-Unlocked/results
+                outputdir: robot/PublicApi-Unlocked/results
 
     robot_testdoc:
         options:
-            path: robot/Unbounce-Unlocked/tests
-            output: robot/Unbounce-Unlocked/doc/Unbounce-Unlocked_tests.html
+            path: robot/PublicApi-Unlocked/tests
+            output: robot/PublicApi-Unlocked/doc/PublicApi-Unlocked_tests.html
 
     run_tests:
         options:
@@ -36,20 +36,20 @@ tasks:
     assign_permission_set_groups:
         class_path: cumulusci.tasks.salesforce.users.permsets.AssignPermissionSetGroups
         options:
-            api_names: UnbounceUnlockedAdmin
-            # Note: scripts/setup_new_project.py will permanently replace UnbounceUnlocked 
+            api_names: PublicApiUnlockedAdmin
+            # Note: scripts/setup_new_project.py will permanently replace PublicApiUnlocked 
             # with the package name (e.g., YourProjectName)
             # Transforms are not needed since tokens are replaced permanently
 
-    assign_unbounce_api_guest:
+    assign_publicApi_api_guest:
         class_path: cumulusci.tasks.salesforce.users.permsets.AssignPermissionSets
         options:
-            api_names: UnbounceIntakeApi_Guest
+            api_names: PublicApiIntakeApi_Guest
 
-    set_unbounce_config_org_default:
+    set_publicApi_config_org_default:
         class_path: cumulusci.tasks.apex.anon.AnonymousApexTask
         options:
-            path: scripts/set_unbounce_config_org_default.apex
+            path: scripts/set_publicApi_config_org_default.apex
 
 flows:
     config_dev:
@@ -57,15 +57,15 @@ flows:
             3.0:
                 task: assign_permission_set_groups
             4.0:
-                task: assign_unbounce_api_guest
+                task: assign_publicApi_api_guest
             5.0:
-                task: set_unbounce_config_org_default
+                task: set_publicApi_config_org_default
 
     config_qa:
         steps:
             3.0:
                 task: assign_permission_set_groups
             4.0:
-                task: assign_unbounce_api_guest
+                task: assign_publicApi_api_guest
             5.0:
-                task: set_unbounce_config_org_default
+                task: set_publicApi_config_org_default

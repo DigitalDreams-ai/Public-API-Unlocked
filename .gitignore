@@ -8,7 +8,7 @@
 __pycache__
 
 # Robot Framework results
-robot/Unbounce-Unlocked/results/
+robot/PublicApi-Unlocked/results/
 
 # Salesforce cache
 .sf/
@@ -60,6 +60,9 @@ $RECYCLE.BIN/
 # Ignore contents of docs folder but keep the folder itself
 docs/*
 !docs/.gitkeep
+# Keep API documentation content
+!docs/content/
+!docs/content/**
 # Keep Postman collection and environments for publish-postman workflow
 !docs/postman/
 !docs/postman/**

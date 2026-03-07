@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Error_Code__c</fullName>
+    <label>Error Code</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>MAPPING_ERROR</fullName>
+                <default>false</default>
+                <label>Mapping Error</label>
+            </value>
+            <value>
+                <fullName>AUTH_HEADER_ERROR</fullName>
+                <default>false</default>
+                <label>Auth/Header Error</label>
+            </value>
+            <value>
+                <fullName>REMOTE_SITE_ERROR</fullName>
+                <default>false</default>
+                <label>Remote Site Error</label>
+            </value>
+            <value>
+                <fullName>WEBHOOK_RESPONSE_ERROR</fullName>
+                <default>false</default>
+                <label>Webhook Response Error</label>
+            </value>
+            <value>
+                <fullName>WEBHOOK_CALLOUT_ERROR</fullName>
+                <default>false</default>
+                <label>Webhook Callout Error</label>
+            </value>
+            <value>
+                <fullName>UNKNOWN_ERROR</fullName>
+                <default>false</default>
+                <label>Unknown Error</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
