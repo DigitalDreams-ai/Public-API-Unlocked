@@ -82,6 +82,16 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>PublicApi_Integration_Config__c.Outbound_Trigger_Enabled__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PublicApi_Integration_Config__c.Outbound_Trigger_Status_Values__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>PublicApi_Integration_Config__c.Last_Webhook_Delivery_Attempt__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -102,61 +112,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>PublicApi_Submission__c.First_Name__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Last_Name__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Email__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Phone__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Description__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Page_URL__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.UTM_Source__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.UTM_Medium__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Campaign_Id__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.UTM_Content__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.GCLID__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>PublicApi_Submission__c.Status__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -167,22 +122,17 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>PublicApi_Submission__c.Google_Ads_Conversion_Event__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Google_Ads_Conversion_Time__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>PublicApi_Submission__c.PublicApi_Integration_Config__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
         <field>PublicApi_Submission__c.Raw_Payload__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Received_At__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -227,15 +177,6 @@
         <allowRead>true</allowRead>
         <modifyAllRecords>true</modifyAllRecords>
         <object>PublicApi_Integration_Config__c</object>
-        <viewAllRecords>true</viewAllRecords>
-    </objectPermissions>
-    <objectPermissions>
-        <allowCreate>true</allowCreate>
-        <allowDelete>true</allowDelete>
-        <allowEdit>true</allowEdit>
-        <allowRead>true</allowRead>
-        <modifyAllRecords>true</modifyAllRecords>
-        <object>PublicApi_Intake_Tracking__c</object>
         <viewAllRecords>true</viewAllRecords>
     </objectPermissions>
     <objectPermissions>

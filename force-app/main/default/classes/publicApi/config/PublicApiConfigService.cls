@@ -10,6 +10,8 @@ public without sharing class PublicApiConfigService {
         public Id id;
         public String webhookSecret;
         public String apiKey;
+        public Boolean outboundTriggerEnabled;
+        public String outboundTriggerStatusValues;
         public String statusUpdateWebhookUrl;
         public String statusUpdateWebhookSecret;
         public String outboundAuthMode;
@@ -62,6 +64,8 @@ public without sharing class PublicApiConfigService {
         c.id = setting.Id;
         c.webhookSecret = setting.Webhook_Secret__c;
         c.apiKey = setting.API_Key__c;
+        c.outboundTriggerEnabled = setting.Outbound_Trigger_Enabled__c;
+        c.outboundTriggerStatusValues = setting.Outbound_Trigger_Status_Values__c;
         c.statusUpdateWebhookUrl = setting.Outbound_Webhook_URL__c;
         c.statusUpdateWebhookSecret = setting.Outbound_Webhook_Secret__c;
         c.outboundAuthMode = setting.Outbound_Auth_Mode__c;

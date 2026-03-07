@@ -77,7 +77,7 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
         config.requestFieldMappingsConfiguration = '{ bad json }';
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            Email__c = 'delivery@example.com'
+            Status__c = 'Converted'
         );
 
         PublicApiStatusUpdateDeliveryService.SendOutcome outcome =
@@ -107,10 +107,10 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
         config.statusUpdateWebhookUrl = 'https://example.com/webhook';
         config.outboundSourceObjectApiName = 'PublicApi_Submission__c';
         config.requestFieldMappingsConfiguration =
-            '{"inbound":[],"outbound":[{"externalKey":"email","value":"$PublicApi_Submission__c.Email__c","sortOrder":1}]}';
+            '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}';
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            Email__c = 'delivery@example.com'
+            Status__c = 'Converted'
         );
 
         Test.startTest();
@@ -137,10 +137,10 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
         config.statusUpdateWebhookUrl = 'https://example.com/webhook';
         config.outboundSourceObjectApiName = 'PublicApi_Submission__c';
         config.requestFieldMappingsConfiguration =
-            '{"inbound":[],"outbound":[{"externalKey":"email","value":"$PublicApi_Submission__c.Email__c","sortOrder":1}]}';
+            '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}';
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            Email__c = 'delivery@example.com'
+            Status__c = 'Converted'
         );
 
         Test.startTest();
@@ -171,10 +171,10 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
         config.statusUpdateWebhookUrl = 'https://example.com/webhook';
         config.outboundSourceObjectApiName = 'PublicApi_Submission__c';
         config.requestFieldMappingsConfiguration =
-            '{"inbound":[],"outbound":[{"externalKey":"email","value":"$PublicApi_Submission__c.Email__c","sortOrder":1}]}';
+            '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}';
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            Email__c = 'delivery@example.com'
+            Status__c = 'Converted'
         );
 
         Test.startTest();

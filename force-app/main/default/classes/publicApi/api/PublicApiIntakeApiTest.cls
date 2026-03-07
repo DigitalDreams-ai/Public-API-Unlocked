@@ -10,12 +10,8 @@ private class PublicApiIntakeApiTest {
         insert config;
 
         Map<String, Object> payload = new Map<String, Object>{
-            'first_name' => 'Jane',
-            'last_name' => 'Smith',
-            'email' => 'jane.smith@example.com',
-            'phone' => '5551234567',
-            'description' => 'Lead from test',
-            'gclid' => 'gclid-1'
+            'source' => 'test-suite',
+            'reference' => 'submission-001'
         };
 
         RestRequest req = new RestRequest();
@@ -38,26 +34,18 @@ private class PublicApiIntakeApiTest {
 
         Id recordId = (Id) response.get('recordId');
         PublicApi_Submission__c created = [
-            SELECT First_Name__c,
-                   Last_Name__c,
-                   Email__c,
-                   Phone__c,
-                   Description__c,
-                   GCLID__c,
-                   Created_By_PublicApi_API__c,
+            SELECT Created_By_PublicApi_API__c,
                    PublicApi_Integration_Config__c,
+                   Received_At__c,
+                   Raw_Payload__c,
                    Status__c
             FROM PublicApi_Submission__c
             WHERE Id = :recordId
         ];
-        System.assertEquals('Jane', created.First_Name__c);
-        System.assertEquals('Smith', created.Last_Name__c);
-        System.assertEquals('jane.smith@example.com', created.Email__c);
-        System.assertEquals('5551234567', created.Phone__c);
-        System.assertEquals('Lead from test', created.Description__c);
-        System.assertEquals('gclid-1', created.GCLID__c);
         System.assertEquals(true, created.Created_By_PublicApi_API__c);
         System.assertEquals(config.Id, created.PublicApi_Integration_Config__c);
+        System.assertNotEquals(null, created.Received_At__c);
+        System.assert(String.isNotBlank(created.Raw_Payload__c));
         System.assertEquals('New', created.Status__c);
     }
 

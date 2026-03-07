@@ -14,8 +14,8 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertNotEquals(null, initialSettings.defaultJson);
 
         String configJson =
-            '{"inbound":[{"externalKey":"first_name","value":"$PublicApi_Submission__c.First_Name__c","sortOrder":1}],' +
-            '"outbound":[{"externalKey":"first_name","value":"$PublicApi_Submission__c.First_Name__c","sortOrder":1}]}';
+            '{"inbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}],' +
+            '"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}';
 
         PublicApiPayloadBuilderCtrl.savePayloadSettings(
             config.Id,

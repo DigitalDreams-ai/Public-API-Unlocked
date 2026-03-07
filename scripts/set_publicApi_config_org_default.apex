@@ -1,7 +1,13 @@
 // Create or update an active Public API Integration Config record with a usable API key.
 String defaultApiKey = 'dev-publicApi-api-key';
 List<PublicApi_Integration_Config__c> existing = [
-    SELECT Id, API_Key__c, Is_Active__c, Inbound_Target_Object_API_Name__c, Outbound_Source_Object_API_Name__c
+    SELECT Id,
+           API_Key__c,
+           Is_Active__c,
+           Inbound_Target_Object_API_Name__c,
+           Outbound_Source_Object_API_Name__c,
+           Outbound_Trigger_Enabled__c,
+           Outbound_Trigger_Status_Values__c
     FROM PublicApi_Integration_Config__c
     WHERE Is_Active__c = true
     ORDER BY CreatedDate DESC
@@ -23,6 +29,14 @@ if (!existing.isEmpty()) {
         config.Outbound_Source_Object_API_Name__c = 'PublicApi_Submission__c';
         shouldUpdate = true;
     }
+    if (config.Outbound_Trigger_Enabled__c == null) {
+        config.Outbound_Trigger_Enabled__c = true;
+        shouldUpdate = true;
+    }
+    if (String.isBlank(config.Outbound_Trigger_Status_Values__c)) {
+        config.Outbound_Trigger_Status_Values__c = 'Referred Out,Converted';
+        shouldUpdate = true;
+    }
     if (shouldUpdate) {
         update config;
         System.debug('Public API Integration Config: Updated active config defaults.');
@@ -34,7 +48,9 @@ if (!existing.isEmpty()) {
         Is_Active__c = true,
         API_Key__c = defaultApiKey,
         Inbound_Target_Object_API_Name__c = 'PublicApi_Submission__c',
-        Outbound_Source_Object_API_Name__c = 'PublicApi_Submission__c'
+        Outbound_Source_Object_API_Name__c = 'PublicApi_Submission__c',
+        Outbound_Trigger_Enabled__c = true,
+        Outbound_Trigger_Status_Values__c = 'Referred Out,Converted'
     );
     System.debug('Public API Integration Config: Created active config with API Key = ' + defaultApiKey);
 }

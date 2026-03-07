@@ -43,12 +43,12 @@ public without sharing class PublicApiIntakeService {
 
         putIfFieldExists(submission, 'PublicApi_Integration_Config__c', config.id);
         putIfFieldExists(submission, 'Created_By_PublicApi_API__c', true);
+        putIfFieldExists(submission, 'Received_At__c', System.now());
         putIfFieldExists(submission, 'Status__c', defaultStatus(submission));
         putIfFieldExists(submission, 'Raw_Payload__c', truncate(JSON.serialize(payload), RAW_PAYLOAD_MAX_LENGTH));
 
         try {
             insert submission;
-            PublicApiIntakeTrackingService.trackIntake(submission.Id, config.id);
             return submission;
         } catch (DmlException e) {
             throw new PublicApiIntakeServiceException('Failed to create submission: ' + e.getMessage());

@@ -191,6 +191,26 @@
                 <identifier>RecordOutbound_Webhook_Secret_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Outbound_Trigger_Enabled__c</fieldItem>
+                <identifier>RecordOutbound_Trigger_Enabled_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Outbound_Trigger_Status_Values__c</fieldItem>
+                <identifier>RecordOutbound_Trigger_Status_Values_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-outboundLeft</name>
         <type>Facet</type>
     </flexiPageRegions>

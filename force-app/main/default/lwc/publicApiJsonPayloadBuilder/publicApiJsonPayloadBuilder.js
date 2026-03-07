@@ -8,7 +8,7 @@ import saveHeaderSettings from '@salesforce/apex/PublicApiPayloadBuilderCtrl.sav
 
 const DEFAULT_CONTENT_TYPE = 'application/json';
 const DEFAULT_OBJECT_API_NAME = 'PublicApi_Submission__c';
-const VALUE_PLACEHOLDER = '$PublicApi_Submission__c.First_Name__c';
+const VALUE_PLACEHOLDER = '$PublicApi_Submission__c.Status__c';
 const SUGGESTION_LIMIT = 12;
 
 let headerCounter = 0;
@@ -527,18 +527,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         }
         const fieldApiName = token.substring(dotIndex + 1).toLowerCase();
         const previewValues = {
-            'first_name__c': 'Jane',
-            'last_name__c': 'Smith',
-            'email__c': 'jane.smith@example.com',
-            'phone__c': '(555) 123-4567',
-            'description__c': 'Lead from landing page',
-            'page_url__c': 'https://example.com/landing',
-            'utm_source__c': 'google',
-            'utm_medium__c': 'cpc',
-            'campaign_id__c': 'summer-2025',
-            'utm_content__c': 'ad-variant-a',
-            'gclid__c': 'EAIaIQobChMI_test_gclid',
-            'google_ads_conversion_time__c': '2026-03-03T05:38:21.000Z',
+            'received_at__c': '2026-03-03T05:38:21.000Z',
             'createddate': '2026-03-03T05:38:21.000Z',
             'status__c': 'Converted'
         };
@@ -856,7 +845,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
     buildValuePlaceholder(objectApiName) {
         const resolvedObjectApiName = objectApiName || DEFAULT_OBJECT_API_NAME;
-        return `$${resolvedObjectApiName}.First_Name__c`;
+        return `$${resolvedObjectApiName}.Status__c`;
     }
 
     async fetchFieldReferences(objectApiName, inboundMode) {

@@ -353,14 +353,9 @@ public without sharing class PublicApiRequestMappingService {
             }
 
             Schema.DescribeFieldResult describe = fieldMap.get(resolvedFieldApiName).getDescribe();
-            if (inboundMode && !describe.isCreateable()) {
+            if (inboundMode && (describe.isCalculated() || describe.isAutoNumber())) {
                 throw new PublicApiIntakeServiceException(
-                    'Inbound mapping field is not createable: $' + canonicalObjectApiName + '.' + resolvedFieldApiName
-                );
-            }
-            if (!inboundMode && !describe.isAccessible()) {
-                throw new PublicApiIntakeServiceException(
-                    'Outbound mapping field is not readable: $' + canonicalObjectApiName + '.' + resolvedFieldApiName
+                    'Inbound mapping field is read-only: $' + canonicalObjectApiName + '.' + resolvedFieldApiName
                 );
             }
         }

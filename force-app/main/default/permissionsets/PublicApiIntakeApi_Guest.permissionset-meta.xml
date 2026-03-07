@@ -20,10 +20,6 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
-        <apexClass>PublicApiIntakeTrackingService</apexClass>
-        <enabled>true</enabled>
-    </classAccesses>
-    <classAccesses>
         <apexClass>PublicApiRequestMappingService</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -59,61 +55,6 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>PublicApi_Submission__c.First_Name__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Last_Name__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Email__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Phone__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Description__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Page_URL__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.UTM_Source__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.UTM_Medium__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.Campaign_Id__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.UTM_Content__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
-        <field>PublicApi_Submission__c.GCLID__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>true</editable>
         <field>PublicApi_Submission__c.Status__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -132,6 +73,11 @@
         <field>PublicApi_Submission__c.Raw_Payload__c</field>
         <readable>true</readable>
     </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Received_At__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
     <objectPermissions>
         <allowCreate>false</allowCreate>
         <allowDelete>false</allowDelete>
@@ -139,15 +85,6 @@
         <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
         <object>PublicApi_Integration_Config__c</object>
-        <viewAllRecords>false</viewAllRecords>
-    </objectPermissions>
-    <objectPermissions>
-        <allowCreate>true</allowCreate>
-        <allowDelete>false</allowDelete>
-        <allowEdit>true</allowEdit>
-        <allowRead>true</allowRead>
-        <modifyAllRecords>false</modifyAllRecords>
-        <object>PublicApi_Intake_Tracking__c</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
     <objectPermissions>

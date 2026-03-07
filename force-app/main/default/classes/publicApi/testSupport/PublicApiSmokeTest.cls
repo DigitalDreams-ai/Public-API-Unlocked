@@ -18,15 +18,15 @@ private class PublicApiSmokeTest {
             API_Key__c = 'smoke-key',
             Outbound_Webhook_URL__c = 'https://example.com/smoke-webhook',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[{"externalKey":"email","value":"$PublicApi_Submission__c.Email__c","sortOrder":1}],' +
-                '"outbound":[{"externalKey":"email","value":"$PublicApi_Submission__c.Email__c","sortOrder":1}]}'
+                '{"inbound":[],' +
+                '"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}'
         );
         insert config;
 
         RestRequest req = new RestRequest();
         req.requestURI = '/services/apexrest/v1/publicapi/submissions';
         req.httpMethod = 'POST';
-        req.requestBody = Blob.valueOf('{"email":"smoke@example.com"}');
+        req.requestBody = Blob.valueOf('{"source":"smoke"}');
         req.headers.put('x-api-key', 'smoke-key');
 
         RestResponse res = new RestResponse();

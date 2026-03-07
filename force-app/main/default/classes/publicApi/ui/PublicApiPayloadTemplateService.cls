@@ -3,32 +3,14 @@ public without sharing class PublicApiPayloadTemplateService {
 
     @TestVisible
     static final List<PublicApiRequestMappingService.MappingConfig> DEFAULT_INBOUND_MAPPINGS =
-        new List<PublicApiRequestMappingService.MappingConfig>{
-            new PublicApiRequestMappingService.MappingConfig('name', '$PublicApi_Submission__c.First_Name__c', 10),
-            new PublicApiRequestMappingService.MappingConfig('first_name', '$PublicApi_Submission__c.First_Name__c', 20),
-            new PublicApiRequestMappingService.MappingConfig('last_name', '$PublicApi_Submission__c.Last_Name__c', 30),
-            new PublicApiRequestMappingService.MappingConfig('email', '$PublicApi_Submission__c.Email__c', 40),
-            new PublicApiRequestMappingService.MappingConfig('phone_number', '$PublicApi_Submission__c.Phone__c', 50),
-            new PublicApiRequestMappingService.MappingConfig('phone', '$PublicApi_Submission__c.Phone__c', 60),
-            new PublicApiRequestMappingService.MappingConfig('how_can_we_help_you', '$PublicApi_Submission__c.Description__c', 70),
-            new PublicApiRequestMappingService.MappingConfig('description', '$PublicApi_Submission__c.Description__c', 80),
-            new PublicApiRequestMappingService.MappingConfig('page_url', '$PublicApi_Submission__c.Page_URL__c', 90),
-            new PublicApiRequestMappingService.MappingConfig('utm_source', '$PublicApi_Submission__c.UTM_Source__c', 100),
-            new PublicApiRequestMappingService.MappingConfig('utm_medium', '$PublicApi_Submission__c.UTM_Medium__c', 110),
-            new PublicApiRequestMappingService.MappingConfig('campaignid', '$PublicApi_Submission__c.Campaign_Id__c', 120),
-            new PublicApiRequestMappingService.MappingConfig('utm_content', '$PublicApi_Submission__c.UTM_Content__c', 130),
-            new PublicApiRequestMappingService.MappingConfig('gclid', '$PublicApi_Submission__c.GCLID__c', 140)
-        };
+        new List<PublicApiRequestMappingService.MappingConfig>();
 
     @TestVisible
     static final List<PublicApiRequestMappingService.MappingConfig> DEFAULT_OUTBOUND_MAPPINGS =
         new List<PublicApiRequestMappingService.MappingConfig>{
-            new PublicApiRequestMappingService.MappingConfig('name', '$PublicApi_Submission__c.First_Name__c', 10),
-            new PublicApiRequestMappingService.MappingConfig('last_name', '$PublicApi_Submission__c.Last_Name__c', 20),
-            new PublicApiRequestMappingService.MappingConfig('email', '$PublicApi_Submission__c.Email__c', 30),
-            new PublicApiRequestMappingService.MappingConfig('phone', '$PublicApi_Submission__c.Phone__c', 40),
-            new PublicApiRequestMappingService.MappingConfig('gclid', '$PublicApi_Submission__c.GCLID__c', 50),
-            new PublicApiRequestMappingService.MappingConfig('createdDate', '$PublicApi_Submission__c.CreatedDate', 60)
+            new PublicApiRequestMappingService.MappingConfig('status', '$PublicApi_Submission__c.Status__c', 10),
+            new PublicApiRequestMappingService.MappingConfig('receivedAt', '$PublicApi_Submission__c.Received_At__c', 20),
+            new PublicApiRequestMappingService.MappingConfig('createdDate', '$PublicApi_Submission__c.CreatedDate', 30)
         };
 
     public static String getDefaultMappingsJson() {
