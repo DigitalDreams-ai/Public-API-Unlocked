@@ -66,6 +66,68 @@ private class PublicApiRemoteSiteTest {
         System.assert(generated.startsWith('PublicApiWebhook_'));
     }
 
+    @IsTest
+    static void testCreateRemoteSiteSetting_Non200Throws() {
+        capturedRequests.clear();
+        Test.setMock(HttpCalloutMock.class, new MetadataApiMock(500, 'server error'));
+
+        try {
+            PublicApiRemoteSiteSettingService.createRemoteSiteSetting(
+                'PublicApiWebhook_Webhook',
+                'https://webhook.site',
+                'desc',
+                true,
+                'session-id'
+            );
+            System.assert(false, 'Expected non-200 metadata responses to throw.');
+        } catch (PublicApiRemoteSiteSettingException e) {
+            System.assert(e.getMessage().contains('Metadata API callout failed'));
+        }
+    }
+
+    @IsTest
+    static void testCreateRemoteSiteSetting_SoapFaultDuplicateIsAccepted() {
+        capturedRequests.clear();
+        String faultBody =
+            '<?xml version="1.0" encoding="UTF-8"?>' +
+            '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">' +
+            '<soapenv:Body>' +
+            '<soapenv:Fault>' +
+            '<faultcode>soapenv:Server</faultcode>' +
+            '<faultstring>duplicate value found</faultstring>' +
+            '</soapenv:Fault>' +
+            '</soapenv:Body>' +
+            '</soapenv:Envelope>';
+        Test.setMock(HttpCalloutMock.class, new MetadataApiMock(200, faultBody));
+
+        String result = PublicApiRemoteSiteSettingService.createRemoteSiteSetting(
+            'PublicApiWebhook_Webhook',
+            'https://webhook.site',
+            'desc',
+            true,
+            'session-id'
+        );
+
+        System.assertEquals('PublicApiWebhook_Webhook', result);
+    }
+
+    @IsTest
+    static void testExtractDomainFromUrlSupportsFallbacks() {
+        System.assertEquals(
+            'https://example.com',
+            PublicApiRemoteSiteSettingService.extractDomainFromUrl('https://example.com/path/here')
+        );
+        System.assertEquals(
+            'http://example.com',
+            PublicApiRemoteSiteSettingService.extractDomainFromUrl('http://example.com/path/here')
+        );
+        System.assertEquals(
+            'not-a-valid-url',
+            PublicApiRemoteSiteSettingService.extractDomainFromUrl('not-a-valid-url')
+        );
+        System.assertEquals(null, PublicApiRemoteSiteSettingService.extractDomainFromUrl(null));
+    }
+
     private static String metadataApiSuccess(String fullName) {
         return '<?xml version="1.0" encoding="UTF-8"?>' +
             '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">' +
