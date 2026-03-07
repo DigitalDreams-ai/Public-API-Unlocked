@@ -8,6 +8,14 @@
     <hasActivationRequired>false</hasActivationRequired>
     <label>Public API Admin App</label>
     <classAccesses>
+        <apexClass>PublicApiOutboundStatusAction</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>PublicApiOutboundTriggerService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
         <apexClass>PublicApiPayloadBuilderCtrl</apexClass>
         <enabled>true</enabled>
     </classAccesses>
@@ -143,6 +151,16 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>PublicApi_Webhook_Delivery__c.Intake__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PublicApi_Webhook_Delivery__c.Source_Object_API_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>PublicApi_Webhook_Delivery__c.Source_Record_Id__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

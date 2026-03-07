@@ -98,6 +98,7 @@ public without sharing class PublicApiStatusUpdateQueueable implements Queueable
             PublicApi_Webhook_Delivery__c deliveryRecord = PublicApiWebhookDeliveryRecordService.buildDeliveryRecord(
                 item.configId,
                 item.recordId,
+                record.getSObjectType().getDescribe().getName(),
                 item.currentStatus,
                 config.statusUpdateWebhookUrl,
                 payload,
