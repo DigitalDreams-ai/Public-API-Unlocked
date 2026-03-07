@@ -60,11 +60,29 @@ public without sharing class PublicApiIntakeService {
         if (submission == null) {
             return null;
         }
+        Map<String, Schema.SObjectField> fieldMap = submission.getSObjectType().getDescribe().fields.getMap();
+        if (!fieldMap.containsKey('Status__c')) {
+            return null;
+        }
         Object existing = submission.get('Status__c');
         if (existing != null && String.isNotBlank(String.valueOf(existing))) {
             return String.valueOf(existing);
         }
-        return 'New';
+
+        Schema.DescribeFieldResult describe = fieldMap.get('Status__c').getDescribe();
+        Object defaultValue = describe == null ? null : describe.getDefaultValue();
+        if (defaultValue != null && String.isNotBlank(String.valueOf(defaultValue))) {
+            return String.valueOf(defaultValue);
+        }
+
+        if (describe != null && describe.getType() == Schema.DisplayType.Picklist) {
+            for (Schema.PicklistEntry entry : describe.getPicklistValues()) {
+                if (entry != null && entry.isDefaultValue()) {
+                    return entry.getValue();
+                }
+            }
+        }
+        return null;
     }
 
     @TestVisible

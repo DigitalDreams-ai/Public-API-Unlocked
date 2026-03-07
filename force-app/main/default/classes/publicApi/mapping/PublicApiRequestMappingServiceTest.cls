@@ -203,4 +203,31 @@ private class PublicApiRequestMappingServiceTest {
 
         System.assertEquals(null, submission.Status__c);
     }
+
+    @IsTest
+    static void testApplyInboundMappingsSplitsFullNameForConfiguredLeadFields() {
+        Lead leadRecord = new Lead(Company = 'Example Co');
+        Map<String, Object> payload = new Map<String, Object>{
+            'name' => 'Jane Smith',
+            'last_name' => ''
+        };
+
+        String mappingsJson =
+            '{"inbound":[' +
+                '{"externalKey":"name","value":"$Lead.FirstName","sortOrder":1},' +
+                '{"externalKey":"last_name","value":"$Lead.LastName","sortOrder":2},' +
+                '{"externalKey":"company","value":"$Lead.Company","sortOrder":3}' +
+            '],"outbound":[]}';
+
+        PublicApiRequestMappingService.applyInboundMappings(
+            leadRecord,
+            payload,
+            mappingsJson,
+            PublicApiRequestMappingService.DIRECTION_BOTH,
+            'Lead'
+        );
+
+        System.assertEquals('Jane', leadRecord.FirstName);
+        System.assertEquals('Smith', leadRecord.LastName);
+    }
 }

@@ -33,6 +33,11 @@ public without sharing class PublicApiRequestMappingService {
         }
     }
 
+    private class NameSplitTargets {
+        public String firstNameFieldApiName;
+        public String lastNameFieldApiName;
+    }
+
     public static String getDefaultDirection() {
         return DIRECTION_BOTH;
     }
@@ -70,7 +75,8 @@ public without sharing class PublicApiRequestMappingService {
 
         Map<String, Schema.SObjectField> fieldMap = targetRecord.getSObjectType().getDescribe().fields.getMap();
         Map<String, Object> data = extractDataMap(payload);
-        for (MappingConfig mapping : getEffectiveInboundMappings(configJson, direction)) {
+        List<MappingConfig> inboundMappings = getEffectiveInboundMappings(configJson, direction);
+        for (MappingConfig mapping : inboundMappings) {
             FieldReference reference = parseFieldReference(mapping == null ? null : mapping.value);
             if (reference == null || !equalsIgnoreCase(reference.objectApiName, recordObjectApiName)) {
                 continue;
@@ -96,7 +102,7 @@ public without sharing class PublicApiRequestMappingService {
             }
         }
 
-        applyNameSplitIfNeeded(targetRecord, data, fieldMap);
+        applyNameSplitIfNeeded(targetRecord, data, fieldMap, inboundMappings, recordObjectApiName);
     }
 
     public static Map<String, Object> buildOutboundPayload(
@@ -602,17 +608,22 @@ public without sharing class PublicApiRequestMappingService {
     private static void applyNameSplitIfNeeded(
         SObject targetRecord,
         Map<String, Object> data,
-        Map<String, Schema.SObjectField> fieldMap
+        Map<String, Schema.SObjectField> fieldMap,
+        List<MappingConfig> inboundMappings,
+        String recordObjectApiName
     ) {
         if (targetRecord == null || fieldMap == null || fieldMap.isEmpty()) {
             return;
         }
-        if (!fieldMap.containsKey('First_Name__c') || !fieldMap.containsKey('Last_Name__c')) {
+        NameSplitTargets targets = resolveNameSplitTargets(inboundMappings, recordObjectApiName, fieldMap);
+        if (targets == null ||
+            String.isBlank(targets.firstNameFieldApiName) ||
+            String.isBlank(targets.lastNameFieldApiName)) {
             return;
         }
 
-        String firstName = (String) targetRecord.get('First_Name__c');
-        String lastName = (String) targetRecord.get('Last_Name__c');
+        String firstName = stringifySObjectValue(targetRecord.get(targets.firstNameFieldApiName));
+        String lastName = stringifySObjectValue(targetRecord.get(targets.lastNameFieldApiName));
         String fullName = getString(data, new List<String>{ 'name', 'full_name' });
 
         if (String.isBlank(fullName)) {
@@ -629,8 +640,61 @@ public without sharing class PublicApiRequestMappingService {
         if (String.isBlank(normalized) || !normalized.contains(' ')) {
             return;
         }
-        targetRecord.put('First_Name__c', getFirstName(normalized));
-        targetRecord.put('Last_Name__c', getLastName(normalized));
+        targetRecord.put(targets.firstNameFieldApiName, getFirstName(normalized));
+        targetRecord.put(targets.lastNameFieldApiName, getLastName(normalized));
+    }
+
+    private static NameSplitTargets resolveNameSplitTargets(
+        List<MappingConfig> inboundMappings,
+        String recordObjectApiName,
+        Map<String, Schema.SObjectField> fieldMap
+    ) {
+        if (inboundMappings == null || inboundMappings.isEmpty() || String.isBlank(recordObjectApiName)) {
+            return null;
+        }
+
+        NameSplitTargets targets = new NameSplitTargets();
+        for (MappingConfig mapping : inboundMappings) {
+            if (mapping == null || String.isBlank(mapping.externalKey)) {
+                continue;
+            }
+            FieldReference reference = parseFieldReference(mapping.value);
+            if (reference == null || !equalsIgnoreCase(reference.objectApiName, recordObjectApiName)) {
+                continue;
+            }
+
+            String resolvedFieldApiName = resolveFieldApiName(reference.fieldApiName, fieldMap);
+            if (String.isBlank(resolvedFieldApiName)) {
+                continue;
+            }
+
+            String normalizedExternalKey = normalizeMappingKey(mapping.externalKey);
+            String normalizedFieldApiName = normalizeMappingKey(resolvedFieldApiName);
+            if (isFirstNameExternalKey(normalizedExternalKey) ||
+                (isFullNameExternalKey(normalizedExternalKey) && isLikelyFirstNameField(normalizedFieldApiName))) {
+                targets.firstNameFieldApiName = resolvedFieldApiName;
+            } else if (isLastNameExternalKey(normalizedExternalKey) ||
+                (isFullNameExternalKey(normalizedExternalKey) && isLikelyLastNameField(normalizedFieldApiName))) {
+                targets.lastNameFieldApiName = resolvedFieldApiName;
+            }
+        }
+
+        if (String.isBlank(targets.firstNameFieldApiName) || String.isBlank(targets.lastNameFieldApiName)) {
+            for (String fieldApiName : fieldMap.keySet()) {
+                String normalizedFieldApiName = normalizeMappingKey(fieldApiName);
+                if (String.isBlank(targets.firstNameFieldApiName) && isLikelyFirstNameField(normalizedFieldApiName)) {
+                    targets.firstNameFieldApiName = fieldApiName;
+                }
+                if (String.isBlank(targets.lastNameFieldApiName) && isLikelyLastNameField(normalizedFieldApiName)) {
+                    targets.lastNameFieldApiName = fieldApiName;
+                }
+            }
+        }
+
+        if (String.isBlank(targets.firstNameFieldApiName) || String.isBlank(targets.lastNameFieldApiName)) {
+            return null;
+        }
+        return targets;
     }
 
     @TestVisible
@@ -669,6 +733,34 @@ public without sharing class PublicApiRequestMappingService {
     private static String getLastName(String fullName) {
         Integer index = fullName.indexOf(' ');
         return index <= 0 ? null : fullName.substring(index + 1).trim();
+    }
+
+    private static String stringifySObjectValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private static String normalizeMappingKey(String value) {
+        return String.isBlank(value) ? null : value.toLowerCase().replaceAll('[^a-z0-9]', '');
+    }
+
+    private static Boolean isFirstNameExternalKey(String normalizedExternalKey) {
+        return normalizedExternalKey == 'firstname';
+    }
+
+    private static Boolean isLastNameExternalKey(String normalizedExternalKey) {
+        return normalizedExternalKey == 'lastname';
+    }
+
+    private static Boolean isFullNameExternalKey(String normalizedExternalKey) {
+        return normalizedExternalKey == 'name' || normalizedExternalKey == 'fullname';
+    }
+
+    private static Boolean isLikelyFirstNameField(String normalizedFieldApiName) {
+        return String.isNotBlank(normalizedFieldApiName) && normalizedFieldApiName.contains('firstname');
+    }
+
+    private static Boolean isLikelyLastNameField(String normalizedFieldApiName) {
+        return String.isNotBlank(normalizedFieldApiName) && normalizedFieldApiName.contains('lastname');
     }
 
     private static List<MappingConfig> cloneMappings(List<MappingConfig> mappings) {

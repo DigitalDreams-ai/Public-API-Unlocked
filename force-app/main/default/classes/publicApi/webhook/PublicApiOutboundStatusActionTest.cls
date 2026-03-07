@@ -3,6 +3,20 @@ private class PublicApiOutboundStatusActionTest {
     private class WebhookOnlyMock implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest request) {
             HttpResponse response = new HttpResponse();
+            if (request.getEndpoint() != null && request.getEndpoint().contains('/services/Soap/m/61.0')) {
+                response.setStatusCode(200);
+                response.setBody(
+                    '<?xml version="1.0" encoding="UTF-8"?>' +
+                    '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">' +
+                    '<soapenv:Body>' +
+                    '<createMetadataResponse xmlns="http://soap.sforce.com/2006/04/metadata">' +
+                    '<result><success>true</success><fullName>PublicApiWebhook_Example</fullName></result>' +
+                    '</createMetadataResponse>' +
+                    '</soapenv:Body>' +
+                    '</soapenv:Envelope>'
+                );
+                return response;
+            }
             response.setStatusCode(200);
             response.setStatus('OK');
             response.setBody('{"ok":true}');
@@ -43,15 +57,21 @@ private class PublicApiOutboundStatusActionTest {
             SELECT Status__c,
                    Triggered_Status__c,
                    Status_Code__c,
+                   Error_Code__c,
                    Intake__c,
                    Source_Record_Id__c,
                    Source_Object_API_Name__c,
-                   Request_JSON__c
+                   Request_JSON__c,
+                   Response_JSON__c
             FROM PublicApi_Webhook_Delivery__c
             WHERE PublicApi_Integration_Config__c = :config.Id
         ];
         System.assertEquals(1, deliveries.size());
-        System.assertEquals('Success', deliveries[0].Status__c);
+        System.assertEquals(
+            'Success',
+            deliveries[0].Status__c,
+            'Delivery failed. Error code: ' + deliveries[0].Error_Code__c + ' Response: ' + deliveries[0].Response_JSON__c
+        );
         System.assertEquals('Converted', deliveries[0].Triggered_Status__c);
         System.assertEquals(200, deliveries[0].Status_Code__c);
         System.assertEquals(null, deliveries[0].Intake__c);

@@ -231,4 +231,34 @@ private class PublicApiIntakeApiTest {
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('At least one inbound mapping row is required'));
     }
+
+    @IsTest
+    static void testCreateSubmissionSupportsInboundTargetObjectWithoutStatusField() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-8',
+            Inbound_Target_Object_API_Name__c = 'Account',
+            Outbound_Payload_Configuration__c =
+                '{"inbound":[{"externalKey":"name","value":"$Account.Name","sortOrder":1}],"outbound":[]}'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"name":"Acme Public API"}');
+        req.headers.put('x-api-key', 'api-test-key-8');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
+
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        Id recordId = (Id) response.get('recordId');
+        Account created = [SELECT Id, Name FROM Account WHERE Id = :recordId];
+        System.assertEquals('Acme Public API', created.Name);
+    }
 }
