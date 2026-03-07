@@ -135,6 +135,31 @@ private class PublicApiIntakeApiTest {
     }
 
     @IsTest
+    static void testCreateSubmissionFormEncodedPayloadInvalidEncoding() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-4b',
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultMappingsJson()
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'application/x-www-form-urlencoded');
+        req.requestBody = Blob.valueOf('bad=%E0%A4%A');
+        req.headers.put('x-api-key', 'api-test-key-4b');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(400, res.statusCode);
+        System.assert(res.responseBody.toString().contains('Invalid form-encoded payload'));
+    }
+
+    @IsTest
     static void testCreateSubmissionRejectsMissingInboundMappingConfiguration() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
@@ -180,5 +205,30 @@ private class PublicApiIntakeApiTest {
         PublicApiIntakeApi.createSubmission();
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('Inbound mapping configuration is invalid'));
+    }
+
+    @IsTest
+    static void testCreateSubmissionRejectsOutboundOnlyMappingConfiguration() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-7',
+            Outbound_Payload_Configuration__c =
+                '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"status":"Converted"}');
+        req.headers.put('x-api-key', 'api-test-key-7');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(400, res.statusCode);
+        System.assert(res.responseBody.toString().contains('At least one inbound mapping row is required'));
     }
 }
