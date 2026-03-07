@@ -5,11 +5,6 @@ public without sharing class PublicApiStatusUpdateHandler {
     private static Set<String> processedEventKeys = new Set<String>();
     private static Set<Id> processedRecordIds = new Set<Id>();
 
-    public static void handleBeforeUpdate(List<PublicApi_Submission__c> newRecords, Map<Id, PublicApi_Submission__c> oldMap) {
-        // No before-update mutations are required for submission audit mode.
-        return;
-    }
-
     public static void handleAfterUpdate(List<PublicApi_Submission__c> newRecords, Map<Id, PublicApi_Submission__c> oldMap) {
         if (newRecords == null || newRecords.isEmpty() || oldMap == null || oldMap.isEmpty()) {
             return;

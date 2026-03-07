@@ -353,7 +353,7 @@ public without sharing class PublicApiRequestMappingService {
             }
 
             Schema.DescribeFieldResult describe = fieldMap.get(resolvedFieldApiName).getDescribe();
-            if (inboundMode && (describe.isCalculated() || describe.isAutoNumber())) {
+            if (inboundMode && !describe.isCreateable()) {
                 throw new PublicApiIntakeServiceException(
                     'Inbound mapping field is read-only: $' + canonicalObjectApiName + '.' + resolvedFieldApiName
                 );

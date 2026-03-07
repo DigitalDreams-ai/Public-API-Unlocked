@@ -3,7 +3,9 @@ public without sharing class PublicApiPayloadTemplateService {
 
     @TestVisible
     static final List<PublicApiRequestMappingService.MappingConfig> DEFAULT_INBOUND_MAPPINGS =
-        new List<PublicApiRequestMappingService.MappingConfig>();
+        new List<PublicApiRequestMappingService.MappingConfig>{
+            new PublicApiRequestMappingService.MappingConfig('status', '$PublicApi_Submission__c.Status__c', 10)
+        };
 
     @TestVisible
     static final List<PublicApiRequestMappingService.MappingConfig> DEFAULT_OUTBOUND_MAPPINGS =

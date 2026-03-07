@@ -94,6 +94,19 @@ public without sharing class PublicApiIntakeService {
                 'Inbound mapping configuration is required on Public API Integration Config.'
             );
         }
+
+        PublicApiRequestMappingService.MappingConfiguration parsedMappings;
+        try {
+            parsedMappings = PublicApiRequestMappingService.parseConfiguration(mappingConfigurationJson);
+        } catch (Exception e) {
+            throw new PublicApiIntakeServiceException('Inbound mapping configuration is invalid: ' + e.getMessage());
+        }
+        if (parsedMappings == null || parsedMappings.inboundMappings == null || parsedMappings.inboundMappings.isEmpty()) {
+            throw new PublicApiIntakeServiceException(
+                'Inbound mapping configuration is invalid: At least one inbound mapping row is required.'
+            );
+        }
+
         try {
             PublicApiRequestMappingService.validateMappings(
                 mappingConfigurationJson,
