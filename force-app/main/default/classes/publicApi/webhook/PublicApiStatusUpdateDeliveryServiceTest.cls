@@ -60,7 +60,7 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
     @IsTest
     static void testValidateOutboundMappingsRejectsInvalidFields() {
         String configJson =
-            '{"inbound":[],"outbound":[{"externalKey":"bad","value":"$PublicApi_Submission__c.Does_Not_Exist__c","sortOrder":1}]}';
+            '[{"externalKey":"bad","value":"$PublicApi_Submission__c.Does_Not_Exist__c","sortOrder":1}]';
         try {
             PublicApiStatusUpdateDeliveryService.validateOutboundMappings(configJson);
             System.assert(false, 'Expected invalid outbound mapping field to throw.');
@@ -73,8 +73,8 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
     static void testSendStatusUpdateReturnsFailureForInvalidMappingConfig() {
         PublicApiConfigService.Config config = new PublicApiConfigService.Config();
         config.statusUpdateWebhookUrl = 'https://example.com/webhook';
-        config.outboundSourceObjectApiName = 'PublicApi_Submission__c';
-        config.requestFieldMappingsConfiguration = '{ bad json }';
+        config.targetObjectApiName = 'PublicApi_Submission__c';
+        config.outboundPayloadConfiguration = '{ bad json }';
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
             Status__c = 'Converted'
@@ -105,9 +105,9 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
 
         PublicApiConfigService.Config config = new PublicApiConfigService.Config();
         config.statusUpdateWebhookUrl = 'https://example.com/webhook';
-        config.outboundSourceObjectApiName = 'PublicApi_Submission__c';
-        config.requestFieldMappingsConfiguration =
-            '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}';
+        config.targetObjectApiName = 'PublicApi_Submission__c';
+        config.outboundPayloadConfiguration =
+            '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
             Status__c = 'Converted'
@@ -135,9 +135,9 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
 
         PublicApiConfigService.Config config = new PublicApiConfigService.Config();
         config.statusUpdateWebhookUrl = 'https://example.com/webhook';
-        config.outboundSourceObjectApiName = 'PublicApi_Submission__c';
-        config.requestFieldMappingsConfiguration =
-            '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}';
+        config.targetObjectApiName = 'PublicApi_Submission__c';
+        config.outboundPayloadConfiguration =
+            '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
             Status__c = 'Converted'
@@ -169,9 +169,9 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
 
         PublicApiConfigService.Config config = new PublicApiConfigService.Config();
         config.statusUpdateWebhookUrl = 'https://example.com/webhook';
-        config.outboundSourceObjectApiName = 'PublicApi_Submission__c';
-        config.requestFieldMappingsConfiguration =
-            '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}';
+        config.targetObjectApiName = 'PublicApi_Submission__c';
+        config.outboundPayloadConfiguration =
+            '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
             Status__c = 'Converted'

@@ -1,44 +1,47 @@
 public without sharing class PublicApiOutboundTriggerService {
     @TestVisible
-    static final Set<String> DEFAULT_TRIGGER_STATUSES = new Set<String>{ 'Referred Out', 'Converted' };
+    static final String DEFAULT_TRIGGER_FIELD_NAME = 'Status__c';
+
+    @TestVisible
+    static final Set<String> DEFAULT_TRIGGER_FIELD_VALUES = new Set<String>{ 'Referred Out', 'Converted' };
 
     @TestVisible
     static Set<String> processedEventKeys = new Set<String>();
 
-    public class StatusChangeRequest {
+    public class ChangeRequest {
         public Id recordId;
         public Id configId;
-        public String previousStatus;
-        public String currentStatus;
+        public String previousValue;
+        public String currentValue;
         public Datetime changedAt;
         public String sessionId;
 
-        public StatusChangeRequest() {}
+        public ChangeRequest() {}
 
-        public StatusChangeRequest(
+        public ChangeRequest(
             Id recordId,
             Id configId,
-            String previousStatus,
-            String currentStatus,
+            String previousValue,
+            String currentValue,
             Datetime changedAt,
             String sessionId
         ) {
             this.recordId = recordId;
             this.configId = configId;
-            this.previousStatus = previousStatus;
-            this.currentStatus = currentStatus;
+            this.previousValue = previousValue;
+            this.currentValue = currentValue;
             this.changedAt = changedAt;
             this.sessionId = sessionId;
         }
     }
 
-    public static void enqueueStatusChanges(List<StatusChangeRequest> requests) {
+    public static void enqueueFieldChanges(List<ChangeRequest> requests) {
         if (requests == null || requests.isEmpty()) {
             return;
         }
 
         Set<Id> configIds = new Set<Id>();
-        for (StatusChangeRequest request : requests) {
+        for (ChangeRequest request : requests) {
             if (request != null && request.configId != null) {
                 configIds.add(request.configId);
             }
@@ -49,21 +52,21 @@ public without sharing class PublicApiOutboundTriggerService {
 
         Map<Id, PublicApiConfigService.Config> configsById = PublicApiConfigService.getConfigsById(configIds);
         List<PublicApiStatusUpdateQueueable.DeliveryItem> items = new List<PublicApiStatusUpdateQueueable.DeliveryItem>();
-        for (StatusChangeRequest request : requests) {
+        for (ChangeRequest request : requests) {
             if (request == null || request.recordId == null || request.configId == null) {
                 continue;
             }
 
             PublicApiConfigService.Config config = configsById.get(request.configId);
-            String normalizedCurrentStatus = normalizeStatus(request.currentStatus);
-            if (!shouldSendStatusUpdate(config, normalizedCurrentStatus)) {
+            String normalizedCurrentValue = normalizeTriggerValue(request.currentValue);
+            if (!shouldSendOutboundTrigger(config, normalizedCurrentValue)) {
                 continue;
             }
 
             String eventKey = String.valueOf(request.recordId) + ':' +
                 String.valueOf(request.configId) + ':' +
-                normalizeStatus(request.previousStatus) + ':' +
-                normalizedCurrentStatus;
+                normalizeTriggerValue(request.previousValue) + ':' +
+                normalizedCurrentValue;
             if (processedEventKeys.contains(eventKey)) {
                 continue;
             }
@@ -72,8 +75,8 @@ public without sharing class PublicApiOutboundTriggerService {
             items.add(new PublicApiStatusUpdateQueueable.DeliveryItem(
                 request.recordId,
                 request.configId,
-                normalizeStatus(request.previousStatus),
-                normalizedCurrentStatus,
+                normalizeTriggerValue(request.previousValue),
+                normalizedCurrentValue,
                 request.changedAt == null ? System.now() : request.changedAt,
                 request.sessionId
             ));
@@ -84,15 +87,24 @@ public without sharing class PublicApiOutboundTriggerService {
         }
     }
 
+    public static void enqueueStatusChanges(List<ChangeRequest> requests) {
+        enqueueFieldChanges(requests);
+    }
+
     @TestVisible
-    public static Boolean shouldSendStatusUpdate(PublicApiConfigService.Config config, String status) {
+    public static Boolean shouldSendOutboundTrigger(PublicApiConfigService.Config config, String currentValue) {
         if (!isOutboundTriggerEnabled(config)) {
             return false;
         }
-        if (String.isBlank(status)) {
+        if (String.isBlank(currentValue)) {
             return false;
         }
-        return getConfiguredTriggerStatuses(config).contains(status);
+        return getConfiguredTriggerFieldValues(config).contains(currentValue);
+    }
+
+    @TestVisible
+    public static Boolean shouldSendStatusUpdate(PublicApiConfigService.Config config, String status) {
+        return shouldSendOutboundTrigger(config, status);
     }
 
     @TestVisible
@@ -104,19 +116,32 @@ public without sharing class PublicApiOutboundTriggerService {
     }
 
     @TestVisible
-    public static Set<String> getConfiguredTriggerStatuses(PublicApiConfigService.Config config) {
-        if (config == null || String.isBlank(config.outboundTriggerStatusValues)) {
-            return new Set<String>(DEFAULT_TRIGGER_STATUSES);
+    public static String getConfiguredTriggerFieldName(PublicApiConfigService.Config config) {
+        if (config == null || String.isBlank(config.outboundTriggerFieldName)) {
+            return DEFAULT_TRIGGER_FIELD_NAME;
         }
-        Set<String> parsed = parseTriggerStatuses(config.outboundTriggerStatusValues);
-        return parsed.isEmpty() ? new Set<String>(DEFAULT_TRIGGER_STATUSES) : parsed;
+        return config.outboundTriggerFieldName.trim();
     }
 
     @TestVisible
-    public static Set<String> parseTriggerStatuses(String rawValues) {
-        Set<String> statuses = new Set<String>();
+    public static Set<String> getConfiguredTriggerFieldValues(PublicApiConfigService.Config config) {
+        if (config == null || String.isBlank(config.outboundTriggerFieldValues)) {
+            return new Set<String>(DEFAULT_TRIGGER_FIELD_VALUES);
+        }
+        Set<String> parsed = parseTriggerFieldValues(config.outboundTriggerFieldValues);
+        return parsed.isEmpty() ? new Set<String>(DEFAULT_TRIGGER_FIELD_VALUES) : parsed;
+    }
+
+    @TestVisible
+    public static Set<String> getConfiguredTriggerStatuses(PublicApiConfigService.Config config) {
+        return getConfiguredTriggerFieldValues(config);
+    }
+
+    @TestVisible
+    public static Set<String> parseTriggerFieldValues(String rawValues) {
+        Set<String> values = new Set<String>();
         if (String.isBlank(rawValues)) {
-            return statuses;
+            return values;
         }
 
         String trimmed = rawValues.trim();
@@ -125,12 +150,12 @@ public without sharing class PublicApiOutboundTriggerService {
                 Object parsed = JSON.deserializeUntyped(trimmed);
                 if (parsed instanceof List<Object>) {
                     for (Object value : (List<Object>) parsed) {
-                        String normalized = normalizeStatus(value == null ? null : String.valueOf(value));
+                        String normalized = normalizeTriggerValue(value == null ? null : String.valueOf(value));
                         if (String.isNotBlank(normalized)) {
-                            statuses.add(normalized);
+                            values.add(normalized);
                         }
                     }
-                    return statuses;
+                    return values;
                 }
             } catch (Exception e) {
                 // Fall through to delimiter parsing.
@@ -139,16 +164,26 @@ public without sharing class PublicApiOutboundTriggerService {
 
         String normalizedInput = trimmed.replace('\r', '\n').replace(';', ',');
         for (String token : normalizedInput.split('[,\\n]+')) {
-            String normalized = normalizeStatus(token);
+            String normalized = normalizeTriggerValue(token);
             if (String.isNotBlank(normalized)) {
-                statuses.add(normalized);
+                values.add(normalized);
             }
         }
-        return statuses;
+        return values;
+    }
+
+    @TestVisible
+    public static Set<String> parseTriggerStatuses(String rawValues) {
+        return parseTriggerFieldValues(rawValues);
+    }
+
+    @TestVisible
+    public static String normalizeTriggerValue(String value) {
+        return value == null ? null : value.trim();
     }
 
     @TestVisible
     public static String normalizeStatus(String status) {
-        return status == null ? null : status.trim();
+        return normalizeTriggerValue(status);
     }
 }

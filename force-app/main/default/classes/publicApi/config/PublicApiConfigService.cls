@@ -11,7 +11,8 @@ public without sharing class PublicApiConfigService {
         public String webhookSecret;
         public String apiKey;
         public Boolean outboundTriggerEnabled;
-        public String outboundTriggerStatusValues;
+        public String outboundTriggerFieldName;
+        public String outboundTriggerFieldValues;
         public String statusUpdateWebhookUrl;
         public String statusUpdateWebhookSecret;
         public String outboundAuthMode;
@@ -19,9 +20,10 @@ public without sharing class PublicApiConfigService {
         public String outboundHeaderValue;
         public String outboundAdditionalHeadersJson;
         public String outboundContentType;
-        public String requestFieldMappingsConfiguration;
-        public String inboundTargetObjectApiName;
-        public String outboundSourceObjectApiName;
+        public String inboundPayloadConfiguration;
+        public String outboundPayloadConfiguration;
+        public String targetObjectApiName;
+        public Boolean syncInboundAndOutbound;
     }
 
     public static Config getConfigForApiKey(String apiKey) {
@@ -65,7 +67,8 @@ public without sharing class PublicApiConfigService {
         c.webhookSecret = setting.Webhook_Secret__c;
         c.apiKey = setting.API_Key__c;
         c.outboundTriggerEnabled = setting.Outbound_Trigger_Enabled__c;
-        c.outboundTriggerStatusValues = setting.Outbound_Trigger_Status_Values__c;
+        c.outboundTriggerFieldName = setting.Outbound_Trigger_Field_Name__c;
+        c.outboundTriggerFieldValues = setting.Outbound_Trigger_Field_Values__c;
         c.statusUpdateWebhookUrl = setting.Outbound_Webhook_URL__c;
         c.statusUpdateWebhookSecret = setting.Outbound_Webhook_Secret__c;
         c.outboundAuthMode = setting.Outbound_Auth_Mode__c;
@@ -73,13 +76,14 @@ public without sharing class PublicApiConfigService {
         c.outboundHeaderValue = setting.Outbound_Header_Value__c;
         c.outboundAdditionalHeadersJson = setting.Outbound_Additional_Headers_JSON__c;
         c.outboundContentType = setting.Outbound_Content_Type__c;
-        c.requestFieldMappingsConfiguration = setting.Outbound_Payload_Configuration__c;
-        c.inboundTargetObjectApiName = String.isBlank(setting.Inbound_Target_Object_API_Name__c)
+        c.inboundPayloadConfiguration = setting.Inbound_Payload_Configuration__c;
+        c.outboundPayloadConfiguration = setting.Outbound_Payload_Configuration__c;
+        c.targetObjectApiName = String.isBlank(setting.Target_Object_API_Name__c)
             ? DEFAULT_SUBMISSION_OBJECT_API_NAME
-            : setting.Inbound_Target_Object_API_Name__c.trim();
-        c.outboundSourceObjectApiName = String.isBlank(setting.Outbound_Source_Object_API_Name__c)
-            ? DEFAULT_SUBMISSION_OBJECT_API_NAME
-            : setting.Outbound_Source_Object_API_Name__c.trim();
+            : setting.Target_Object_API_Name__c.trim();
+        c.syncInboundAndOutbound = setting.Sync_Inbound_And_Outbound__c == null
+            ? true
+            : setting.Sync_Inbound_And_Outbound__c;
         return c;
     }
 }

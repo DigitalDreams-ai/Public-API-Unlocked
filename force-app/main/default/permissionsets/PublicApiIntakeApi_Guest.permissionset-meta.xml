@@ -40,17 +40,22 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>PublicApi_Integration_Config__c.Inbound_Payload_Configuration__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Integration_Config__c.Sync_Inbound_And_Outbound__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Integration_Config__c.Target_Object_API_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>PublicApi_Integration_Config__c.Outbound_Payload_Configuration__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>false</editable>
-        <field>PublicApi_Integration_Config__c.Inbound_Target_Object_API_Name__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>false</editable>
-        <field>PublicApi_Integration_Config__c.Outbound_Source_Object_API_Name__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

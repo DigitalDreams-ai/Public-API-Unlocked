@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Sync_Inbound_And_Outbound__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>When true, the request builder keeps inbound and outbound payload mappings mirrored.</description>
+    <label>Inbound and Outbound are the same</label>
+    <type>Checkbox</type>
+</CustomField>

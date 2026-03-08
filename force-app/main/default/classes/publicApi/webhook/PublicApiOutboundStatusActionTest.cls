@@ -32,10 +32,9 @@ private class PublicApiOutboundStatusActionTest {
             Is_Active__c = true,
             API_Key__c = 'account-outbound-key',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
-            Outbound_Source_Object_API_Name__c = 'Account',
+            Target_Object_API_Name__c = 'Account',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}],' +
-                '"outbound":[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]}'
+                '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
         );
         insert config;
 

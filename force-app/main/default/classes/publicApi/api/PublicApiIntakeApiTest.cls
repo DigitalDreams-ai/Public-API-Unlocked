@@ -5,7 +5,9 @@ private class PublicApiIntakeApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-1',
-            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultMappingsJson()
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
         );
         insert config;
 
@@ -115,7 +117,9 @@ private class PublicApiIntakeApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-4',
-            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultMappingsJson()
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
         );
         insert config;
 
@@ -139,7 +143,9 @@ private class PublicApiIntakeApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-4b',
-            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultMappingsJson()
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
         );
         insert config;
 
@@ -187,8 +193,9 @@ private class PublicApiIntakeApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-6',
-            Outbound_Payload_Configuration__c =
-                '{"inbound":[{"externalKey":"name","value":"$PublicApi_Submission__c.Does_Not_Exist__c","sortOrder":1}],"outbound":[]}'
+            Inbound_Payload_Configuration__c =
+                '[{"externalKey":"name","value":"$PublicApi_Submission__c.Does_Not_Exist__c","sortOrder":1}]',
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
         );
         insert config;
 
@@ -212,8 +219,10 @@ private class PublicApiIntakeApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-7',
+            Inbound_Payload_Configuration__c = '[]',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}'
+                '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
         );
         insert config;
 
@@ -237,9 +246,9 @@ private class PublicApiIntakeApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-8',
-            Inbound_Target_Object_API_Name__c = 'Account',
-            Outbound_Payload_Configuration__c =
-                '{"inbound":[{"externalKey":"name","value":"$Account.Name","sortOrder":1}],"outbound":[]}'
+            Target_Object_API_Name__c = 'Account',
+            Inbound_Payload_Configuration__c =
+                '[{"externalKey":"name","value":"$Account.Name","sortOrder":1}]'
         );
         insert config;
 

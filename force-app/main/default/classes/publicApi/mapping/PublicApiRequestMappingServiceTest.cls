@@ -3,20 +3,16 @@ private class PublicApiRequestMappingServiceTest {
     @IsTest
     static void testApplyInboundMappingsSetsStatus() {
         PublicApi_Submission__c submission = new PublicApi_Submission__c();
-        Map<String, Object> payload = new Map<String, Object>{
-            'status' => 'Converted'
-        };
+        Map<String, Object> payload = new Map<String, Object>{ 'status' => 'Converted' };
 
         String mappingsJson =
-            '{"inbound":[' +
-                '{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}' +
-            '],"outbound":[]}';
+            '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
 
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             payload,
             mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_BOTH
+            'PublicApi_Submission__c'
         );
 
         System.assertEquals('Converted', submission.Status__c);
@@ -24,9 +20,7 @@ private class PublicApiRequestMappingServiceTest {
 
     @IsTest
     static void testBuildOutboundPayloadFromSubmission() {
-        PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            Status__c = 'Referred Out'
-        );
+        PublicApi_Submission__c submission = new PublicApi_Submission__c(Status__c = 'Referred Out');
         insert submission;
         submission = [
             SELECT Id, Status__c, CreatedDate
@@ -35,15 +29,15 @@ private class PublicApiRequestMappingServiceTest {
         ];
 
         String mappingsJson =
-            '{"inbound":[],"outbound":[' +
+            '[' +
                 '{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1},' +
                 '{"externalKey":"createdDate","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":2}' +
-            ']}';
+            ']';
 
         Map<String, Object> payload = PublicApiRequestMappingService.buildOutboundPayload(
             submission,
             mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_BOTH
+            'PublicApi_Submission__c'
         );
 
         System.assertEquals('Referred Out', payload.get('status'));
@@ -58,22 +52,18 @@ private class PublicApiRequestMappingServiceTest {
         PublicApi_Submission__c submission = new PublicApi_Submission__c();
         Map<String, Object> payload = new Map<String, Object>{
             'data' => new Map<String, Object>{
-                'meta' => new Map<String, Object>{
-                    'status' => 'Converted'
-                }
+                'meta' => new Map<String, Object>{ 'status' => 'Converted' }
             }
         };
 
         String mappingsJson =
-            '{"inbound":[' +
-                '{"externalKey":"meta.status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}' +
-            '],"outbound":[]}';
+            '[{"externalKey":"meta.status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
 
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             payload,
             mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_BOTH
+            'PublicApi_Submission__c'
         );
 
         System.assertEquals('Converted', submission.Status__c);
@@ -83,31 +73,29 @@ private class PublicApiRequestMappingServiceTest {
     static void testApplyInboundMappingsParsesBooleanValues() {
         PublicApi_Submission__c submission = new PublicApi_Submission__c();
         String mappingsJson =
-            '{"inbound":[' +
+            '[' +
                 '{"externalKey":"createdByApi","value":"$PublicApi_Submission__c.Created_By_PublicApi_API__c","sortOrder":1}' +
-            '],"outbound":[]}';
+            ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             new Map<String, Object>{ 'createdByApi' => 'true' },
             mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_BOTH
+            'PublicApi_Submission__c'
         );
 
         System.assertEquals(true, submission.Created_By_PublicApi_API__c);
     }
 
     @IsTest
-    static void testValidateMappingsRejectsNonCanonicalPrefixes() {
+    static void testValidateInboundMappingsRejectsNonCanonicalPrefixes() {
         String mappingsJson =
-            '{"inbound":[' +
-                '{"externalKey":"status","value":"$submission.Status__c","sortOrder":1}' +
-            '],"outbound":[]}';
+            '[{"externalKey":"status","value":"$submission.Status__c","sortOrder":1}]';
 
         try {
-            PublicApiRequestMappingService.validateMappings(
+            PublicApiRequestMappingService.validateInboundMappings(
                 mappingsJson,
-                PublicApiRequestMappingService.DIRECTION_BOTH
+                'PublicApi_Submission__c'
             );
             System.assert(false, 'Expected non-canonical prefixes to be rejected.');
         } catch (PublicApiIntakeServiceException e) {
@@ -119,16 +107,14 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
-    static void testValidateMappingsRejectsReadOnlyInboundField() {
+    static void testValidateInboundMappingsRejectsReadOnlyInboundField() {
         String mappingsJson =
-            '{"inbound":[' +
-                '{"externalKey":"submissionNumber","value":"$PublicApi_Submission__c.Name","sortOrder":1}' +
-            '],"outbound":[]}';
+            '[{"externalKey":"submissionNumber","value":"$PublicApi_Submission__c.Name","sortOrder":1}]';
 
         try {
-            PublicApiRequestMappingService.validateMappings(
+            PublicApiRequestMappingService.validateInboundMappings(
                 mappingsJson,
-                PublicApiRequestMappingService.DIRECTION_INBOUND
+                'PublicApi_Submission__c'
             );
             System.assert(false, 'Expected read-only inbound fields to be rejected.');
         } catch (PublicApiIntakeServiceException e) {
@@ -137,71 +123,34 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
-    static void testParseConfigurationRejectsNonObjectRoot() {
+    static void testParseMappingsRejectsNonArrayRoot() {
         try {
-            PublicApiRequestMappingService.parseConfiguration('[{"x":1}]');
-            System.assert(false, 'Expected non-object mapping payloads to throw.');
+            PublicApiRequestMappingService.parseMappings('{"x":1}');
+            System.assert(false, 'Expected non-array mapping payloads to throw.');
         } catch (PublicApiIntakeServiceException e) {
             System.assert(
-                e.getMessage().contains('must be a JSON object')
+                e.getMessage().contains('must be a JSON array')
             );
         }
     }
 
     @IsTest
-    static void testEffectiveMappingsMirrorsInboundToOutboundWhenBoth() {
-        String mappingsJson =
-            '{"inbound":[' +
-                '{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}' +
-            '],"outbound":[]}';
-
-        List<PublicApiRequestMappingService.MappingConfig> outbound =
-            PublicApiRequestMappingService.getEffectiveOutboundMappings(
-                mappingsJson,
-                PublicApiRequestMappingService.DIRECTION_BOTH
-            );
-
-        System.assertEquals(1, outbound.size());
-        System.assertEquals('status', outbound[0].externalKey);
-        System.assertEquals('$PublicApi_Submission__c.Status__c', outbound[0].value);
-    }
-
-    @IsTest
     static void testGetOutboundFieldApiNamesResolvesKnownFieldsOnly() {
         String mappingsJson =
-            '{"inbound":[],"outbound":[' +
+            '[' +
                 '{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1},' +
                 '{"externalKey":"created","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":2},' +
                 '{"externalKey":"bad","value":"$PublicApi_Submission__c.Does_Not_Exist__c","sortOrder":3}' +
-            ']}';
+            ']';
 
         Set<String> fields = PublicApiRequestMappingService.getOutboundFieldApiNames(
             mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_OUTBOUND,
             'PublicApi_Submission__c'
         );
 
         System.assertEquals(true, fields.contains('Status__c'));
         System.assertEquals(true, fields.contains('CreatedDate'));
         System.assertEquals(false, fields.contains('Does_Not_Exist__c'));
-    }
-
-    @IsTest
-    static void testApplyInboundMappingsSkipsWhenDirectionOutboundOnly() {
-        PublicApi_Submission__c submission = new PublicApi_Submission__c();
-        String mappingsJson =
-            '{"inbound":[' +
-                '{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}' +
-            '],"outbound":[]}';
-
-        PublicApiRequestMappingService.applyInboundMappings(
-            submission,
-            new Map<String, Object>{ 'status' => 'Converted' },
-            mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_OUTBOUND
-        );
-
-        System.assertEquals(null, submission.Status__c);
     }
 
     @IsTest
@@ -213,17 +162,16 @@ private class PublicApiRequestMappingServiceTest {
         };
 
         String mappingsJson =
-            '{"inbound":[' +
+            '[' +
                 '{"externalKey":"name","value":"$Lead.FirstName","sortOrder":1},' +
                 '{"externalKey":"last_name","value":"$Lead.LastName","sortOrder":2},' +
                 '{"externalKey":"company","value":"$Lead.Company","sortOrder":3}' +
-            '],"outbound":[]}';
+            ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
             leadRecord,
             payload,
             mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_BOTH,
             'Lead'
         );
 

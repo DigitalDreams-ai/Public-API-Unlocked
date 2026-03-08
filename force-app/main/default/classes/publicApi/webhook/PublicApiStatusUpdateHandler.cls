@@ -1,39 +1,87 @@
 public without sharing class PublicApiStatusUpdateHandler {
+    @TestVisible
+    static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
+
     public static void handleAfterUpdate(List<PublicApi_Submission__c> newRecords, Map<Id, PublicApi_Submission__c> oldMap) {
         if (newRecords == null || newRecords.isEmpty() || oldMap == null || oldMap.isEmpty()) {
             return;
         }
 
-        List<PublicApiOutboundTriggerService.StatusChangeRequest> requests =
-            new List<PublicApiOutboundTriggerService.StatusChangeRequest>();
+        Set<Id> configIds = new Set<Id>();
         for (PublicApi_Submission__c newRecord : newRecords) {
+            if (newRecord != null && newRecord.PublicApi_Integration_Config__c != null) {
+                configIds.add(newRecord.PublicApi_Integration_Config__c);
+            }
+        }
+        if (configIds.isEmpty()) {
+            return;
+        }
+
+        Map<Id, PublicApiConfigService.Config> configsById = PublicApiConfigService.getConfigsById(configIds);
+        List<PublicApiOutboundTriggerService.ChangeRequest> requests =
+            new List<PublicApiOutboundTriggerService.ChangeRequest>();
+        for (PublicApi_Submission__c newRecord : newRecords) {
+            if (newRecord == null || newRecord.PublicApi_Integration_Config__c == null) {
+                continue;
+            }
+
             PublicApi_Submission__c oldRecord = oldMap.get(newRecord.Id);
-            if (oldRecord == null || !didStatusChange(newRecord, oldRecord)) {
+            PublicApiConfigService.Config config = configsById.get(newRecord.PublicApi_Integration_Config__c);
+            if (oldRecord == null || config == null || !supportsSubmissionTrigger(config)) {
                 continue;
             }
-            if (newRecord.PublicApi_Integration_Config__c == null) {
+
+            String triggerFieldName = PublicApiOutboundTriggerService.getConfiguredTriggerFieldName(config);
+            if (!hasField(newRecord, triggerFieldName) || !didFieldChange(newRecord, oldRecord, triggerFieldName)) {
                 continue;
             }
-            requests.add(new PublicApiOutboundTriggerService.StatusChangeRequest(
+
+            requests.add(new PublicApiOutboundTriggerService.ChangeRequest(
                 newRecord.Id,
                 newRecord.PublicApi_Integration_Config__c,
-                normalizeStatus(oldRecord.Status__c),
-                normalizeStatus(newRecord.Status__c),
+                normalizeValue(oldRecord.get(triggerFieldName)),
+                normalizeValue(newRecord.get(triggerFieldName)),
                 System.now(),
                 UserInfo.getSessionId()
             ));
         }
-        PublicApiOutboundTriggerService.enqueueStatusChanges(requests);
+        PublicApiOutboundTriggerService.enqueueFieldChanges(requests);
     }
 
     @TestVisible
     static Boolean didStatusChange(PublicApi_Submission__c newRecord, PublicApi_Submission__c oldRecord) {
-        return normalizeStatus(newRecord.Status__c) != normalizeStatus(oldRecord.Status__c);
+        return didFieldChange(newRecord, oldRecord, 'Status__c');
+    }
+
+    @TestVisible
+    static Boolean didFieldChange(SObject newRecord, SObject oldRecord, String fieldApiName) {
+        if (newRecord == null || oldRecord == null || String.isBlank(fieldApiName)) {
+            return false;
+        }
+        return normalizeValue(newRecord.get(fieldApiName)) != normalizeValue(oldRecord.get(fieldApiName));
+    }
+
+    @TestVisible
+    static Boolean supportsSubmissionTrigger(PublicApiConfigService.Config config) {
+        if (config == null) {
+            return false;
+        }
+        return SUBMISSION_OBJECT_API_NAME.equalsIgnoreCase(
+            String.isBlank(config.targetObjectApiName) ? SUBMISSION_OBJECT_API_NAME : config.targetObjectApiName
+        );
+    }
+
+    @TestVisible
+    static Boolean hasField(SObject record, String fieldApiName) {
+        if (record == null || String.isBlank(fieldApiName)) {
+            return false;
+        }
+        return record.getSObjectType().getDescribe().fields.getMap().containsKey(fieldApiName);
     }
 
     @TestVisible
     static Boolean shouldSendStatusUpdate(PublicApiConfigService.Config config, String status) {
-        return PublicApiOutboundTriggerService.shouldSendStatusUpdate(config, status);
+        return PublicApiOutboundTriggerService.shouldSendOutboundTrigger(config, status);
     }
 
     @TestVisible
@@ -43,16 +91,15 @@ public without sharing class PublicApiStatusUpdateHandler {
 
     @TestVisible
     static Set<String> getConfiguredTriggerStatuses(PublicApiConfigService.Config config) {
-        return PublicApiOutboundTriggerService.getConfiguredTriggerStatuses(config);
+        return PublicApiOutboundTriggerService.getConfiguredTriggerFieldValues(config);
     }
 
     @TestVisible
     static Set<String> parseTriggerStatuses(String rawValues) {
-        return PublicApiOutboundTriggerService.parseTriggerStatuses(rawValues);
+        return PublicApiOutboundTriggerService.parseTriggerFieldValues(rawValues);
     }
 
-    private static String normalizeStatus(String status) {
-        return PublicApiOutboundTriggerService.normalizeStatus(status);
+    private static String normalizeValue(Object value) {
+        return value == null ? null : String.valueOf(value).trim();
     }
-
 }

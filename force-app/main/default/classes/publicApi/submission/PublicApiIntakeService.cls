@@ -1,8 +1,6 @@
 public without sharing class PublicApiIntakeService {
     @TestVisible
     static final Integer RAW_PAYLOAD_MAX_LENGTH = 131072;
-    @TestVisible
-    static final String DIRECTION_INBOUND = 'Inbound';
 
     public static SObject createIntakeFromPublicApi(
         Map<String, Object> payload,
@@ -18,27 +16,26 @@ public without sharing class PublicApiIntakeService {
         }
 
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-        String inboundTargetObjectApiName = String.isBlank(config.inboundTargetObjectApiName)
+        String targetObjectApiName = String.isBlank(config.targetObjectApiName)
             ? PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME
-            : config.inboundTargetObjectApiName.trim();
-        if (!globalDescribe.containsKey(inboundTargetObjectApiName)) {
-            throw new PublicApiIntakeServiceException('Submission object not found: ' + inboundTargetObjectApiName);
+            : config.targetObjectApiName.trim();
+        if (!globalDescribe.containsKey(targetObjectApiName)) {
+            throw new PublicApiIntakeServiceException('Submission object not found: ' + targetObjectApiName);
         }
-        validateInboundMappings(config.requestFieldMappingsConfiguration, inboundTargetObjectApiName);
-        Schema.DescribeSObjectResult objectDescribe = globalDescribe.get(inboundTargetObjectApiName).getDescribe();
+        validateInboundMappings(config.inboundPayloadConfiguration, targetObjectApiName);
+        Schema.DescribeSObjectResult objectDescribe = globalDescribe.get(targetObjectApiName).getDescribe();
         if (!objectDescribe.isCreateable()) {
             throw new PublicApiIntakeServiceException(
-                'Configured inbound target object is not createable: ' + inboundTargetObjectApiName
+                'Configured inbound target object is not createable: ' + targetObjectApiName
             );
         }
 
-        SObject submission = globalDescribe.get(inboundTargetObjectApiName).newSObject();
+        SObject submission = globalDescribe.get(targetObjectApiName).newSObject();
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             payload,
-            config.requestFieldMappingsConfiguration,
-            PublicApiRequestMappingService.getDefaultDirection(),
-            inboundTargetObjectApiName
+            config.inboundPayloadConfiguration,
+            targetObjectApiName
         );
 
         putIfFieldExists(submission, 'PublicApi_Integration_Config__c', config.id);
@@ -106,32 +103,27 @@ public without sharing class PublicApiIntakeService {
     }
 
     @TestVisible
-    private static void validateInboundMappings(String mappingConfigurationJson, String inboundTargetObjectApiName) {
-        if (String.isBlank(mappingConfigurationJson)) {
+    private static void validateInboundMappings(String inboundConfigurationJson, String targetObjectApiName) {
+        if (String.isBlank(inboundConfigurationJson)) {
             throw new PublicApiIntakeServiceException(
                 'Inbound mapping configuration is required on Public API Integration Config.'
             );
         }
 
-        PublicApiRequestMappingService.MappingConfiguration parsedMappings;
+        List<PublicApiRequestMappingService.MappingConfig> parsedMappings;
         try {
-            parsedMappings = PublicApiRequestMappingService.parseConfiguration(mappingConfigurationJson);
+            parsedMappings = PublicApiRequestMappingService.parseMappings(inboundConfigurationJson);
         } catch (Exception e) {
             throw new PublicApiIntakeServiceException('Inbound mapping configuration is invalid: ' + e.getMessage());
         }
-        if (parsedMappings == null || parsedMappings.inboundMappings == null || parsedMappings.inboundMappings.isEmpty()) {
+        if (parsedMappings == null || parsedMappings.isEmpty()) {
             throw new PublicApiIntakeServiceException(
                 'Inbound mapping configuration is invalid: At least one inbound mapping row is required.'
             );
         }
 
         try {
-            PublicApiRequestMappingService.validateMappings(
-                mappingConfigurationJson,
-                DIRECTION_INBOUND,
-                inboundTargetObjectApiName,
-                null
-            );
+            PublicApiRequestMappingService.validateInboundMappings(inboundConfigurationJson, targetObjectApiName);
         } catch (PublicApiIntakeServiceException e) {
             throw new PublicApiIntakeServiceException('Inbound mapping configuration is invalid: ' + e.getMessage());
         }

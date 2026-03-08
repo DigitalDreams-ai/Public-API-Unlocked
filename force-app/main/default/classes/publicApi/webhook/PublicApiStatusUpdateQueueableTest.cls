@@ -140,7 +140,7 @@ private class PublicApiStatusUpdateQueueableTest {
             API_Key__c = 'queueable-no-session-key',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}'
+                '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
         );
         insert config;
 

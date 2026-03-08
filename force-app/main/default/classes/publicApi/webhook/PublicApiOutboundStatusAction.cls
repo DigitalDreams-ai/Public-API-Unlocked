@@ -25,14 +25,14 @@ public without sharing class PublicApiOutboundStatusAction {
             return;
         }
 
-        List<PublicApiOutboundTriggerService.StatusChangeRequest> normalizedRequests =
-            new List<PublicApiOutboundTriggerService.StatusChangeRequest>();
+        List<PublicApiOutboundTriggerService.ChangeRequest> normalizedRequests =
+            new List<PublicApiOutboundTriggerService.ChangeRequest>();
         String sessionId = UserInfo.getSessionId();
         for (Request request : requests) {
             if (request == null || request.recordId == null || request.configId == null) {
                 continue;
             }
-            normalizedRequests.add(new PublicApiOutboundTriggerService.StatusChangeRequest(
+            normalizedRequests.add(new PublicApiOutboundTriggerService.ChangeRequest(
                 request.recordId,
                 request.configId,
                 request.previousStatus,
@@ -41,6 +41,6 @@ public without sharing class PublicApiOutboundStatusAction {
                 sessionId
             ));
         }
-        PublicApiOutboundTriggerService.enqueueStatusChanges(normalizedRequests);
+        PublicApiOutboundTriggerService.enqueueFieldChanges(normalizedRequests);
     }
 }

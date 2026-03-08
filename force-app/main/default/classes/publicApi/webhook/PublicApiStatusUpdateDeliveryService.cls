@@ -42,15 +42,11 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
         }
 
         try {
-            validateOutboundMappings(
-                config.requestFieldMappingsConfiguration,
-                config.outboundSourceObjectApiName
-            );
+            validateOutboundMappings(config.outboundPayloadConfiguration, config.targetObjectApiName);
             Map<String, Object> payloadMap = PublicApiRequestMappingService.buildOutboundPayload(
                 record,
-                config.requestFieldMappingsConfiguration,
-                PublicApiRequestMappingService.getDefaultDirection(),
-                config.outboundSourceObjectApiName
+                config.outboundPayloadConfiguration,
+                config.targetObjectApiName
             );
             if (payloadMap == null || payloadMap.isEmpty()) {
                 throw new PublicApiIntakeServiceException(
@@ -108,25 +104,20 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
 
     @TestVisible
     static void validateOutboundMappings(
-        String mappingConfigurationJson,
-        String outboundSourceObjectApiName
+        String outboundConfigurationJson,
+        String targetObjectApiName
     ) {
-        if (String.isBlank(mappingConfigurationJson)) {
+        if (String.isBlank(outboundConfigurationJson)) {
             throw new PublicApiIntakeServiceException(
                 'Outbound mapping configuration is required on Public API Integration Config.'
             );
         }
-        PublicApiRequestMappingService.validateMappings(
-            mappingConfigurationJson,
-            'Outbound',
-            null,
-            outboundSourceObjectApiName
-        );
+        PublicApiRequestMappingService.validateOutboundMappings(outboundConfigurationJson, targetObjectApiName);
     }
 
     @TestVisible
-    static void validateOutboundMappings(String mappingConfigurationJson) {
-        validateOutboundMappings(mappingConfigurationJson, PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME);
+    static void validateOutboundMappings(String outboundConfigurationJson) {
+        validateOutboundMappings(outboundConfigurationJson, PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME);
     }
 
     public static Map<Id, SObject> queryRecords(
@@ -140,10 +131,10 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
                 continue;
             }
             PublicApiConfigService.Config config = configsById.get(item.configId);
-            if (config == null || String.isBlank(config.outboundSourceObjectApiName)) {
+            if (config == null || String.isBlank(config.targetObjectApiName)) {
                 continue;
             }
-            String objectApiName = config.outboundSourceObjectApiName.trim();
+            String objectApiName = config.targetObjectApiName.trim();
             if (!recordIdsByObject.containsKey(objectApiName)) {
                 recordIdsByObject.put(objectApiName, new Set<Id>());
             }
@@ -174,8 +165,7 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
             for (Id configId : configIdsByObject.get(objectApiName)) {
                 PublicApiConfigService.Config config = configsById.get(configId);
                 Set<String> configuredFields = PublicApiRequestMappingService.getOutboundFieldApiNames(
-                    config == null ? null : config.requestFieldMappingsConfiguration,
-                    PublicApiRequestMappingService.getDefaultDirection(),
+                    config == null ? null : config.outboundPayloadConfiguration,
                     objectApiName
                 );
                 for (String fieldName : configuredFields) {

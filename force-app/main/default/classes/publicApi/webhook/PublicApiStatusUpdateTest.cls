@@ -32,7 +32,7 @@ private class PublicApiStatusUpdateTest {
             API_Key__c = 'status-test-key-1',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}'
+                '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
         );
         insert config;
 
@@ -68,7 +68,7 @@ private class PublicApiStatusUpdateTest {
             API_Key__c = 'status-test-key-2',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[],"outbound":[{"externalKey":"bad","value":"$Account.Name","sortOrder":1}]}'
+                '[{"externalKey":"bad","value":"$Account.Name","sortOrder":1}]'
         );
         insert config;
 
@@ -109,7 +109,7 @@ private class PublicApiStatusUpdateTest {
             Outbound_Trigger_Enabled__c = false,
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}'
+                '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
         );
         insert config;
 
@@ -139,10 +139,11 @@ private class PublicApiStatusUpdateTest {
             Is_Active__c = true,
             API_Key__c = 'status-test-key-custom-statuses',
             Outbound_Trigger_Enabled__c = true,
-            Outbound_Trigger_Status_Values__c = customStatus,
+            Outbound_Trigger_Field_Name__c = 'Status__c',
+            Outbound_Trigger_Field_Values__c = customStatus,
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[],"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}'
+                '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
         );
         insert config;
 
@@ -167,6 +168,44 @@ private class PublicApiStatusUpdateTest {
         System.assertEquals(1, deliveries.size());
         System.assertEquals(customStatus, deliveries[0].Triggered_Status__c);
         System.assertEquals('Success', deliveries[0].Status__c);
+    }
+
+    @IsTest
+    static void testCustomTriggerField_UsesConfiguredFieldName() {
+        Test.setMock(HttpCalloutMock.class, new SuccessMock());
+
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'trigger-field-api-name-key',
+            Outbound_Trigger_Enabled__c = true,
+            Outbound_Trigger_Field_Name__c = 'Created_By_PublicApi_API__c',
+            Outbound_Trigger_Field_Values__c = 'false',
+            Outbound_Webhook_URL__c = 'https://example.com/webhook',
+            Outbound_Payload_Configuration__c =
+                '[{"externalKey":"createdByApi","value":"$PublicApi_Submission__c.Created_By_PublicApi_API__c","sortOrder":1}]'
+        );
+        insert config;
+
+        PublicApi_Submission__c submission = new PublicApi_Submission__c(
+            Status__c = 'New',
+            Created_By_PublicApi_API__c = true,
+            PublicApi_Integration_Config__c = config.Id
+        );
+        insert submission;
+
+        Test.startTest();
+        update new PublicApi_Submission__c(Id = submission.Id, Created_By_PublicApi_API__c = false);
+        Test.stopTest();
+
+        List<PublicApi_Webhook_Delivery__c> deliveries = [
+            SELECT Triggered_Status__c, Status__c, Request_JSON__c
+            FROM PublicApi_Webhook_Delivery__c
+            WHERE Intake__c = :submission.Id
+        ];
+        System.assertEquals(1, deliveries.size());
+        System.assertEquals('false', deliveries[0].Triggered_Status__c);
+        System.assertEquals('Success', deliveries[0].Status__c);
+        System.assert(String.valueOf(deliveries[0].Request_JSON__c).contains('"createdByApi":false'));
     }
 
     @IsTest
