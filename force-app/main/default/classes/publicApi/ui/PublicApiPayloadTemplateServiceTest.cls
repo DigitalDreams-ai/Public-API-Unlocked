@@ -1,31 +1,38 @@
 @IsTest
 private class PublicApiPayloadTemplateServiceTest {
     @IsTest
-    static void testGetDefaultMappingsJsonContainsInboundAndOutbound() {
-        String jsonValue = PublicApiPayloadTemplateService.getDefaultMappingsJson();
-        PublicApiRequestMappingService.MappingConfiguration parsed =
-            PublicApiRequestMappingService.parseConfiguration(jsonValue);
+    static void testDefaultMappingJsonsContainRows() {
+        List<PublicApiRequestMappingService.MappingConfig> inboundMappings =
+            PublicApiRequestMappingService.parseMappings(
+                PublicApiPayloadTemplateService.getDefaultInboundMappingsJson()
+            );
+        List<PublicApiRequestMappingService.MappingConfig> outboundMappings =
+            PublicApiRequestMappingService.parseMappings(
+                PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson()
+            );
 
-        System.assertNotEquals(null, parsed);
-        System.assertNotEquals(null, parsed.inboundMappings);
-        System.assertNotEquals(null, parsed.outboundMappings);
-        System.assertEquals(true, parsed.outboundMappings.size() > 0);
+        System.assertEquals(true, inboundMappings.size() > 0);
+        System.assertEquals(true, outboundMappings.size() > 0);
     }
 
     @IsTest
     static void testInferSyncInboundAndOutbound() {
-        System.assertEquals(true, PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(null));
-        System.assertEquals(false, PublicApiPayloadTemplateService.inferSyncInboundAndOutbound('{bad json}'));
+        System.assertEquals(true, PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(null, null));
+        System.assertEquals(false, PublicApiPayloadTemplateService.inferSyncInboundAndOutbound('{bad json}', null));
 
         String sameMappings =
-            '{"inbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}],' +
-            '"outbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]}';
-        System.assertEquals(true, PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(sameMappings));
+            '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
+        System.assertEquals(
+            true,
+            PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(sameMappings, sameMappings)
+        );
 
         String differentMappings =
-            '{"inbound":[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}],' +
-            '"outbound":[{"externalKey":"created","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":1}]}';
-        System.assertEquals(false, PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(differentMappings));
+            '[{"externalKey":"created","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":1}]';
+        System.assertEquals(
+            false,
+            PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(sameMappings, differentMappings)
+        );
     }
 
     @IsTest
@@ -41,6 +48,7 @@ private class PublicApiPayloadTemplateServiceTest {
             true
         );
         System.assertNotEquals(null, inbound);
+        System.assertEquals(true, inbound.size() > 0);
 
         List<String> outbound = PublicApiPayloadTemplateService.getAvailableFieldReferences(
             'PublicApi_Submission__c',
@@ -53,5 +61,26 @@ private class PublicApiPayloadTemplateServiceTest {
             true
         );
         System.assertEquals(0, missing.size());
+    }
+
+    @IsTest
+    static void testGetAvailableTriggerMetadata() {
+        List<String> fieldNames = PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(
+            'PublicApi_Submission__c'
+        );
+        System.assertEquals(true, fieldNames.contains('Status__c'));
+        System.assertEquals(false, fieldNames.contains('CreatedDate'));
+
+        List<String> booleanValues = PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(
+            'PublicApi_Submission__c',
+            'Created_By_PublicApi_API__c'
+        );
+        System.assertEquals(new List<String>{ 'true', 'false' }, booleanValues);
+
+        List<String> missingValues = PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(
+            'PublicApi_Submission__c',
+            'NotAField__c'
+        );
+        System.assertEquals(0, missingValues.size());
     }
 }

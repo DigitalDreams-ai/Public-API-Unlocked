@@ -99,26 +99,6 @@
                 <identifier>RecordWebhook_Secret_cField</identifier>
             </fieldInstance>
         </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Inbound_Target_Object_API_Name__c</fieldItem>
-                <identifier>RecordInbound_Target_Object_API_Name_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Outbound_Source_Object_API_Name__c</fieldItem>
-                <identifier>RecordOutbound_Source_Object_API_Name_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
         <name>Facet-c463296a-a8bc-4589-b5cc-897695b84374</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -191,51 +171,7 @@
                 <identifier>RecordOutbound_Webhook_Secret_cField</identifier>
             </fieldInstance>
         </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Outbound_Trigger_Enabled__c</fieldItem>
-                <identifier>RecordOutbound_Trigger_Enabled_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Outbound_Trigger_Status_Values__c</fieldItem>
-                <identifier>RecordOutbound_Trigger_Status_Values_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
         <name>Facet-outboundLeft</name>
-        <type>Facet</type>
-    </flexiPageRegions>
-    <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Outbound_Additional_Headers_JSON__c</fieldItem>
-                <identifier>RecordOutbound_Additional_Headers_JSON_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Outbound_Payload_Configuration__c</fieldItem>
-                <identifier>RecordOutbound_Payload_Configuration_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <name>Facet-outboundRight</name>
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
@@ -247,16 +183,6 @@
                 </componentInstanceProperties>
                 <componentName>flexipage:column</componentName>
                 <identifier>flexipage_columnOutbound1</identifier>
-            </componentInstance>
-        </itemInstances>
-        <itemInstances>
-            <componentInstance>
-                <componentInstanceProperties>
-                    <name>body</name>
-                    <value>Facet-outboundRight</value>
-                </componentInstanceProperties>
-                <componentName>flexipage:column</componentName>
-                <identifier>flexipage_columnOutbound2</identifier>
             </componentInstance>
         </itemInstances>
         <name>Facet-outboundColumns</name>
@@ -345,7 +271,7 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>label</name>
-                    <value>Outbound Delivery</value>
+                    <value>Webhook Delivery</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:fieldSection</componentName>
                 <identifier>flexipage_fieldSectionOutbound</identifier>

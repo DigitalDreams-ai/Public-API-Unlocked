@@ -24,8 +24,8 @@
                                         <div>
                                             <h3 class="slds-text-heading_small">Payload Mappings</h3>
                                             <p class="slds-text-body_small slds-text-color_weak">
-                                                The payload builder is the source of truth for inbound and outbound mappings.<br>Use object field references like 
-                                                <code>{inputValuePlaceholder}</code>.
+                                                The builder controls inbound and outbound payloads. Use object field references like
+                                                <code>{valuePlaceholder}</code>.
                                             </p>
                                         </div>
                                         <div>
@@ -39,7 +39,7 @@
 
                                 <div class="slds-box slds-theme_default slds-m-top_small builder-section">
                                     <div class="slds-grid slds-gutters slds-wrap">
-                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                        <div class="slds-col slds-size_1-of-1">
                                             <lightning-input
                                                 type="checkbox"
                                                 label="Inbound and Outbound are the same"
@@ -47,22 +47,120 @@
                                                 onchange={handleSyncDirectionsChange}>
                                             </lightning-input>
                                         </div>
-                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                                            <lightning-combobox
-                                                label="Inbound Target Object"
-                                                value={inboundTargetObjectApiName}
-                                                options={availableObjectApiNames}
-                                                onchange={handleInboundObjectChange}>
-                                            </lightning-combobox>
+                                        <div class="slds-col slds-size_1-of-1">
+                                            <div class="target-object-picker">
+                                                <lightning-input
+                                                    type="text"
+                                                    label="Target Object"
+                                                    value={targetObjectSearchValue}
+                                                    placeholder="Start typing an object API name"
+                                                    onfocus={handleTargetObjectFocus}
+                                                    onblur={handleTargetObjectBlur}
+                                                    onkeyup={handleTargetObjectInput}
+                                                    onchange={handleTargetObjectInput}>
+                                                </lightning-input>
+                                                <template if:true={showObjectSuggestions}>
+                                                    <div class="suggestions-panel">
+                                                        <template if:true={hasObjectSuggestions}>
+                                                            <template for:each={filteredObjectSuggestions} for:item="suggestion">
+                                                                <button
+                                                                    key={suggestion.value}
+                                                                    type="button"
+                                                                    class="suggestion-item"
+                                                                    data-value={suggestion.value}
+                                                                    onclick={handleSelectTargetObject}>
+                                                                    {suggestion.label}
+                                                                </button>
+                                                            </template>
+                                                        </template>
+                                                        <template if:false={hasObjectSuggestions}>
+                                                            <div class="suggestion-empty">
+                                                                No supported target objects match the current search.
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1">
+                                            <lightning-input
+                                                type="checkbox"
+                                                label="Outbound Trigger Enabled"
+                                                checked={outboundTriggerEnabled}
+                                                onchange={handleOutboundTriggerEnabledChange}>
+                                            </lightning-input>
                                         </div>
                                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                                            <lightning-combobox
-                                                label="Outbound Source Object"
-                                                value={outboundSourceObjectApiName}
-                                                options={availableObjectApiNames}
-                                                onchange={handleOutboundObjectChange}
-                                                disabled={syncDirections}>
-                                            </lightning-combobox>
+                                            <div class="target-object-picker">
+                                                <lightning-input
+                                                    data-role="trigger-field-name"
+                                                    type="text"
+                                                    label="Outbound Trigger Field Name"
+                                                    value={outboundTriggerFieldName}
+                                                    placeholder="Start typing a field API name"
+                                                    onfocus={handleTriggerFieldFocus}
+                                                    onblur={handleTriggerFieldBlur}
+                                                    onkeyup={handleTriggerFieldInput}
+                                                    onchange={handleTriggerFieldInput}>
+                                                </lightning-input>
+                                                <template if:true={showTriggerFieldSuggestions}>
+                                                    <div class="suggestions-panel">
+                                                        <template if:true={hasTriggerFieldSuggestions}>
+                                                            <template for:each={filteredTriggerFieldSuggestions} for:item="suggestion">
+                                                                <button
+                                                                    key={suggestion.value}
+                                                                    type="button"
+                                                                    class="suggestion-item"
+                                                                    data-value={suggestion.value}
+                                                                    onclick={handleSelectTriggerFieldSuggestion}>
+                                                                    {suggestion.label}
+                                                                </button>
+                                                            </template>
+                                                        </template>
+                                                        <template if:false={hasTriggerFieldSuggestions}>
+                                                            <div class="suggestion-empty">
+                                                                No supported trigger fields match the current search.
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                            <div class="target-object-picker">
+                                                <lightning-input
+                                                    data-role="trigger-field-values"
+                                                    type="text"
+                                                    label="Outbound Trigger Field Values"
+                                                    value={outboundTriggerFieldValues}
+                                                    placeholder="Comma-separate values or pick from suggestions"
+                                                    onfocus={handleTriggerValuesFocus}
+                                                    onblur={handleTriggerValuesBlur}
+                                                    onkeyup={handleTriggerValuesInput}
+                                                    onchange={handleTriggerValuesInput}>
+                                                </lightning-input>
+                                                <template if:true={showTriggerValueSuggestions}>
+                                                    <div class="suggestions-panel">
+                                                        <template if:true={hasTriggerValueSuggestions}>
+                                                            <template for:each={filteredTriggerValueSuggestions} for:item="suggestion">
+                                                                <button
+                                                                    key={suggestion.value}
+                                                                    type="button"
+                                                                    class="suggestion-item"
+                                                                    data-value={suggestion.value}
+                                                                    onclick={handleSelectTriggerValueSuggestion}>
+                                                                    {suggestion.label}
+                                                                </button>
+                                                            </template>
+                                                        </template>
+                                                        <template if:false={hasTriggerValueSuggestions}>
+                                                            <div class="suggestion-empty">
+                                                                No suggested values are available for the selected field.
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="builder-help slds-m-top_small">
@@ -79,7 +177,7 @@
                                                         <div>
                                                             <div class="section-heading">Inbound Mappings</div>
                                                             <div class="slds-text-body_small slds-text-color_weak">
-                                                                Incoming keys map into Salesforce submission fields.
+                                                                Incoming payload keys map into fields on the selected target object.
                                                             </div>
                                                         </div>
                                                         <div class="slds-grid slds-grid_vertical-align-center slds-gutters_xx-small">
@@ -118,7 +216,7 @@
                                                                                 data-id={row.id}
                                                                                 type="text"
                                                                                 label="Value"
-                                                                                placeholder={inboundValuePlaceholder}
+                                                                                placeholder={valuePlaceholder}
                                                                                 value={row.value}
                                                                                 onfocus={handleMappingValueFocus}
                                                                                 onblur={handleMappingValueBlur}
@@ -177,7 +275,7 @@
                                                         <div>
                                                             <div class="section-heading">Outbound Mappings</div>
                                                             <div class="slds-text-body_small slds-text-color_weak">
-                                                                Outgoing keys map from Salesforce submission fields.
+                                                                Outgoing payload keys map from fields on the selected target object.
                                                             </div>
                                                         </div>
                                                         <div class="slds-grid slds-grid_vertical-align-center slds-gutters_xx-small">
@@ -216,7 +314,7 @@
                                                                                 data-id={row.id}
                                                                                 type="text"
                                                                                 label="Value"
-                                                                                placeholder={outboundValuePlaceholder}
+                                                                                placeholder={valuePlaceholder}
                                                                                 value={row.value}
                                                                                 onfocus={handleMappingValueFocus}
                                                                                 onblur={handleMappingValueBlur}
