@@ -14,6 +14,9 @@ project:
         prefix_beta: "beta/"
         prefix_release: "release/"
     source_format: sfdx
+    dependencies:
+    - package_name: Litify
+      version_id: "04tHs000000w1CEIAY"
 
 tasks:
     robot:
