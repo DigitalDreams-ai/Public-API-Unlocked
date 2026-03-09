@@ -267,8 +267,12 @@ private class PublicApiIntakeApiTest {
 
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         Id recordId = (Id) response.get('recordId');
-        Account created = [SELECT Id, Name FROM Account WHERE Id = :recordId];
+        Account created = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :recordId];
         System.assertEquals('Acme Public API', created.Name);
+        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        if (expectedRecordTypeId != null) {
+            System.assertEquals(expectedRecordTypeId, created.RecordTypeId);
+        }
     }
 
     @IsTest
@@ -317,8 +321,62 @@ private class PublicApiIntakeApiTest {
         System.assertEquals('Resolved Task', created.Subject);
         System.assertNotEquals(null, created.WhatId);
 
-        Account related = [SELECT Id, Name FROM Account WHERE Id = :created.WhatId];
+        Account related = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :created.WhatId];
         System.assertEquals('Resolved Account', related.Name);
+        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        if (expectedRecordTypeId != null) {
+            System.assertEquals(expectedRecordTypeId, related.RecordTypeId);
+        }
+    }
+
+    @IsTest
+    static void testCreateSubmissionCreatesRelatedAccountWhenNameMustBeDerived() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-10',
+            Target_Object_API_Name__c = 'Task',
+            Inbound_Payload_Configuration__c =
+                '[' +
+                    '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}' +
+                ']',
+            Related_Record_Configuration__c =
+                '[' +
+                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"}' +
+                ']'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(
+            '{"subject":"Derived Account Task","firstName":"Jamie","lastName":"Fox","email":"jamie.fox@example.com"}'
+        );
+        req.headers.put('x-api-key', 'api-test-key-10');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
+
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        Id recordId = (Id) response.get('recordId');
+        Task created = [SELECT Id, Subject, WhatId FROM Task WHERE Id = :recordId];
+        System.assertNotEquals(null, created.WhatId);
+
+        String accountLastNameFieldName = getAccountLastNameFieldName();
+        SObject related = queryAccount(created.WhatId, accountLastNameFieldName);
+        System.assert(String.isNotBlank(String.valueOf(related.get('Name'))));
+        if (accountLastNameFieldName != null) {
+            System.assertEquals('Fox', related.get(accountLastNameFieldName));
+        }
+        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        if (expectedRecordTypeId != null) {
+            System.assertEquals(expectedRecordTypeId, related.get('RecordTypeId'));
+        }
     }
 
     private static String getAccountLastNameFieldName() {
@@ -339,5 +397,15 @@ private class PublicApiIntakeApiTest {
             }
         }
         return null;
+    }
+
+    private static SObject queryAccount(Id accountId, String accountLastNameFieldName) {
+        List<String> fieldNames = new List<String>{ 'Id', 'Name', 'RecordTypeId' };
+        if (String.isNotBlank(accountLastNameFieldName)) {
+            fieldNames.add(accountLastNameFieldName);
+        }
+        return Database.query(
+            'SELECT ' + String.join(fieldNames, ', ') + ' FROM Account WHERE Id = :accountId'
+        );
     }
 }

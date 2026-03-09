@@ -305,12 +305,12 @@ public without sharing class PublicApiRequestMappingService {
             }
 
             Schema.DescribeFieldResult describe = fieldMap.get(resolvedFieldApiName).getDescribe();
-            if (inboundMode && !describe.isCreateable()) {
+            if (inboundMode && !isStructurallyWritableField(describe)) {
                 throw new PublicApiIntakeServiceException(
                     'Inbound mapping field is read-only: $' + canonicalObjectApiName + '.' + resolvedFieldApiName
                 );
             }
-            if (!inboundMode && !describe.isAccessible()) {
+            if (!inboundMode && !isStructurallyReadableField(describe)) {
                 throw new PublicApiIntakeServiceException(
                     'Outbound mapping field is not readable: $' + canonicalObjectApiName + '.' + resolvedFieldApiName
                 );
@@ -367,6 +367,28 @@ public without sharing class PublicApiRequestMappingService {
             }
         }
         return null;
+    }
+
+    @TestVisible
+    private static Boolean isStructurallyWritableField(Schema.DescribeFieldResult describe) {
+        if (describe == null || describe.isCalculated() || describe.isAutoNumber()) {
+            return false;
+        }
+
+        Schema.DisplayType fieldType = describe.getType();
+        return fieldType != Schema.DisplayType.Address &&
+            fieldType != Schema.DisplayType.Location;
+    }
+
+    @TestVisible
+    private static Boolean isStructurallyReadableField(Schema.DescribeFieldResult describe) {
+        if (describe == null) {
+            return false;
+        }
+
+        Schema.DisplayType fieldType = describe.getType();
+        return fieldType != Schema.DisplayType.Address &&
+            fieldType != Schema.DisplayType.Location;
     }
 
     private static Boolean equalsIgnoreCase(String left, String right) {

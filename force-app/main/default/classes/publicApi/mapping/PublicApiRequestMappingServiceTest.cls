@@ -123,6 +123,20 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
+    static void testStructurallyWritableFieldRejectsAutoNumberAndAllowsEditableField() {
+        Map<String, Schema.SObjectField> fieldMap = PublicApi_Submission__c.SObjectType.getDescribe().fields.getMap();
+
+        System.assertEquals(
+            false,
+            PublicApiRequestMappingService.isStructurallyWritableField(fieldMap.get('Name').getDescribe())
+        );
+        System.assertEquals(
+            true,
+            PublicApiRequestMappingService.isStructurallyWritableField(fieldMap.get('Status__c').getDescribe())
+        );
+    }
+
+    @IsTest
     static void testParseMappingsRejectsNonArrayRoot() {
         try {
             PublicApiRequestMappingService.parseMappings('{"x":1}');

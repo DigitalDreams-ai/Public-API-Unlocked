@@ -27,14 +27,8 @@ public without sharing class PublicApiIntakeService {
             config.relatedRecordConfiguration,
             targetObjectApiName
         );
-        Schema.DescribeSObjectResult objectDescribe = globalDescribe.get(targetObjectApiName).getDescribe();
-        if (!objectDescribe.isCreateable()) {
-            throw new PublicApiIntakeServiceException(
-                'Configured inbound target object is not createable: ' + targetObjectApiName
-            );
-        }
-
         SObject submission = globalDescribe.get(targetObjectApiName).newSObject();
+        PublicApiRecordTypeService.applyDefaultRecordType(submission);
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             payload,
