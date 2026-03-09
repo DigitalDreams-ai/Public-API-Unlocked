@@ -3,7 +3,6 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
     @TestVisible static final String DEFAULT_API_KEY_HEADER = 'X-API-KEY';
     @TestVisible static final String DEFAULT_AUTHORIZATION_HEADER = 'Authorization';
     @TestVisible static final String DEFAULT_SIGNATURE_HEADER = 'x-publicapi-signature';
-    @TestVisible static Set<String> provisionedWebhookDomainsInTransaction = new Set<String>();
 
     @TestVisible static final String AUTH_MODE_NONE = 'None';
     @TestVisible static final String AUTH_MODE_API_KEY_HEADER = 'ApiKeyHeader';
@@ -27,26 +26,17 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
         SObject record,
         PublicApiConfigService.Config config
     ) {
-        return sendStatusUpdate(http, record, config, null);
-    }
-
-    public static SendOutcome sendStatusUpdate(
-        Http http,
-        SObject record,
-        PublicApiConfigService.Config config,
-        String sessionId
-    ) {
         SendOutcome outcome = new SendOutcome();
         if (http == null || record == null || config == null || String.isBlank(config.statusUpdateWebhookUrl)) {
             return outcome;
         }
 
         try {
-            validateOutboundMappings(config.requestFieldMappingsConfiguration);
+            validateOutboundMappings(config.outboundPayloadConfiguration, config.targetObjectApiName);
             Map<String, Object> payloadMap = PublicApiRequestMappingService.buildOutboundPayload(
                 record,
-                config.requestFieldMappingsConfiguration,
-                PublicApiRequestMappingService.getDefaultDirection()
+                config.outboundPayloadConfiguration,
+                config.targetObjectApiName
             );
             if (payloadMap == null || payloadMap.isEmpty()) {
                 throw new PublicApiIntakeServiceException(
@@ -54,7 +44,7 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
                 );
             }
             outcome.payloadJson = JSON.serialize(payloadMap);
-            ensureWebhookDomainIsProvisioned(config.statusUpdateWebhookUrl, sessionId);
+            validateProvisionedWebhookDomain(config);
 
             HttpRequest request = new HttpRequest();
             request.setMethod('POST');
@@ -86,71 +76,121 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
     }
 
     @TestVisible
-    static void ensureWebhookDomainIsProvisioned(String webhookUrl, String sessionId) {
-        if (String.isBlank(webhookUrl)) {
+    static void validateProvisionedWebhookDomain(PublicApiConfigService.Config config) {
+        if (config == null || String.isBlank(config.statusUpdateWebhookUrl)) {
             return;
         }
-        String normalizedSessionId = String.isBlank(sessionId) ? null : sessionId.trim();
-        if (String.isBlank(normalizedSessionId)) {
-            return;
+
+        String expectedDomain = PublicApiRemoteSiteSettingService.extractDomainFromUrl(config.statusUpdateWebhookUrl);
+        if (String.isBlank(expectedDomain)) {
+            throw new PublicApiRemoteSiteSettingException(
+                'Webhook domain is invalid. Save the Public API Integration Config with a valid outbound webhook URL.'
+            );
         }
-        String domainUrl = PublicApiRemoteSiteSettingService.extractDomainFromUrl(webhookUrl);
-        if (String.isBlank(domainUrl) || provisionedWebhookDomainsInTransaction.contains(domainUrl)) {
-            return;
+
+        if (config.outboundRemoteSiteStatus != PublicApiConfigService.REMOTE_SITE_STATUS_PROVISIONED) {
+            throw new PublicApiRemoteSiteSettingException(
+                'Webhook domain is not provisioned for this configuration. Save the Public API Integration Config as an API-enabled user to provision the remote site before outbound delivery.'
+            );
         }
-        PublicApiRemoteSiteSettingService.ensureStatusWebhookRemoteSite(domainUrl, normalizedSessionId);
-        provisionedWebhookDomainsInTransaction.add(domainUrl);
+
+        if (String.isBlank(config.outboundRemoteSiteDomain) ||
+            config.outboundRemoteSiteDomain.trim().toLowerCase() != expectedDomain.trim().toLowerCase()) {
+            throw new PublicApiRemoteSiteSettingException(
+                'Webhook domain provisioning is out of date for this configuration. Save the Public API Integration Config to reprovision the current webhook domain before outbound delivery.'
+            );
+        }
     }
 
     @TestVisible
-    static void validateOutboundMappings(String mappingConfigurationJson) {
-        if (String.isBlank(mappingConfigurationJson)) {
+    static void validateOutboundMappings(
+        String outboundConfigurationJson,
+        String targetObjectApiName
+    ) {
+        if (String.isBlank(outboundConfigurationJson)) {
             throw new PublicApiIntakeServiceException(
                 'Outbound mapping configuration is required on Public API Integration Config.'
             );
         }
-        PublicApiRequestMappingService.validateMappings(mappingConfigurationJson, 'Outbound');
+        PublicApiRequestMappingService.validateOutboundMappings(outboundConfigurationJson, targetObjectApiName);
+    }
+
+    @TestVisible
+    static void validateOutboundMappings(String outboundConfigurationJson) {
+        validateOutboundMappings(outboundConfigurationJson, PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME);
     }
 
     public static Map<Id, SObject> queryRecords(
         List<PublicApiStatusUpdateQueueable.DeliveryItem> items,
+        Map<Id, PublicApiConfigService.Config> configsById
+    ) {
+        Map<String, Set<Id>> recordIdsByObject = new Map<String, Set<Id>>();
+        Map<String, Set<Id>> configIdsByObject = new Map<String, Set<Id>>();
+        for (PublicApiStatusUpdateQueueable.DeliveryItem item : items) {
+            if (item == null || item.recordId == null || item.configId == null) {
+                continue;
+            }
+            PublicApiConfigService.Config config = configsById.get(item.configId);
+            if (config == null || String.isBlank(config.targetObjectApiName)) {
+                continue;
+            }
+            String objectApiName = config.targetObjectApiName.trim();
+            if (!recordIdsByObject.containsKey(objectApiName)) {
+                recordIdsByObject.put(objectApiName, new Set<Id>());
+            }
+            recordIdsByObject.get(objectApiName).add(item.recordId);
+
+            if (!configIdsByObject.containsKey(objectApiName)) {
+                configIdsByObject.put(objectApiName, new Set<Id>());
+            }
+            configIdsByObject.get(objectApiName).add(item.configId);
+        }
+        if (recordIdsByObject.isEmpty()) {
+            return new Map<Id, SObject>();
+        }
+
+        Map<Id, SObject> recordsById = new Map<Id, SObject>();
+        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+        for (String objectApiName : recordIdsByObject.keySet()) {
+            if (String.isBlank(objectApiName) || !globalDescribe.containsKey(objectApiName)) {
+                continue;
+            }
+            Set<Id> recordIdsForObject = recordIdsByObject.get(objectApiName);
+            if (recordIdsForObject == null || recordIdsForObject.isEmpty()) {
+                continue;
+            }
+
+            Map<String, Schema.SObjectField> validFields = globalDescribe.get(objectApiName).getDescribe().fields.getMap();
+            Set<String> selectedFields = new Set<String>{ 'Id' };
+            for (Id configId : configIdsByObject.get(objectApiName)) {
+                PublicApiConfigService.Config config = configsById.get(configId);
+                Set<String> configuredFields = PublicApiRequestMappingService.getOutboundFieldApiNames(
+                    config == null ? null : config.outboundPayloadConfiguration,
+                    objectApiName
+                );
+                for (String fieldName : configuredFields) {
+                    if (fieldName == 'CreatedDate' || validFields.containsKey(fieldName)) {
+                        selectedFields.add(fieldName);
+                    }
+                }
+            }
+
+            String soql = 'SELECT ' + String.join(new List<String>(selectedFields), ', ') +
+                ' FROM ' + objectApiName + ' WHERE Id IN :recordIdsForObject';
+            for (SObject queriedRecord : Database.query(soql)) {
+                recordsById.put((Id) queriedRecord.get('Id'), queriedRecord);
+            }
+        }
+        return recordsById;
+    }
+
+    @TestVisible
+    static Map<Id, SObject> queryRecords(
+        List<PublicApiStatusUpdateQueueable.DeliveryItem> items,
         Map<Id, PublicApiConfigService.Config> configsById,
         String submissionObjectApiName
     ) {
-        Set<Id> recordIds = new Set<Id>();
-        for (PublicApiStatusUpdateQueueable.DeliveryItem item : items) {
-            if (item != null && item.recordId != null) {
-                recordIds.add(item.recordId);
-            }
-        }
-        if (recordIds.isEmpty()) {
-            return new Map<Id, SObject>();
-        }
-
-        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-        if (!globalDescribe.containsKey(submissionObjectApiName)) {
-            return new Map<Id, SObject>();
-        }
-        Map<String, Schema.SObjectField> validFields =
-            globalDescribe.get(submissionObjectApiName).getDescribe().fields.getMap();
-
-        Set<String> selectedFields = new Set<String>{ 'Id' };
-        for (PublicApiConfigService.Config config : configsById.values()) {
-            Set<String> configuredFields = PublicApiRequestMappingService.getOutboundFieldApiNames(
-                config == null ? null : config.requestFieldMappingsConfiguration,
-                PublicApiRequestMappingService.getDefaultDirection()
-            );
-            for (String fieldName : configuredFields) {
-                if (fieldName == 'CreatedDate' || validFields.containsKey(fieldName)) {
-                    selectedFields.add(fieldName);
-                }
-            }
-        }
-
-        String soql = 'SELECT ' + String.join(new List<String>(selectedFields), ', ') +
-            ' FROM ' + submissionObjectApiName + ' WHERE Id IN :recordIds';
-        List<SObject> queried = Database.query(soql);
-        return new Map<Id, SObject>(queried);
+        return queryRecords(items, configsById);
     }
 
     public static void applyRequestConfiguration(HttpRequest request, PublicApiConfigService.Config config, String payload) {

@@ -1,10 +1,6 @@
 public without sharing class PublicApiIntakeService {
     @TestVisible
-    static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
-    @TestVisible
     static final Integer RAW_PAYLOAD_MAX_LENGTH = 131072;
-    @TestVisible
-    static final String DIRECTION_INBOUND = 'Inbound';
 
     public static SObject createIntakeFromPublicApi(
         Map<String, Object> payload,
@@ -20,27 +16,39 @@ public without sharing class PublicApiIntakeService {
         }
 
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-        if (!globalDescribe.containsKey(SUBMISSION_OBJECT_API_NAME)) {
-            throw new PublicApiIntakeServiceException('Submission object not found: ' + SUBMISSION_OBJECT_API_NAME);
+        String targetObjectApiName = String.isBlank(config.targetObjectApiName)
+            ? PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME
+            : config.targetObjectApiName.trim();
+        if (!globalDescribe.containsKey(targetObjectApiName)) {
+            throw new PublicApiIntakeServiceException('Submission object not found: ' + targetObjectApiName);
         }
-        validateInboundMappings(config.requestFieldMappingsConfiguration);
-
-        SObject submission = globalDescribe.get(SUBMISSION_OBJECT_API_NAME).newSObject();
+        validateInboundConfiguration(
+            config.inboundPayloadConfiguration,
+            config.relatedRecordConfiguration,
+            targetObjectApiName
+        );
+        SObject submission = globalDescribe.get(targetObjectApiName).newSObject();
+        PublicApiRecordTypeService.applyDefaultRecordType(submission);
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             payload,
-            config.requestFieldMappingsConfiguration,
-            PublicApiRequestMappingService.getDefaultDirection()
+            config.inboundPayloadConfiguration,
+            targetObjectApiName
+        );
+        PublicApiRelatedRecordService.applyRelatedRecordRules(
+            submission,
+            payload,
+            config.relatedRecordConfiguration
         );
 
         putIfFieldExists(submission, 'PublicApi_Integration_Config__c', config.id);
         putIfFieldExists(submission, 'Created_By_PublicApi_API__c', true);
+        putIfFieldExists(submission, 'Received_At__c', System.now());
         putIfFieldExists(submission, 'Status__c', defaultStatus(submission));
         putIfFieldExists(submission, 'Raw_Payload__c', truncate(JSON.serialize(payload), RAW_PAYLOAD_MAX_LENGTH));
 
         try {
             insert submission;
-            PublicApiIntakeTrackingService.trackIntake(submission.Id, config.id);
             return submission;
         } catch (DmlException e) {
             throw new PublicApiIntakeServiceException('Failed to create submission: ' + e.getMessage());
@@ -52,11 +60,29 @@ public without sharing class PublicApiIntakeService {
         if (submission == null) {
             return null;
         }
+        Map<String, Schema.SObjectField> fieldMap = submission.getSObjectType().getDescribe().fields.getMap();
+        if (!fieldMap.containsKey('Status__c')) {
+            return null;
+        }
         Object existing = submission.get('Status__c');
         if (existing != null && String.isNotBlank(String.valueOf(existing))) {
             return String.valueOf(existing);
         }
-        return 'New';
+
+        Schema.DescribeFieldResult describe = fieldMap.get('Status__c').getDescribe();
+        Object defaultValue = describe == null ? null : describe.getDefaultValue();
+        if (defaultValue != null && String.isNotBlank(String.valueOf(defaultValue))) {
+            return String.valueOf(defaultValue);
+        }
+
+        if (describe != null && describe.getType() == Schema.DisplayType.Picklist) {
+            for (Schema.PicklistEntry entry : describe.getPicklistValues()) {
+                if (entry != null && entry.isDefaultValue()) {
+                    return entry.getValue();
+                }
+            }
+        }
+        return null;
     }
 
     @TestVisible
@@ -80,16 +106,39 @@ public without sharing class PublicApiIntakeService {
     }
 
     @TestVisible
-    private static void validateInboundMappings(String mappingConfigurationJson) {
-        if (String.isBlank(mappingConfigurationJson)) {
+    private static void validateInboundConfiguration(
+        String inboundConfigurationJson,
+        String relatedRecordConfigurationJson,
+        String targetObjectApiName
+    ) {
+        if (String.isBlank(inboundConfigurationJson)) {
             throw new PublicApiIntakeServiceException(
                 'Inbound mapping configuration is required on Public API Integration Config.'
             );
         }
+
+        List<PublicApiRequestMappingService.MappingConfig> parsedMappings;
         try {
-            PublicApiRequestMappingService.validateMappings(mappingConfigurationJson, DIRECTION_INBOUND);
+            parsedMappings = PublicApiRequestMappingService.parseMappings(inboundConfigurationJson);
+        } catch (Exception e) {
+            throw new PublicApiIntakeServiceException('Inbound mapping configuration is invalid: ' + e.getMessage());
+        }
+        if (parsedMappings == null || parsedMappings.isEmpty()) {
+            throw new PublicApiIntakeServiceException(
+                'Inbound mapping configuration is invalid: At least one inbound mapping row is required.'
+            );
+        }
+
+        try {
+            PublicApiRequestMappingService.validateInboundMappings(inboundConfigurationJson, targetObjectApiName);
         } catch (PublicApiIntakeServiceException e) {
             throw new PublicApiIntakeServiceException('Inbound mapping configuration is invalid: ' + e.getMessage());
+        }
+
+        try {
+            PublicApiRelatedRecordService.validateRules(relatedRecordConfigurationJson, targetObjectApiName);
+        } catch (PublicApiIntakeServiceException e) {
+            throw new PublicApiIntakeServiceException('Related record configuration is invalid: ' + e.getMessage());
         }
     }
 }

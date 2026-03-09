@@ -3,7 +3,6 @@
     <fullName>Created_By_PublicApi_API__c</fullName>
     <defaultValue>false</defaultValue>
     <label>Created By Public API</label>
-    <required>false</required>
     <trackHistory>true</trackHistory>
     <trackTrending>false</trackTrending>
     <type>Checkbox</type>

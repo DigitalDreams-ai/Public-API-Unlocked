@@ -1,27 +1,10 @@
 @IsTest
 private class PublicApiStatusUpdateQueueableTest {
-    private static Integer metadataCallCount = 0;
     private static Integer webhookCallCount = 0;
 
-    private class MetadataAndWebhookMock implements HttpCalloutMock {
+    private class WebhookMock implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest request) {
             HttpResponse response = new HttpResponse();
-            if (request.getEndpoint() != null && request.getEndpoint().contains('/services/Soap/m/61.0')) {
-                metadataCallCount++;
-                response.setStatusCode(200);
-                response.setBody(
-                    '<?xml version="1.0" encoding="UTF-8"?>' +
-                    '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">' +
-                    '<soapenv:Body>' +
-                    '<createMetadataResponse xmlns="http://soap.sforce.com/2006/04/metadata">' +
-                    '<result><success>true</success><fullName>PublicApiWebhook_Example</fullName></result>' +
-                    '</createMetadataResponse>' +
-                    '</soapenv:Body>' +
-                    '</soapenv:Envelope>'
-                );
-                return response;
-            }
-
             webhookCallCount++;
             response.setStatusCode(200);
             response.setStatus('OK');
@@ -129,25 +112,20 @@ private class PublicApiStatusUpdateQueueableTest {
     }
 
     @IsTest
-    static void testQueueable_NoSessionId_SkipsProvisioningAndStillSendsWebhook() {
-        metadataCallCount = 0;
+    static void testQueueable_NoSessionId_StillSendsProvisionedWebhook() {
         webhookCallCount = 0;
-        PublicApiStatusUpdateDeliveryService.provisionedWebhookDomainsInTransaction.clear();
-        Test.setMock(HttpCalloutMock.class, new MetadataAndWebhookMock());
+        Test.setMock(HttpCalloutMock.class, new WebhookMock());
 
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'queueable-no-session-key',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
             Outbound_Payload_Configuration__c =
-                '{"inbound":[],"outbound":[{"externalKey":"email","value":"$intakes.Email__c","sortOrder":1}]}'
+                '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
         );
-        insert config;
+        PublicApiTestConfigFactory.insertConfig(config);
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            First_Name__c = 'Queue',
-            Last_Name__c = 'NoSession',
-            Email__c = 'queueable-nosession@example.com',
             Status__c = 'Converted',
             Created_By_PublicApi_API__c = true
         );
@@ -158,8 +136,7 @@ private class PublicApiStatusUpdateQueueableTest {
             config.Id,
             'Referred Out',
             'Converted',
-            System.now(),
-            null
+            System.now()
         );
 
         Test.startTest();
@@ -177,7 +154,6 @@ private class PublicApiStatusUpdateQueueableTest {
         System.assertEquals('Success', deliveries[0].Status__c);
         System.assertEquals(200, deliveries[0].Status_Code__c);
         System.assertEquals(null, deliveries[0].Error_Code__c);
-        System.assertEquals(0, metadataCallCount, 'Remote-site provisioning should be skipped without a session ID.');
         System.assertEquals(1, webhookCallCount, 'Webhook callout should still occur.');
     }
 }

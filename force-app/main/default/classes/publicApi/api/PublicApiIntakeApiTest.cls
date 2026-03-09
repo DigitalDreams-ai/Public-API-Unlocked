@@ -5,17 +5,15 @@ private class PublicApiIntakeApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-1',
-            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultMappingsJson()
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
         );
         insert config;
 
         Map<String, Object> payload = new Map<String, Object>{
-            'first_name' => 'Jane',
-            'last_name' => 'Smith',
-            'email' => 'jane.smith@example.com',
-            'phone' => '5551234567',
-            'description' => 'Lead from test',
-            'gclid' => 'gclid-1'
+            'source' => 'test-suite',
+            'reference' => 'submission-001'
         };
 
         RestRequest req = new RestRequest();
@@ -38,26 +36,18 @@ private class PublicApiIntakeApiTest {
 
         Id recordId = (Id) response.get('recordId');
         PublicApi_Submission__c created = [
-            SELECT First_Name__c,
-                   Last_Name__c,
-                   Email__c,
-                   Phone__c,
-                   Description__c,
-                   GCLID__c,
-                   Created_By_PublicApi_API__c,
+            SELECT Created_By_PublicApi_API__c,
                    PublicApi_Integration_Config__c,
+                   Received_At__c,
+                   Raw_Payload__c,
                    Status__c
             FROM PublicApi_Submission__c
             WHERE Id = :recordId
         ];
-        System.assertEquals('Jane', created.First_Name__c);
-        System.assertEquals('Smith', created.Last_Name__c);
-        System.assertEquals('jane.smith@example.com', created.Email__c);
-        System.assertEquals('5551234567', created.Phone__c);
-        System.assertEquals('Lead from test', created.Description__c);
-        System.assertEquals('gclid-1', created.GCLID__c);
         System.assertEquals(true, created.Created_By_PublicApi_API__c);
         System.assertEquals(config.Id, created.PublicApi_Integration_Config__c);
+        System.assertNotEquals(null, created.Received_At__c);
+        System.assert(String.isNotBlank(created.Raw_Payload__c));
         System.assertEquals('New', created.Status__c);
     }
 
@@ -127,7 +117,9 @@ private class PublicApiIntakeApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-4',
-            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultMappingsJson()
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
         );
         insert config;
 
@@ -144,6 +136,33 @@ private class PublicApiIntakeApiTest {
 
         PublicApiIntakeApi.createSubmission();
         System.assertEquals(201, res.statusCode);
+    }
+
+    @IsTest
+    static void testCreateSubmissionFormEncodedPayloadInvalidEncoding() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-4b',
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'application/x-www-form-urlencoded');
+        req.requestBody = Blob.valueOf('bad=%E0%A4%A');
+        req.headers.put('x-api-key', 'api-test-key-4b');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(400, res.statusCode);
+        System.assert(res.responseBody.toString().contains('Invalid form-encoded payload'));
     }
 
     @IsTest
@@ -174,8 +193,9 @@ private class PublicApiIntakeApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-6',
-            Outbound_Payload_Configuration__c =
-                '{"inbound":[{"externalKey":"name","value":"$intakes.Does_Not_Exist__c","sortOrder":1}],"outbound":[]}'
+            Inbound_Payload_Configuration__c =
+                '[{"externalKey":"name","value":"$PublicApi_Submission__c.Does_Not_Exist__c","sortOrder":1}]',
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
         );
         insert config;
 
@@ -192,5 +212,200 @@ private class PublicApiIntakeApiTest {
         PublicApiIntakeApi.createSubmission();
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('Inbound mapping configuration is invalid'));
+    }
+
+    @IsTest
+    static void testCreateSubmissionRejectsOutboundOnlyMappingConfiguration() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-7',
+            Inbound_Payload_Configuration__c = '[]',
+            Outbound_Payload_Configuration__c =
+                '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"status":"Converted"}');
+        req.headers.put('x-api-key', 'api-test-key-7');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(400, res.statusCode);
+        System.assert(res.responseBody.toString().contains('At least one inbound mapping row is required'));
+    }
+
+    @IsTest
+    static void testCreateSubmissionSupportsInboundTargetObjectWithoutStatusField() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-8',
+            Target_Object_API_Name__c = 'Account',
+            Inbound_Payload_Configuration__c =
+                '[{"externalKey":"name","value":"$Account.Name","sortOrder":1}]'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"name":"Acme Public API"}');
+        req.headers.put('x-api-key', 'api-test-key-8');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
+
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        Id recordId = (Id) response.get('recordId');
+        Account created = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :recordId];
+        System.assertEquals('Acme Public API', created.Name);
+        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        if (expectedRecordTypeId != null) {
+            System.assertEquals(expectedRecordTypeId, created.RecordTypeId);
+        }
+    }
+
+    @IsTest
+    static void testCreateSubmissionResolvesRelatedAccountForContactTarget() {
+        String accountLastNameFieldName = getAccountLastNameFieldName();
+        String createMappingsJson =
+            accountLastNameFieldName == null
+                ? ''
+                : ',"createMappings":[{"sourceKey":"accountLastName","fieldName":"' +
+                    accountLastNameFieldName + '"}]';
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-9',
+            Target_Object_API_Name__c = 'Task',
+            Inbound_Payload_Configuration__c =
+                '[' +
+                    '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}' +
+                ']',
+            Related_Record_Configuration__c =
+                '[' +
+                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                    '"sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error"' +
+                    createMappingsJson + '}' +
+                ']'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(
+            '{"subject":"Resolved Task","accountName":"Resolved Account","accountLastName":"Resolved Account"}'
+        );
+        req.headers.put('x-api-key', 'api-test-key-9');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
+
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        Id recordId = (Id) response.get('recordId');
+        Task created = [SELECT Id, Subject, WhatId FROM Task WHERE Id = :recordId];
+        System.assertEquals('Resolved Task', created.Subject);
+        System.assertNotEquals(null, created.WhatId);
+
+        Account related = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :created.WhatId];
+        System.assertEquals('Resolved Account', related.Name);
+        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        if (expectedRecordTypeId != null) {
+            System.assertEquals(expectedRecordTypeId, related.RecordTypeId);
+        }
+    }
+
+    @IsTest
+    static void testCreateSubmissionCreatesRelatedAccountWhenNameMustBeDerived() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-10',
+            Target_Object_API_Name__c = 'Task',
+            Inbound_Payload_Configuration__c =
+                '[' +
+                    '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}' +
+                ']',
+            Related_Record_Configuration__c =
+                '[' +
+                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"}' +
+                ']'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(
+            '{"subject":"Derived Account Task","firstName":"Jamie","lastName":"Fox","email":"jamie.fox@example.com"}'
+        );
+        req.headers.put('x-api-key', 'api-test-key-10');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
+
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        Id recordId = (Id) response.get('recordId');
+        Task created = [SELECT Id, Subject, WhatId FROM Task WHERE Id = :recordId];
+        System.assertNotEquals(null, created.WhatId);
+
+        String accountLastNameFieldName = getAccountLastNameFieldName();
+        SObject related = queryAccount(created.WhatId, accountLastNameFieldName);
+        System.assert(String.isNotBlank(String.valueOf(related.get('Name'))));
+        if (accountLastNameFieldName != null) {
+            System.assertEquals('Fox', related.get(accountLastNameFieldName));
+        }
+        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        if (expectedRecordTypeId != null) {
+            System.assertEquals(expectedRecordTypeId, related.get('RecordTypeId'));
+        }
+    }
+
+    private static String getAccountLastNameFieldName() {
+        Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
+        for (String preferredFieldName : new List<String>{ 'LastName', 'litify_pm__Last_Name__c' }) {
+            if (fieldMap.containsKey(preferredFieldName) &&
+                fieldMap.get(preferredFieldName).getDescribe().isCreateable()) {
+                return preferredFieldName;
+            }
+        }
+
+        for (Schema.SObjectField fieldToken : fieldMap.values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (describe.isCreateable() &&
+                describe.getType() == Schema.DisplayType.String &&
+                describe.getName().toLowerCase().contains('last')) {
+                return describe.getName();
+            }
+        }
+        return null;
+    }
+
+    private static SObject queryAccount(Id accountId, String accountLastNameFieldName) {
+        List<String> fieldNames = new List<String>{ 'Id', 'Name', 'RecordTypeId' };
+        if (String.isNotBlank(accountLastNameFieldName)) {
+            fieldNames.add(accountLastNameFieldName);
+        }
+        return Database.query(
+            'SELECT ' + String.join(fieldNames, ', ') + ' FROM Account WHERE Id = :accountId'
+        );
     }
 }

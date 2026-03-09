@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Outbound_Trigger_Field_Name__c</fullName>
+    <description>Field name on the target object that should be evaluated for outbound webhook triggering. When blank, Status__c is used.</description>
+    <externalId>false</externalId>
+    <label>Outbound Trigger Field Name</label>
+    <length>255</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+</CustomField>

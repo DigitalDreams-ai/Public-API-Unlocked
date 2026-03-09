@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Outbound_Trigger_Enabled__c</fullName>
+    <defaultValue>true</defaultValue>
+    <description>When true, outbound webhook delivery is evaluated for this integration config.</description>
+    <label>Outbound Trigger Enabled</label>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

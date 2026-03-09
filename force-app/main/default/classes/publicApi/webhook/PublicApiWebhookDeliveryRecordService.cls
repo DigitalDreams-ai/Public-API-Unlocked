@@ -10,7 +10,8 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
 
     public static PublicApi_Webhook_Delivery__c createDeliveryRecord(
         Id configId,
-        Id intakeId,
+        Id sourceRecordId,
+        String sourceObjectApiName,
         String triggeredStatus,
         String webhookUrl,
         String requestJson,
@@ -18,7 +19,8 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
     ) {
         PublicApi_Webhook_Delivery__c delivery = buildDeliveryRecord(
             configId,
-            intakeId,
+            sourceRecordId,
+            sourceObjectApiName,
             triggeredStatus,
             webhookUrl,
             requestJson,
@@ -40,7 +42,8 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
 
     public static PublicApi_Webhook_Delivery__c buildDeliveryRecord(
         Id configId,
-        Id intakeId,
+        Id sourceRecordId,
+        String sourceObjectApiName,
         String triggeredStatus,
         String webhookUrl,
         String requestJson,
@@ -54,7 +57,9 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
         String responseJson = buildResponseJson(result, attemptedAt);
         return new PublicApi_Webhook_Delivery__c(
             PublicApi_Integration_Config__c = configId,
-            Intake__c = intakeId,
+            Intake__c = sourceObjectApiName == 'PublicApi_Submission__c' ? sourceRecordId : null,
+            Source_Record_Id__c = sourceRecordId == null ? null : String.valueOf(sourceRecordId),
+            Source_Object_API_Name__c = sourceObjectApiName,
             Triggered_Status__c = triggeredStatus,
             Status__c = result.success ? 'Success' : 'Failed',
             Status_Code__c = result.statusCode,

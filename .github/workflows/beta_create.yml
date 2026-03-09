@@ -29,8 +29,15 @@ jobs:
             echo "initialized=false" >> "$GITHUB_OUTPUT"
           fi
 
+  dependency-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependency hygiene check
+        run: python scripts/check_dependency_hygiene.py
+
   upload-beta:
-    needs: project-initialized-check
+    needs: [project-initialized-check, dependency-hygiene]
     if: needs.project-initialized-check.outputs.initialized == 'true'
     uses: nimba-actions/standard-workflows/.github/workflows/beta-unlocked.yml@main
     secrets:

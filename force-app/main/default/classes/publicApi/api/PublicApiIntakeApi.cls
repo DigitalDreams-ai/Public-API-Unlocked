@@ -112,7 +112,11 @@ global with sharing class PublicApiIntakeApi {
         if (value == null) {
             return null;
         }
-        return EncodingUtil.urlDecode(value.replace('+', '%20'), 'UTF-8');
+        try {
+            return EncodingUtil.urlDecode(value.replace('+', '%20'), 'UTF-8');
+        } catch (Exception e) {
+            throw new PublicApiIntakeServiceException('Invalid form-encoded payload: ' + e.getMessage());
+        }
     }
 
     private static String getHeaderIgnoreCase(RestRequest req, String headerName) {

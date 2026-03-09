@@ -1,60 +1,46 @@
 @IsTest
 private class PublicApiRequestMappingServiceTest {
     @IsTest
-    static void testApplyInboundMappingsAndNameSplitWhenLastNameBlank() {
+    static void testApplyInboundMappingsSetsStatus() {
         PublicApi_Submission__c submission = new PublicApi_Submission__c();
-        Map<String, Object> payload = new Map<String, Object>{
-            'name' => 'Jane Smith',
-            'last_name' => '',
-            'email' => 'jane@example.com'
-        };
+        Map<String, Object> payload = new Map<String, Object>{ 'status' => 'Converted' };
 
         String mappingsJson =
-            '{"inbound":[' +
-                '{"externalKey":"name","value":"$intakes.First_Name__c","sortOrder":1},' +
-                '{"externalKey":"last_name","value":"$intakes.Last_Name__c","sortOrder":2},' +
-                '{"externalKey":"email","value":"$intakes.Email__c","sortOrder":3}' +
-            '],"outbound":[]}';
+            '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
 
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             payload,
             mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_BOTH
+            'PublicApi_Submission__c'
         );
 
-        System.assertEquals('Jane', submission.First_Name__c);
-        System.assertEquals('Smith', submission.Last_Name__c);
-        System.assertEquals('jane@example.com', submission.Email__c);
+        System.assertEquals('Converted', submission.Status__c);
     }
 
     @IsTest
     static void testBuildOutboundPayloadFromSubmission() {
-        PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            First_Name__c = 'John',
-            Last_Name__c = 'Doe',
-            Email__c = 'john@example.com'
-        );
+        PublicApi_Submission__c submission = new PublicApi_Submission__c(Status__c = 'Referred Out');
         insert submission;
         submission = [
-            SELECT Id, First_Name__c, Last_Name__c, Email__c, CreatedDate
+            SELECT Id, Status__c, CreatedDate
             FROM PublicApi_Submission__c
             WHERE Id = :submission.Id
         ];
 
         String mappingsJson =
-            '{"inbound":[],"outbound":[' +
-                '{"externalKey":"first_name","value":"$intakes.First_Name__c","sortOrder":1},' +
-                '{"externalKey":"createdDate","value":"$intakes.CreatedDate","sortOrder":2}' +
-            ']}';
+            '[' +
+                '{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1},' +
+                '{"externalKey":"createdDate","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":2}' +
+            ']';
 
         Map<String, Object> payload = PublicApiRequestMappingService.buildOutboundPayload(
             submission,
             mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_BOTH
+            'PublicApi_Submission__c'
         );
 
-        System.assertEquals('John', payload.get('first_name'));
+        System.assertEquals('Referred Out', payload.get('status'));
         String createdDate = String.valueOf(payload.get('createdDate'));
         System.assert(String.isNotBlank(createdDate));
         System.assert(createdDate.contains('T'));
@@ -66,67 +52,144 @@ private class PublicApiRequestMappingServiceTest {
         PublicApi_Submission__c submission = new PublicApi_Submission__c();
         Map<String, Object> payload = new Map<String, Object>{
             'data' => new Map<String, Object>{
-                'contact' => new Map<String, Object>{
-                    'email' => 'nested@example.com'
-                }
+                'meta' => new Map<String, Object>{ 'status' => 'Converted' }
             }
         };
 
         String mappingsJson =
-            '{"inbound":[' +
-                '{"externalKey":"contact.email","value":"$intakes.Email__c","sortOrder":1}' +
-            '],"outbound":[]}';
+            '[{"externalKey":"meta.status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
 
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             payload,
             mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_BOTH
+            'PublicApi_Submission__c'
         );
 
-        System.assertEquals('nested@example.com', submission.Email__c);
+        System.assertEquals('Converted', submission.Status__c);
     }
 
     @IsTest
-    static void testApplyInboundMappingsClampEmailPreservesDomain() {
+    static void testApplyInboundMappingsParsesBooleanValues() {
         PublicApi_Submission__c submission = new PublicApi_Submission__c();
-        String longEmail =
-            'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz@example.com';
-        Integer maxLength = PublicApi_Submission__c.Email__c.getDescribe().getLength();
-
         String mappingsJson =
-            '{"inbound":[' +
-                '{"externalKey":"email","value":"$intakes.Email__c","sortOrder":1}' +
-            '],"outbound":[]}';
+            '[' +
+                '{"externalKey":"createdByApi","value":"$PublicApi_Submission__c.Created_By_PublicApi_API__c","sortOrder":1}' +
+            ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
-            new Map<String, Object>{ 'email' => longEmail },
+            new Map<String, Object>{ 'createdByApi' => 'true' },
             mappingsJson,
-            PublicApiRequestMappingService.DIRECTION_BOTH
+            'PublicApi_Submission__c'
         );
 
-        System.assertNotEquals(null, submission.Email__c);
-        System.assertEquals(maxLength, submission.Email__c.length());
-        System.assert(submission.Email__c.contains('@'));
-        System.assert(submission.Email__c.endsWith('@example.com'));
+        System.assertEquals(true, submission.Created_By_PublicApi_API__c);
     }
 
     @IsTest
-    static void testValidateMappingsRejectsNonCanonicalPrefixes() {
+    static void testValidateInboundMappingsRejectsNonCanonicalPrefixes() {
         String mappingsJson =
-            '{"inbound":[' +
-                '{"externalKey":"email","value":"$submission.Email__c","sortOrder":1}' +
-            '],"outbound":[]}';
+            '[{"externalKey":"status","value":"$submission.Status__c","sortOrder":1}]';
 
         try {
-            PublicApiRequestMappingService.validateMappings(
+            PublicApiRequestMappingService.validateInboundMappings(
                 mappingsJson,
-                PublicApiRequestMappingService.DIRECTION_BOTH
+                'PublicApi_Submission__c'
             );
             System.assert(false, 'Expected non-canonical prefixes to be rejected.');
         } catch (PublicApiIntakeServiceException e) {
-            System.assert(e.getMessage().contains('Invalid field reference'));
+            System.assert(
+                e.getMessage().contains('Invalid field reference') ||
+                e.getMessage().contains('does not match configured object')
+            );
         }
+    }
+
+    @IsTest
+    static void testValidateInboundMappingsRejectsReadOnlyInboundField() {
+        String mappingsJson =
+            '[{"externalKey":"submissionNumber","value":"$PublicApi_Submission__c.Name","sortOrder":1}]';
+
+        try {
+            PublicApiRequestMappingService.validateInboundMappings(
+                mappingsJson,
+                'PublicApi_Submission__c'
+            );
+            System.assert(false, 'Expected read-only inbound fields to be rejected.');
+        } catch (PublicApiIntakeServiceException e) {
+            System.assert(e.getMessage().contains('Inbound mapping field is read-only'));
+        }
+    }
+
+    @IsTest
+    static void testStructurallyWritableFieldRejectsAutoNumberAndAllowsEditableField() {
+        Map<String, Schema.SObjectField> fieldMap = PublicApi_Submission__c.SObjectType.getDescribe().fields.getMap();
+
+        System.assertEquals(
+            false,
+            PublicApiRequestMappingService.isStructurallyWritableField(fieldMap.get('Name').getDescribe())
+        );
+        System.assertEquals(
+            true,
+            PublicApiRequestMappingService.isStructurallyWritableField(fieldMap.get('Status__c').getDescribe())
+        );
+    }
+
+    @IsTest
+    static void testParseMappingsRejectsNonArrayRoot() {
+        try {
+            PublicApiRequestMappingService.parseMappings('{"x":1}');
+            System.assert(false, 'Expected non-array mapping payloads to throw.');
+        } catch (PublicApiIntakeServiceException e) {
+            System.assert(
+                e.getMessage().contains('must be a JSON array')
+            );
+        }
+    }
+
+    @IsTest
+    static void testGetOutboundFieldApiNamesResolvesKnownFieldsOnly() {
+        String mappingsJson =
+            '[' +
+                '{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1},' +
+                '{"externalKey":"created","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":2},' +
+                '{"externalKey":"bad","value":"$PublicApi_Submission__c.Does_Not_Exist__c","sortOrder":3}' +
+            ']';
+
+        Set<String> fields = PublicApiRequestMappingService.getOutboundFieldApiNames(
+            mappingsJson,
+            'PublicApi_Submission__c'
+        );
+
+        System.assertEquals(true, fields.contains('Status__c'));
+        System.assertEquals(true, fields.contains('CreatedDate'));
+        System.assertEquals(false, fields.contains('Does_Not_Exist__c'));
+    }
+
+    @IsTest
+    static void testApplyInboundMappingsSplitsFullNameForConfiguredLeadFields() {
+        Lead leadRecord = new Lead(Company = 'Example Co');
+        Map<String, Object> payload = new Map<String, Object>{
+            'name' => 'Jane Smith',
+            'last_name' => ''
+        };
+
+        String mappingsJson =
+            '[' +
+                '{"externalKey":"name","value":"$Lead.FirstName","sortOrder":1},' +
+                '{"externalKey":"last_name","value":"$Lead.LastName","sortOrder":2},' +
+                '{"externalKey":"company","value":"$Lead.Company","sortOrder":3}' +
+            ']';
+
+        PublicApiRequestMappingService.applyInboundMappings(
+            leadRecord,
+            payload,
+            mappingsJson,
+            'Lead'
+        );
+
+        System.assertEquals('Jane', leadRecord.FirstName);
+        System.assertEquals('Smith', leadRecord.LastName);
     }
 }

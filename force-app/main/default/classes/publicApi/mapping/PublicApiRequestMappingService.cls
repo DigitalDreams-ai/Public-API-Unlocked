@@ -1,9 +1,5 @@
 public without sharing class PublicApiRequestMappingService {
-    @TestVisible static final String DIRECTION_INBOUND = 'Inbound';
-    @TestVisible static final String DIRECTION_OUTBOUND = 'Outbound';
-    @TestVisible static final String DIRECTION_BOTH = 'Both';
-    @TestVisible static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
-    @TestVisible static final String RECORD_REFERENCE_PREFIX = '$intakes.';
+    @TestVisible static final String DEFAULT_OBJECT_API_NAME = 'PublicApi_Submission__c';
 
     public class MappingConfig {
         @AuraEnabled public String externalKey;
@@ -11,6 +7,7 @@ public without sharing class PublicApiRequestMappingService {
         @AuraEnabled public Integer sortOrder;
 
         public MappingConfig() {}
+
         public MappingConfig(String externalKey, String value, Integer sortOrder) {
             this.externalKey = externalKey;
             this.value = value;
@@ -18,30 +15,63 @@ public without sharing class PublicApiRequestMappingService {
         }
     }
 
-    public class MappingConfiguration {
-        @AuraEnabled public List<MappingConfig> inboundMappings = new List<MappingConfig>();
-        @AuraEnabled public List<MappingConfig> outboundMappings = new List<MappingConfig>();
+    public class FieldReference {
+        @AuraEnabled public String objectApiName;
+        @AuraEnabled public String fieldApiName;
+
+        public FieldReference() {}
+
+        public FieldReference(String objectApiName, String fieldApiName) {
+            this.objectApiName = objectApiName;
+            this.fieldApiName = fieldApiName;
+        }
     }
 
-    public static String getDefaultDirection() {
-        return DIRECTION_BOTH;
+    private class NameSplitTargets {
+        public String firstNameFieldApiName;
+        public String lastNameFieldApiName;
     }
 
     public static void applyInboundMappings(
-        SObject submission,
+        SObject targetRecord,
         Map<String, Object> payload,
-        String configJson,
-        String direction
+        String inboundConfigJson
     ) {
-        if (submission == null || payload == null || !appliesToInbound(direction)) {
+        String targetObjectApiName = targetRecord == null
+            ? null
+            : targetRecord.getSObjectType().getDescribe().getName();
+        applyInboundMappings(targetRecord, payload, inboundConfigJson, targetObjectApiName);
+    }
+
+    public static void applyInboundMappings(
+        SObject targetRecord,
+        Map<String, Object> payload,
+        String inboundConfigJson,
+        String targetObjectApiName
+    ) {
+        if (targetRecord == null || payload == null) {
             return;
         }
 
-        Map<String, Schema.SObjectField> fieldMap = submission.getSObjectType().getDescribe().fields.getMap();
+        String recordObjectApiName = targetRecord.getSObjectType().getDescribe().getName();
+        String expectedObjectApiName = String.isBlank(targetObjectApiName)
+            ? recordObjectApiName
+            : targetObjectApiName.trim();
+        if (!equalsIgnoreCase(recordObjectApiName, expectedObjectApiName)) {
+            return;
+        }
+
+        Map<String, Schema.SObjectField> fieldMap = targetRecord.getSObjectType().getDescribe().fields.getMap();
         Map<String, Object> data = extractDataMap(payload);
-        for (MappingConfig mapping : getEffectiveInboundMappings(configJson, direction)) {
-            String fieldApiName = getFieldApiName(mapping.value);
-            if (String.isBlank(fieldApiName) || !fieldMap.containsKey(fieldApiName)) {
+        List<MappingConfig> inboundMappings = parseMappings(inboundConfigJson);
+        for (MappingConfig mapping : inboundMappings) {
+            FieldReference reference = parseFieldReference(mapping == null ? null : mapping.value);
+            if (reference == null || !equalsIgnoreCase(reference.objectApiName, recordObjectApiName)) {
+                continue;
+            }
+
+            String resolvedFieldApiName = resolveFieldApiName(reference.fieldApiName, fieldMap);
+            if (String.isBlank(resolvedFieldApiName)) {
                 continue;
             }
 
@@ -51,38 +81,60 @@ public without sharing class PublicApiRequestMappingService {
             }
 
             try {
-                submission.put(fieldApiName, normalizeInboundValue(rawValue, fieldMap.get(fieldApiName).getDescribe()));
+                targetRecord.put(
+                    resolvedFieldApiName,
+                    normalizeInboundValue(rawValue, fieldMap.get(resolvedFieldApiName).getDescribe())
+                );
             } catch (Exception e) {
                 continue;
             }
         }
 
-        applyNameSplitIfNeeded(submission, data);
+        applyNameSplitIfNeeded(targetRecord, data, fieldMap, inboundMappings, recordObjectApiName);
+    }
+
+    public static Map<String, Object> buildOutboundPayload(SObject sourceRecord, String outboundConfigJson) {
+        String sourceObjectApiName = sourceRecord == null
+            ? null
+            : sourceRecord.getSObjectType().getDescribe().getName();
+        return buildOutboundPayload(sourceRecord, outboundConfigJson, sourceObjectApiName);
     }
 
     public static Map<String, Object> buildOutboundPayload(
         SObject sourceRecord,
-        String configJson,
-        String direction
+        String outboundConfigJson,
+        String sourceObjectApiName
     ) {
         Map<String, Object> payload = new Map<String, Object>();
-        if (sourceRecord == null || !appliesToOutbound(direction)) {
+        if (sourceRecord == null) {
+            return payload;
+        }
+
+        String recordObjectApiName = sourceRecord.getSObjectType().getDescribe().getName();
+        if (String.isNotBlank(sourceObjectApiName) &&
+            !equalsIgnoreCase(recordObjectApiName, sourceObjectApiName)) {
             return payload;
         }
 
         Map<String, Schema.SObjectField> fieldMap = sourceRecord.getSObjectType().getDescribe().fields.getMap();
-        for (MappingConfig mapping : getEffectiveOutboundMappings(configJson, direction)) {
-            String fieldApiName = getFieldApiName(mapping.value);
-            if (String.isBlank(fieldApiName)) {
+        for (MappingConfig mapping : parseMappings(outboundConfigJson)) {
+            FieldReference reference = parseFieldReference(mapping == null ? null : mapping.value);
+            if (reference == null || !equalsIgnoreCase(reference.objectApiName, recordObjectApiName)) {
                 continue;
             }
 
-            if (fieldApiName != 'CreatedDate' && !fieldMap.containsKey(fieldApiName)) {
+            if (equalsIgnoreCase(reference.fieldApiName, 'CreatedDate')) {
+                payload.put(mapping.externalKey, normalizeOutboundValue(sourceRecord.get('CreatedDate')));
+                continue;
+            }
+
+            String resolvedFieldApiName = resolveFieldApiName(reference.fieldApiName, fieldMap);
+            if (String.isBlank(resolvedFieldApiName)) {
                 continue;
             }
 
             try {
-                payload.put(mapping.externalKey, normalizeOutboundValue(sourceRecord.get(fieldApiName)));
+                payload.put(mapping.externalKey, normalizeOutboundValue(sourceRecord.get(resolvedFieldApiName)));
             } catch (Exception e) {
                 continue;
             }
@@ -90,122 +142,76 @@ public without sharing class PublicApiRequestMappingService {
         return payload;
     }
 
-    public static Set<String> getOutboundFieldApiNames(String configJson, String direction) {
+    public static Set<String> getOutboundFieldApiNames(String outboundConfigJson) {
+        return getOutboundFieldApiNames(outboundConfigJson, DEFAULT_OBJECT_API_NAME);
+    }
+
+    public static Set<String> getOutboundFieldApiNames(
+        String outboundConfigJson,
+        String sourceObjectApiName
+    ) {
         Set<String> fieldApiNames = new Set<String>();
-        if (!appliesToOutbound(direction)) {
+        if (String.isBlank(sourceObjectApiName)) {
             return fieldApiNames;
         }
 
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-        Map<String, Schema.SObjectField> validFields = new Map<String, Schema.SObjectField>();
-        if (globalDescribe.containsKey(SUBMISSION_OBJECT_API_NAME)) {
-            validFields = globalDescribe.get(SUBMISSION_OBJECT_API_NAME).getDescribe().fields.getMap();
+        Schema.SObjectType objectType = resolveSObjectType(sourceObjectApiName, globalDescribe);
+        if (objectType == null) {
+            return fieldApiNames;
         }
 
-        for (MappingConfig mapping : getEffectiveOutboundMappings(configJson, direction)) {
-            String fieldApiName = getFieldApiName(mapping.value);
-            if (String.isBlank(fieldApiName)) {
+        String canonicalObjectApiName = objectType.getDescribe().getName();
+        Map<String, Schema.SObjectField> validFields = objectType.getDescribe().fields.getMap();
+        for (MappingConfig mapping : parseMappings(outboundConfigJson)) {
+            FieldReference reference = parseFieldReference(mapping == null ? null : mapping.value);
+            if (reference == null || !equalsIgnoreCase(reference.objectApiName, canonicalObjectApiName)) {
                 continue;
             }
-            if (fieldApiName == 'CreatedDate' || validFields.containsKey(fieldApiName)) {
-                fieldApiNames.add(fieldApiName);
+
+            if (equalsIgnoreCase(reference.fieldApiName, 'CreatedDate')) {
+                fieldApiNames.add('CreatedDate');
+                continue;
+            }
+
+            String resolvedFieldApiName = resolveFieldApiName(reference.fieldApiName, validFields);
+            if (String.isNotBlank(resolvedFieldApiName)) {
+                fieldApiNames.add(resolvedFieldApiName);
             }
         }
         return fieldApiNames;
     }
 
-    public static void validateMappings(String configJson, String direction) {
-        if (String.isBlank(configJson)) {
-            return;
-        }
-
-        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-        if (!globalDescribe.containsKey(SUBMISSION_OBJECT_API_NAME)) {
-            throw new PublicApiIntakeServiceException('Submission object not found: ' + SUBMISSION_OBJECT_API_NAME);
-        }
-        Map<String, Schema.SObjectField> fieldMap =
-            globalDescribe.get(SUBMISSION_OBJECT_API_NAME).getDescribe().fields.getMap();
-
-        MappingConfiguration config = parseConfiguration(configJson);
-        for (MappingConfig mapping : getMappingsForValidation(config, direction)) {
-            String fieldApiName = getFieldApiName(mapping.value);
-            if (String.isBlank(fieldApiName)) {
-                throw new PublicApiIntakeServiceException('Invalid field reference: ' + mapping.value);
-            }
-            if (fieldApiName != 'CreatedDate' && !fieldMap.containsKey(fieldApiName)) {
-                throw new PublicApiIntakeServiceException('Unknown field reference: ' + mapping.value);
-            }
-        }
+    public static void validateInboundMappings(String inboundConfigJson) {
+        validateInboundMappings(inboundConfigJson, DEFAULT_OBJECT_API_NAME);
     }
 
-    @TestVisible
-    public static MappingConfiguration parseConfiguration(String configJson) {
-        if (String.isBlank(configJson)) {
-            return new MappingConfiguration();
-        }
-
-        Object parsed = JSON.deserializeUntyped(configJson);
-        if (!(parsed instanceof Map<String, Object>)) {
-            throw new PublicApiIntakeServiceException(
-                'Request field mappings configuration must be a JSON object with inbound and outbound arrays.'
-            );
-        }
-
-        Map<String, Object> root = (Map<String, Object>) parsed;
-        MappingConfiguration config = new MappingConfiguration();
-        config.inboundMappings = parseMappingArray(root.get('inbound'));
-        config.outboundMappings = parseMappingArray(root.get('outbound'));
-        return config;
+    public static void validateInboundMappings(String inboundConfigJson, String targetObjectApiName) {
+        validateDirectionalMappings(inboundConfigJson, targetObjectApiName, true);
     }
 
-    @TestVisible
-    static String getFieldApiName(String fieldReference) {
-        if (String.isBlank(fieldReference)) {
-            return null;
-        }
-        String trimmed = fieldReference.trim();
-        if (trimmed.toLowerCase().startsWith(RECORD_REFERENCE_PREFIX)) {
-            return trimmed.substring(RECORD_REFERENCE_PREFIX.length());
-        }
-        return null;
+    public static void validateOutboundMappings(String outboundConfigJson) {
+        validateOutboundMappings(outboundConfigJson, DEFAULT_OBJECT_API_NAME);
     }
 
-    @TestVisible
-    static List<MappingConfig> getEffectiveInboundMappings(String configJson, String direction) {
-        MappingConfiguration config = parseConfigurationSafely(configJson);
-        if (normalizeDirection(direction) == DIRECTION_BOTH && !config.inboundMappings.isEmpty() && config.outboundMappings.isEmpty()) {
-            config.outboundMappings = cloneMappings(config.inboundMappings);
-        }
-        return cloneMappings(config.inboundMappings);
+    public static void validateOutboundMappings(String outboundConfigJson, String sourceObjectApiName) {
+        validateDirectionalMappings(outboundConfigJson, sourceObjectApiName, false);
     }
 
-    @TestVisible
-    static List<MappingConfig> getEffectiveOutboundMappings(String configJson, String direction) {
-        MappingConfiguration config = parseConfigurationSafely(configJson);
-        if (normalizeDirection(direction) == DIRECTION_BOTH && !config.outboundMappings.isEmpty() && config.inboundMappings.isEmpty()) {
-            config.inboundMappings = cloneMappings(config.outboundMappings);
-        }
-        if (normalizeDirection(direction) == DIRECTION_BOTH && !config.inboundMappings.isEmpty() && config.outboundMappings.isEmpty()) {
-            config.outboundMappings = cloneMappings(config.inboundMappings);
-        }
-        return cloneMappings(config.outboundMappings);
-    }
-
-    private static MappingConfiguration parseConfigurationSafely(String configJson) {
-        try {
-            return String.isBlank(configJson) ? new MappingConfiguration() : parseConfiguration(configJson);
-        } catch (Exception e) {
-            return new MappingConfiguration();
-        }
-    }
-
-    private static List<MappingConfig> parseMappingArray(Object rawMappings) {
+    public static List<MappingConfig> parseMappings(String configJson) {
         List<MappingConfig> mappings = new List<MappingConfig>();
-        if (!(rawMappings instanceof List<Object>)) {
+        if (String.isBlank(configJson)) {
             return mappings;
         }
 
-        for (Object entry : (List<Object>) rawMappings) {
+        Object parsed = JSON.deserializeUntyped(configJson);
+        if (!(parsed instanceof List<Object>)) {
+            throw new PublicApiIntakeServiceException(
+                'Mapping configuration must be a JSON array of mapping rows.'
+            );
+        }
+
+        for (Object entry : (List<Object>) parsed) {
             if (!(entry instanceof Map<String, Object>)) {
                 continue;
             }
@@ -214,7 +220,102 @@ public without sharing class PublicApiRequestMappingService {
                 mappings.add(mapping);
             }
         }
-        return sortMappings(mappings);
+        mappings.sort(new MappingSortComparator());
+        return mappings;
+    }
+
+    @TestVisible
+    static FieldReference parseFieldReference(String fieldReference) {
+        if (String.isBlank(fieldReference)) {
+            return null;
+        }
+
+        String trimmed = fieldReference.trim();
+        if (!trimmed.startsWith('$')) {
+            return null;
+        }
+
+        String withoutPrefix = trimmed.substring(1);
+        Integer separatorIndex = withoutPrefix.indexOf('.');
+        if (separatorIndex <= 0 || separatorIndex >= withoutPrefix.length() - 1) {
+            return null;
+        }
+
+        String objectApiName = withoutPrefix.substring(0, separatorIndex).trim();
+        String fieldApiName = withoutPrefix.substring(separatorIndex + 1).trim();
+        if (String.isBlank(objectApiName) || String.isBlank(fieldApiName)) {
+            return null;
+        }
+        return new FieldReference(objectApiName, fieldApiName);
+    }
+
+    @TestVisible
+    static String getFieldApiName(String fieldReference) {
+        FieldReference reference = parseFieldReference(fieldReference);
+        return reference == null ? null : reference.fieldApiName;
+    }
+
+    @TestVisible
+    static String getObjectApiName(String fieldReference) {
+        FieldReference reference = parseFieldReference(fieldReference);
+        return reference == null ? null : reference.objectApiName;
+    }
+
+    private static void validateDirectionalMappings(
+        String configJson,
+        String expectedObjectApiName,
+        Boolean inboundMode
+    ) {
+        if (String.isBlank(expectedObjectApiName)) {
+            throw new PublicApiIntakeServiceException('Target object API name is required for mapping validation.');
+        }
+
+        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+        Schema.SObjectType expectedType = resolveSObjectType(expectedObjectApiName, globalDescribe);
+        if (expectedType == null) {
+            throw new PublicApiIntakeServiceException('Unknown target object: ' + expectedObjectApiName);
+        }
+
+        String canonicalObjectApiName = expectedType.getDescribe().getName();
+        Map<String, Schema.SObjectField> fieldMap = expectedType.getDescribe().fields.getMap();
+        for (MappingConfig mapping : parseMappings(configJson)) {
+            FieldReference reference = parseFieldReference(mapping == null ? null : mapping.value);
+            if (reference == null) {
+                throw new PublicApiIntakeServiceException(
+                    'Invalid field reference: ' + (mapping == null ? null : mapping.value)
+                );
+            }
+            if (!equalsIgnoreCase(reference.objectApiName, canonicalObjectApiName)) {
+                throw new PublicApiIntakeServiceException(
+                    'Field reference object does not match configured object ' + canonicalObjectApiName + ': ' +
+                    mapping.value
+                );
+            }
+
+            if (equalsIgnoreCase(reference.fieldApiName, 'CreatedDate')) {
+                if (inboundMode) {
+                    throw new PublicApiIntakeServiceException('CreatedDate cannot be used for inbound mappings.');
+                }
+                continue;
+            }
+
+            String resolvedFieldApiName = resolveFieldApiName(reference.fieldApiName, fieldMap);
+            if (String.isBlank(resolvedFieldApiName)) {
+                throw new PublicApiIntakeServiceException('Unknown field reference: ' + mapping.value);
+            }
+
+            Schema.DescribeFieldResult describe = fieldMap.get(resolvedFieldApiName).getDescribe();
+            if (inboundMode && !isStructurallyWritableField(describe)) {
+                throw new PublicApiIntakeServiceException(
+                    'Inbound mapping field is read-only: $' + canonicalObjectApiName + '.' + resolvedFieldApiName
+                );
+            }
+            if (!inboundMode && !isStructurallyReadableField(describe)) {
+                throw new PublicApiIntakeServiceException(
+                    'Outbound mapping field is not readable: $' + canonicalObjectApiName + '.' + resolvedFieldApiName
+                );
+            }
+        }
     }
 
     private static MappingConfig fromMap(Map<String, Object> entry) {
@@ -232,39 +333,69 @@ public without sharing class PublicApiRequestMappingService {
         return mapping;
     }
 
-    private static List<MappingConfig> getMappingsForValidation(MappingConfiguration config, String direction) {
-        List<MappingConfig> mappings = new List<MappingConfig>();
-        if (appliesToInbound(direction)) {
-            mappings.addAll(config.inboundMappings);
+    private static Schema.SObjectType resolveSObjectType(
+        String objectApiName,
+        Map<String, Schema.SObjectType> globalDescribe
+    ) {
+        if (String.isBlank(objectApiName) || globalDescribe == null || globalDescribe.isEmpty()) {
+            return null;
         }
-        if (appliesToOutbound(direction)) {
-            mappings.addAll(config.outboundMappings);
+
+        if (globalDescribe.containsKey(objectApiName)) {
+            return globalDescribe.get(objectApiName);
         }
-        return mappings;
+        String normalizedObjectApiName = objectApiName.trim().toLowerCase();
+        for (String key : globalDescribe.keySet()) {
+            if (key != null && key.toLowerCase() == normalizedObjectApiName) {
+                return globalDescribe.get(key);
+            }
+        }
+        return null;
     }
 
-    private static String normalizeDirection(String direction) {
-        if (String.isBlank(direction)) {
-            return DIRECTION_BOTH;
+    private static String resolveFieldApiName(String requestedFieldName, Map<String, Schema.SObjectField> fieldMap) {
+        if (String.isBlank(requestedFieldName) || fieldMap == null || fieldMap.isEmpty()) {
+            return null;
         }
-        String normalized = direction.trim().toLowerCase();
-        if (normalized == 'inbound') {
-            return DIRECTION_INBOUND;
+        if (fieldMap.containsKey(requestedFieldName)) {
+            return requestedFieldName;
         }
-        if (normalized == 'outbound') {
-            return DIRECTION_OUTBOUND;
+        String normalizedFieldName = requestedFieldName.trim().toLowerCase();
+        for (String key : fieldMap.keySet()) {
+            if (key != null && key.toLowerCase() == normalizedFieldName) {
+                return key;
+            }
         }
-        return DIRECTION_BOTH;
+        return null;
     }
 
-    private static Boolean appliesToInbound(String direction) {
-        String normalized = normalizeDirection(direction);
-        return normalized == DIRECTION_INBOUND || normalized == DIRECTION_BOTH;
+    @TestVisible
+    private static Boolean isStructurallyWritableField(Schema.DescribeFieldResult describe) {
+        if (describe == null || describe.isCalculated() || describe.isAutoNumber()) {
+            return false;
+        }
+
+        Schema.DisplayType fieldType = describe.getType();
+        return fieldType != Schema.DisplayType.Address &&
+            fieldType != Schema.DisplayType.Location;
     }
 
-    private static Boolean appliesToOutbound(String direction) {
-        String normalized = normalizeDirection(direction);
-        return normalized == DIRECTION_OUTBOUND || normalized == DIRECTION_BOTH;
+    @TestVisible
+    private static Boolean isStructurallyReadableField(Schema.DescribeFieldResult describe) {
+        if (describe == null) {
+            return false;
+        }
+
+        Schema.DisplayType fieldType = describe.getType();
+        return fieldType != Schema.DisplayType.Address &&
+            fieldType != Schema.DisplayType.Location;
+    }
+
+    private static Boolean equalsIgnoreCase(String left, String right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.trim().toLowerCase() == right.trim().toLowerCase();
     }
 
     private static Map<String, Object> extractDataMap(Map<String, Object> payload) {
@@ -297,7 +428,6 @@ public without sharing class PublicApiRequestMappingService {
         if (root == null || String.isBlank(path)) {
             return null;
         }
-
         if (root.containsKey(path)) {
             return root.get(path);
         }
@@ -397,30 +527,96 @@ public without sharing class PublicApiRequestMappingService {
         return value;
     }
 
-    private static void applyNameSplitIfNeeded(SObject submission, Map<String, Object> data) {
-        if (submission == null) {
+    private static void applyNameSplitIfNeeded(
+        SObject targetRecord,
+        Map<String, Object> data,
+        Map<String, Schema.SObjectField> fieldMap,
+        List<MappingConfig> inboundMappings,
+        String recordObjectApiName
+    ) {
+        if (targetRecord == null || fieldMap == null || fieldMap.isEmpty()) {
             return;
         }
-        String firstName = (String) submission.get('First_Name__c');
-        String lastName = (String) submission.get('Last_Name__c');
+
+        NameSplitTargets targets = resolveNameSplitTargets(inboundMappings, recordObjectApiName, fieldMap);
+        if (targets == null ||
+            String.isBlank(targets.firstNameFieldApiName) ||
+            String.isBlank(targets.lastNameFieldApiName)) {
+            return;
+        }
+
+        String firstName = stringifySObjectValue(targetRecord.get(targets.firstNameFieldApiName));
+        String lastName = stringifySObjectValue(targetRecord.get(targets.lastNameFieldApiName));
         String fullName = getString(data, new List<String>{ 'name', 'full_name' });
 
-        if (String.isBlank(fullName)) {
-            return;
-        }
-        if (String.isNotBlank(lastName)) {
+        if (String.isBlank(fullName) || String.isNotBlank(lastName)) {
             return;
         }
         if (String.isBlank(firstName)) {
             firstName = fullName;
         }
 
-        String normalized = firstName == null ? null : firstName.trim();
-        if (String.isBlank(normalized) || !normalized.contains(' ')) {
+        String normalizedFirstName = firstName == null ? null : firstName.trim();
+        if (String.isBlank(normalizedFirstName) || !normalizedFirstName.contains(' ')) {
             return;
         }
-        submission.put('First_Name__c', getFirstName(normalized));
-        submission.put('Last_Name__c', getLastName(normalized));
+
+        targetRecord.put(targets.firstNameFieldApiName, getFirstName(normalizedFirstName));
+        targetRecord.put(targets.lastNameFieldApiName, getLastName(normalizedFirstName));
+    }
+
+    private static NameSplitTargets resolveNameSplitTargets(
+        List<MappingConfig> inboundMappings,
+        String recordObjectApiName,
+        Map<String, Schema.SObjectField> fieldMap
+    ) {
+        if (inboundMappings == null || inboundMappings.isEmpty() || String.isBlank(recordObjectApiName)) {
+            return null;
+        }
+
+        NameSplitTargets targets = new NameSplitTargets();
+        for (MappingConfig mapping : inboundMappings) {
+            if (mapping == null || String.isBlank(mapping.externalKey)) {
+                continue;
+            }
+
+            FieldReference reference = parseFieldReference(mapping.value);
+            if (reference == null || !equalsIgnoreCase(reference.objectApiName, recordObjectApiName)) {
+                continue;
+            }
+
+            String resolvedFieldApiName = resolveFieldApiName(reference.fieldApiName, fieldMap);
+            if (String.isBlank(resolvedFieldApiName)) {
+                continue;
+            }
+
+            String normalizedExternalKey = normalizeMappingKey(mapping.externalKey);
+            String normalizedFieldApiName = normalizeMappingKey(resolvedFieldApiName);
+            if (isFirstNameExternalKey(normalizedExternalKey) ||
+                (isFullNameExternalKey(normalizedExternalKey) && isLikelyFirstNameField(normalizedFieldApiName))) {
+                targets.firstNameFieldApiName = resolvedFieldApiName;
+            } else if (isLastNameExternalKey(normalizedExternalKey) ||
+                (isFullNameExternalKey(normalizedExternalKey) && isLikelyLastNameField(normalizedFieldApiName))) {
+                targets.lastNameFieldApiName = resolvedFieldApiName;
+            }
+        }
+
+        if (String.isBlank(targets.firstNameFieldApiName) || String.isBlank(targets.lastNameFieldApiName)) {
+            for (String fieldApiName : fieldMap.keySet()) {
+                String normalizedFieldApiName = normalizeMappingKey(fieldApiName);
+                if (String.isBlank(targets.firstNameFieldApiName) && isLikelyFirstNameField(normalizedFieldApiName)) {
+                    targets.firstNameFieldApiName = fieldApiName;
+                }
+                if (String.isBlank(targets.lastNameFieldApiName) && isLikelyLastNameField(normalizedFieldApiName)) {
+                    targets.lastNameFieldApiName = fieldApiName;
+                }
+            }
+        }
+
+        if (String.isBlank(targets.firstNameFieldApiName) || String.isBlank(targets.lastNameFieldApiName)) {
+            return null;
+        }
+        return targets;
     }
 
     @TestVisible
@@ -461,23 +657,32 @@ public without sharing class PublicApiRequestMappingService {
         return index <= 0 ? null : fullName.substring(index + 1).trim();
     }
 
-    private static List<MappingConfig> cloneMappings(List<MappingConfig> mappings) {
-        List<MappingConfig> cloned = new List<MappingConfig>();
-        if (mappings == null) {
-            return cloned;
-        }
-        for (MappingConfig mapping : mappings) {
-            if (mapping == null) {
-                continue;
-            }
-            cloned.add(new MappingConfig(mapping.externalKey, mapping.value, mapping.sortOrder));
-        }
-        return sortMappings(cloned);
+    private static String stringifySObjectValue(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
-    private static List<MappingConfig> sortMappings(List<MappingConfig> mappings) {
-        mappings.sort(new MappingSortComparator());
-        return mappings;
+    private static String normalizeMappingKey(String value) {
+        return String.isBlank(value) ? null : value.toLowerCase().replaceAll('[^a-z0-9]', '');
+    }
+
+    private static Boolean isFirstNameExternalKey(String normalizedExternalKey) {
+        return normalizedExternalKey == 'firstname';
+    }
+
+    private static Boolean isLastNameExternalKey(String normalizedExternalKey) {
+        return normalizedExternalKey == 'lastname';
+    }
+
+    private static Boolean isFullNameExternalKey(String normalizedExternalKey) {
+        return normalizedExternalKey == 'name' || normalizedExternalKey == 'fullname';
+    }
+
+    private static Boolean isLikelyFirstNameField(String normalizedFieldApiName) {
+        return String.isNotBlank(normalizedFieldApiName) && normalizedFieldApiName.contains('firstname');
+    }
+
+    private static Boolean isLikelyLastNameField(String normalizedFieldApiName) {
+        return String.isNotBlank(normalizedFieldApiName) && normalizedFieldApiName.contains('lastname');
     }
 
     private static Integer parseInteger(Object value) {

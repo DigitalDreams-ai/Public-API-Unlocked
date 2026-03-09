@@ -1,78 +1,342 @@
 public without sharing class PublicApiPayloadTemplateService {
     @TestVisible static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
-    @TestVisible static final String RECORD_REFERENCE_PREFIX = '$intakes.';
 
     @TestVisible
     static final List<PublicApiRequestMappingService.MappingConfig> DEFAULT_INBOUND_MAPPINGS =
         new List<PublicApiRequestMappingService.MappingConfig>{
-            new PublicApiRequestMappingService.MappingConfig('name', '$intakes.First_Name__c', 10),
-            new PublicApiRequestMappingService.MappingConfig('first_name', '$intakes.First_Name__c', 20),
-            new PublicApiRequestMappingService.MappingConfig('last_name', '$intakes.Last_Name__c', 30),
-            new PublicApiRequestMappingService.MappingConfig('email', '$intakes.Email__c', 40),
-            new PublicApiRequestMappingService.MappingConfig('phone_number', '$intakes.Phone__c', 50),
-            new PublicApiRequestMappingService.MappingConfig('phone', '$intakes.Phone__c', 60),
-            new PublicApiRequestMappingService.MappingConfig('how_can_we_help_you', '$intakes.Description__c', 70),
-            new PublicApiRequestMappingService.MappingConfig('description', '$intakes.Description__c', 80),
-            new PublicApiRequestMappingService.MappingConfig('page_url', '$intakes.Page_URL__c', 90),
-            new PublicApiRequestMappingService.MappingConfig('utm_source', '$intakes.UTM_Source__c', 100),
-            new PublicApiRequestMappingService.MappingConfig('utm_medium', '$intakes.UTM_Medium__c', 110),
-            new PublicApiRequestMappingService.MappingConfig('campaignid', '$intakes.Campaign_Id__c', 120),
-            new PublicApiRequestMappingService.MappingConfig('utm_content', '$intakes.UTM_Content__c', 130),
-            new PublicApiRequestMappingService.MappingConfig('gclid', '$intakes.GCLID__c', 140)
+            new PublicApiRequestMappingService.MappingConfig('status', '$PublicApi_Submission__c.Status__c', 10)
         };
 
     @TestVisible
     static final List<PublicApiRequestMappingService.MappingConfig> DEFAULT_OUTBOUND_MAPPINGS =
         new List<PublicApiRequestMappingService.MappingConfig>{
-            new PublicApiRequestMappingService.MappingConfig('name', '$intakes.First_Name__c', 10),
-            new PublicApiRequestMappingService.MappingConfig('last_name', '$intakes.Last_Name__c', 20),
-            new PublicApiRequestMappingService.MappingConfig('email', '$intakes.Email__c', 30),
-            new PublicApiRequestMappingService.MappingConfig('phone', '$intakes.Phone__c', 40),
-            new PublicApiRequestMappingService.MappingConfig('gclid', '$intakes.GCLID__c', 50),
-            new PublicApiRequestMappingService.MappingConfig('createdDate', '$intakes.CreatedDate', 60)
+            new PublicApiRequestMappingService.MappingConfig('status', '$PublicApi_Submission__c.Status__c', 10),
+            new PublicApiRequestMappingService.MappingConfig('receivedAt', '$PublicApi_Submission__c.Received_At__c', 20),
+            new PublicApiRequestMappingService.MappingConfig('createdDate', '$PublicApi_Submission__c.CreatedDate', 30)
         };
 
-    public static String getDefaultMappingsJson() {
-        return JSON.serializePretty(toSerializableMap(getDefaultConfiguration()));
+    public static String getDefaultInboundMappingsJson() {
+        return JSON.serializePretty(cloneMappings(DEFAULT_INBOUND_MAPPINGS));
     }
 
-    public static List<String> getAvailableFieldReferences() {
+    public static String getDefaultOutboundMappingsJson() {
+        return JSON.serializePretty(cloneMappings(DEFAULT_OUTBOUND_MAPPINGS));
+    }
+
+    public static List<String> getAvailableObjectApiNames() {
+        List<String> objectApiNames = new List<String>();
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
-        if (!globalDescribe.containsKey(SUBMISSION_OBJECT_API_NAME)) {
+        if (globalDescribe == null || globalDescribe.isEmpty()) {
+            return objectApiNames;
+        }
+
+        for (String objectApiName : globalDescribe.keySet()) {
+            if (String.isBlank(objectApiName)) {
+                continue;
+            }
+            Schema.DescribeSObjectResult describe = globalDescribe.get(objectApiName).getDescribe();
+            if (!isUsableTargetObject(describe)) {
+                continue;
+            }
+            objectApiNames.add(describe.getName());
+        }
+        objectApiNames.sort();
+        return objectApiNames;
+    }
+
+    public static List<String> getAvailableFieldReferences(String objectApiName, Boolean inboundMode) {
+        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+        if (String.isBlank(objectApiName)) {
             return new List<String>();
         }
 
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, globalDescribe);
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        String canonicalObjectApiName = objectType.getDescribe().getName();
         List<String> references = new List<String>();
-        Map<String, Schema.SObjectField> fieldMap =
-            globalDescribe.get(SUBMISSION_OBJECT_API_NAME).getDescribe().fields.getMap();
+        Map<String, Schema.SObjectField> fieldMap = objectType.getDescribe().fields.getMap();
         List<String> fieldNames = new List<String>(fieldMap.keySet());
         fieldNames.sort();
         for (String fieldName : fieldNames) {
-            references.add(RECORD_REFERENCE_PREFIX + fieldName);
+            Schema.DescribeFieldResult describe = fieldMap.get(fieldName).getDescribe();
+            if (inboundMode && !describe.isCreateable()) {
+                continue;
+            }
+            if (!inboundMode && !describe.isAccessible()) {
+                continue;
+            }
+            references.add('$' + canonicalObjectApiName + '.' + describe.getName());
         }
-        references.add(RECORD_REFERENCE_PREFIX + 'CreatedDate');
+        if (!inboundMode) {
+            references.add('$' + canonicalObjectApiName + '.CreatedDate');
+        }
+        references.sort();
         return references;
     }
 
-    public static Boolean inferSyncInboundAndOutbound(String configJson) {
-        if (String.isBlank(configJson)) {
+    public static List<String> getAvailableTriggerFieldNames(String objectApiName) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        List<String> fieldNames = new List<String>();
+        Map<String, Schema.SObjectField> fieldMap = objectType.getDescribe().fields.getMap();
+        for (String fieldName : fieldMap.keySet()) {
+            Schema.DescribeFieldResult describe = fieldMap.get(fieldName).getDescribe();
+            if (isUsableTriggerField(describe)) {
+                fieldNames.add(describe.getName());
+            }
+        }
+        fieldNames.sort();
+        return fieldNames;
+    }
+
+    public static List<String> getAvailableTriggerFieldValues(String objectApiName, String fieldName) {
+        Schema.DescribeFieldResult describe = resolveFieldDescribe(objectApiName, fieldName);
+        if (describe == null) {
+            return new List<String>();
+        }
+
+        List<String> values = new List<String>();
+        if (describe.getType() == Schema.DisplayType.Boolean) {
+            values.add('true');
+            values.add('false');
+            return values;
+        }
+
+        if (describe.getType() == Schema.DisplayType.Picklist ||
+            describe.getType() == Schema.DisplayType.MultiPicklist) {
+            for (Schema.PicklistEntry entry : describe.getPicklistValues()) {
+                if (entry != null && entry.isActive()) {
+                    values.add(entry.getValue());
+                }
+            }
+            values.sort();
+        }
+        return values;
+    }
+
+    public static List<String> getAvailableLookupFieldNames(String objectApiName) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        List<String> fieldNames = new List<String>();
+        for (Schema.SObjectField fieldToken : objectType.getDescribe().fields.getMap().values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (isUsableLookupField(describe)) {
+                fieldNames.add(describe.getName());
+            }
+        }
+        fieldNames.sort();
+        return fieldNames;
+    }
+
+    public static List<String> getAvailableLookupTargetObjectApiNames(String objectApiName, String lookupFieldName) {
+        Schema.DescribeFieldResult describe = resolveFieldDescribe(objectApiName, lookupFieldName);
+        if (!isUsableLookupField(describe)) {
+            return new List<String>();
+        }
+
+        List<String> objectApiNames = new List<String>();
+        for (Schema.SObjectType relatedType : describe.getReferenceTo()) {
+            if (relatedType == null) {
+                continue;
+            }
+            Schema.DescribeSObjectResult relatedDescribe = relatedType.getDescribe();
+            if (!isUsableTargetObject(relatedDescribe)) {
+                continue;
+            }
+            objectApiNames.add(relatedDescribe.getName());
+        }
+        objectApiNames.sort();
+        return objectApiNames;
+    }
+
+    public static List<String> getAvailableMatchFieldNames(String objectApiName) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        List<String> fieldNames = new List<String>();
+        for (Schema.SObjectField fieldToken : objectType.getDescribe().fields.getMap().values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (isUsableMatchField(describe)) {
+                fieldNames.add(describe.getName());
+            }
+        }
+        fieldNames.sort();
+        return fieldNames;
+    }
+
+    public static List<String> getAvailableCreateFieldNames(String objectApiName) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        List<String> fieldNames = new List<String>();
+        for (Schema.SObjectField fieldToken : objectType.getDescribe().fields.getMap().values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (isUsableCreateField(describe)) {
+                fieldNames.add(describe.getName());
+            }
+        }
+        fieldNames.sort();
+        return fieldNames;
+    }
+
+    public static Boolean inferSyncInboundAndOutbound(String inboundConfigJson, String outboundConfigJson) {
+        if (String.isBlank(inboundConfigJson) && String.isBlank(outboundConfigJson)) {
             return true;
         }
+
         try {
-            PublicApiRequestMappingService.MappingConfiguration config =
-                PublicApiRequestMappingService.parseConfiguration(configJson);
-            return areMappingsEquivalent(config.inboundMappings, config.outboundMappings);
+            List<PublicApiRequestMappingService.MappingConfig> inboundMappings =
+                PublicApiRequestMappingService.parseMappings(inboundConfigJson);
+            List<PublicApiRequestMappingService.MappingConfig> outboundMappings =
+                PublicApiRequestMappingService.parseMappings(outboundConfigJson);
+            return areMappingsEquivalent(inboundMappings, outboundMappings);
         } catch (Exception e) {
             return false;
         }
     }
 
-    private static PublicApiRequestMappingService.MappingConfiguration getDefaultConfiguration() {
-        PublicApiRequestMappingService.MappingConfiguration config =
-            new PublicApiRequestMappingService.MappingConfiguration();
-        config.inboundMappings = cloneMappings(DEFAULT_INBOUND_MAPPINGS);
-        config.outboundMappings = cloneMappings(DEFAULT_OUTBOUND_MAPPINGS);
-        return config;
+    private static Boolean isUsableTargetObject(Schema.DescribeSObjectResult describe) {
+        if (describe == null ||
+            !describe.isQueryable() ||
+            !describe.isCreateable() ||
+            describe.isDeprecatedAndHidden() ||
+            describe.isCustomSetting()) {
+            return false;
+        }
+
+        String objectApiName = describe.getName();
+        if (String.isBlank(objectApiName)) {
+            return false;
+        }
+
+        List<String> excludedSuffixes = new List<String>{
+            'History',
+            'Feed',
+            'Share',
+            'Tag',
+            'ChangeEvent',
+            '__History',
+            '__Feed',
+            '__Share',
+            '__Tag',
+            '__ChangeEvent',
+            '__mdt',
+            '__e',
+            '__b'
+        };
+        for (String suffix : excludedSuffixes) {
+            if (objectApiName.endsWith(suffix)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static Boolean isUsableTriggerField(Schema.DescribeFieldResult describe) {
+        if (describe == null ||
+            !describe.isAccessible() ||
+            describe.isCalculated() ||
+            describe.isAutoNumber()) {
+            return false;
+        }
+
+        String fieldName = describe.getName();
+        Set<String> excludedFieldNames = new Set<String>{
+            'Id',
+            'CreatedDate',
+            'CreatedById',
+            'LastModifiedDate',
+            'LastModifiedById',
+            'SystemModstamp',
+            'LastViewedDate',
+            'LastReferencedDate'
+        };
+        if (excludedFieldNames.contains(fieldName)) {
+            return false;
+        }
+
+        Schema.DisplayType fieldType = describe.getType();
+        return fieldType != Schema.DisplayType.Address &&
+            fieldType != Schema.DisplayType.Location &&
+            fieldType != Schema.DisplayType.Base64;
+    }
+
+    private static Boolean isUsableLookupField(Schema.DescribeFieldResult describe) {
+        return describe != null &&
+            describe.isCreateable() &&
+            describe.getType() == Schema.DisplayType.Reference &&
+            !describe.isCalculated();
+    }
+
+    private static Boolean isUsableMatchField(Schema.DescribeFieldResult describe) {
+        return describe != null &&
+            describe.isAccessible() &&
+            describe.isFilterable() &&
+            !describe.isCalculated() &&
+            !describe.isAutoNumber() &&
+            describe.getType() != Schema.DisplayType.Address &&
+            describe.getType() != Schema.DisplayType.Location &&
+            describe.getType() != Schema.DisplayType.Base64;
+    }
+
+    private static Boolean isUsableCreateField(Schema.DescribeFieldResult describe) {
+        return describe != null &&
+            describe.isCreateable() &&
+            !describe.isCalculated() &&
+            !describe.isAutoNumber();
+    }
+
+    private static Schema.SObjectType resolveSObjectType(
+        String objectApiName,
+        Map<String, Schema.SObjectType> globalDescribe
+    ) {
+        if (String.isBlank(objectApiName) || globalDescribe == null || globalDescribe.isEmpty()) {
+            return null;
+        }
+        if (globalDescribe.containsKey(objectApiName)) {
+            return globalDescribe.get(objectApiName);
+        }
+
+        String normalizedObjectApiName = objectApiName.trim().toLowerCase();
+        for (String key : globalDescribe.keySet()) {
+            if (key != null && key.toLowerCase() == normalizedObjectApiName) {
+                return globalDescribe.get(key);
+            }
+        }
+        return null;
+    }
+
+    private static Schema.DescribeFieldResult resolveFieldDescribe(String objectApiName, String fieldName) {
+        if (String.isBlank(fieldName)) {
+            return null;
+        }
+
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        if (objectType == null) {
+            return null;
+        }
+
+        String normalizedFieldName = fieldName.trim().toLowerCase();
+        Map<String, Schema.SObjectField> fieldMap = objectType.getDescribe().fields.getMap();
+        for (String candidateFieldName : fieldMap.keySet()) {
+            if (candidateFieldName != null && candidateFieldName.toLowerCase() == normalizedFieldName) {
+                return fieldMap.get(candidateFieldName).getDescribe();
+            }
+        }
+        return null;
     }
 
     private static List<PublicApiRequestMappingService.MappingConfig> cloneMappings(
@@ -98,15 +362,6 @@ public without sharing class PublicApiPayloadTemplateService {
         }
         cloned.sort(new MappingSortComparator());
         return cloned;
-    }
-
-    private static Map<String, Object> toSerializableMap(
-        PublicApiRequestMappingService.MappingConfiguration config
-    ) {
-        Map<String, Object> payload = new Map<String, Object>();
-        payload.put('inbound', cloneMappings(config == null ? null : config.inboundMappings));
-        payload.put('outbound', cloneMappings(config == null ? null : config.outboundMappings));
-        return payload;
     }
 
     private static Boolean areMappingsEquivalent(

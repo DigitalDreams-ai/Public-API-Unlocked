@@ -1,9 +1,21 @@
 public with sharing class PublicApiPayloadBuilderCtrl {
     public class PayloadSettings {
         @AuraEnabled public Boolean syncInboundAndOutbound;
-        @AuraEnabled public String configurationJson;
-        @AuraEnabled public String defaultJson;
-        @AuraEnabled public List<String> availableFieldReferences;
+        @AuraEnabled public String inboundConfigurationJson;
+        @AuraEnabled public String outboundConfigurationJson;
+        @AuraEnabled public String relatedRecordConfigurationJson;
+        @AuraEnabled public Boolean outboundTriggerEnabled;
+        @AuraEnabled public String outboundTriggerFieldName;
+        @AuraEnabled public String outboundTriggerFieldValues;
+        @AuraEnabled public String defaultInboundJson;
+        @AuraEnabled public String defaultOutboundJson;
+        @AuraEnabled public String targetObjectApiName;
+        @AuraEnabled public List<String> availableObjectApiNames;
+        @AuraEnabled public List<String> availableInboundFieldReferences;
+        @AuraEnabled public List<String> availableOutboundFieldReferences;
+        @AuraEnabled public List<String> availableLookupFieldNames;
+        @AuraEnabled public List<String> availableTriggerFieldNames;
+        @AuraEnabled public List<String> availableTriggerFieldValues;
     }
 
     public class HeaderSettings {
@@ -27,12 +39,44 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         }
 
         PayloadSettings settings = new PayloadSettings();
-        settings.configurationJson = record.Outbound_Payload_Configuration__c;
-        settings.syncInboundAndOutbound = PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(
-            settings.configurationJson
+        settings.inboundConfigurationJson = record.Inbound_Payload_Configuration__c;
+        settings.outboundConfigurationJson = record.Outbound_Payload_Configuration__c;
+        settings.relatedRecordConfigurationJson = record.Related_Record_Configuration__c;
+        settings.syncInboundAndOutbound = record.Sync_Inbound_And_Outbound__c == null
+            ? PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(
+                settings.inboundConfigurationJson,
+                settings.outboundConfigurationJson
+            )
+            : record.Sync_Inbound_And_Outbound__c;
+        settings.outboundTriggerEnabled = record.Outbound_Trigger_Enabled__c == null
+            ? true
+            : record.Outbound_Trigger_Enabled__c;
+        settings.outboundTriggerFieldName = normalizeBlank(record.Outbound_Trigger_Field_Name__c);
+        settings.outboundTriggerFieldValues = normalizeLongTextBlank(record.Outbound_Trigger_Field_Values__c);
+        settings.targetObjectApiName = normalizeBlank(record.Target_Object_API_Name__c);
+        if (String.isBlank(settings.targetObjectApiName)) {
+            settings.targetObjectApiName = PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME;
+        }
+        settings.defaultInboundJson = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson();
+        settings.defaultOutboundJson = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson();
+        settings.availableObjectApiNames = PublicApiPayloadTemplateService.getAvailableObjectApiNames();
+        settings.availableInboundFieldReferences = PublicApiPayloadTemplateService.getAvailableFieldReferences(
+            settings.targetObjectApiName,
+            true
         );
-        settings.defaultJson = PublicApiPayloadTemplateService.getDefaultMappingsJson();
-        settings.availableFieldReferences = PublicApiPayloadTemplateService.getAvailableFieldReferences();
+        settings.availableOutboundFieldReferences = PublicApiPayloadTemplateService.getAvailableFieldReferences(
+            settings.targetObjectApiName,
+            false
+        );
+        settings.availableLookupFieldNames =
+            PublicApiPayloadTemplateService.getAvailableLookupFieldNames(settings.targetObjectApiName);
+        settings.availableTriggerFieldNames =
+            PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(settings.targetObjectApiName);
+        settings.availableTriggerFieldValues =
+            PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(
+                settings.targetObjectApiName,
+                settings.outboundTriggerFieldName
+            );
         return settings;
     }
 
@@ -57,19 +101,106 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         return settings;
     }
 
+    @AuraEnabled(cacheable=true)
+    public static List<String> getFieldReferences(String objectApiName, Boolean inboundMode) {
+        if (String.isBlank(objectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableFieldReferences(objectApiName.trim(), inboundMode);
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<String> getLookupFieldNames(String objectApiName) {
+        if (String.isBlank(objectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableLookupFieldNames(objectApiName.trim());
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<String> getLookupTargetObjectApiNames(String objectApiName, String lookupFieldName) {
+        if (String.isBlank(objectApiName) || String.isBlank(lookupFieldName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableLookupTargetObjectApiNames(
+            objectApiName.trim(),
+            lookupFieldName.trim()
+        );
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<String> getMatchFieldNames(String objectApiName) {
+        if (String.isBlank(objectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableMatchFieldNames(objectApiName.trim());
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<String> getCreateFieldNames(String objectApiName) {
+        if (String.isBlank(objectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableCreateFieldNames(objectApiName.trim());
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<String> getTriggerFieldNames(String objectApiName) {
+        if (String.isBlank(objectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(objectApiName.trim());
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<String> getTriggerFieldValues(String objectApiName, String fieldName) {
+        if (String.isBlank(objectApiName) || String.isBlank(fieldName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(objectApiName.trim(), fieldName.trim());
+    }
+
     @AuraEnabled
-    public static void savePayloadSettings(Id recordId, Boolean syncInboundAndOutbound, String configJson) {
+    public static void savePayloadSettings(
+        Id recordId,
+        Boolean syncInboundAndOutbound,
+        String targetObjectApiName,
+        String relatedRecordConfigurationJson,
+        Boolean outboundTriggerEnabled,
+        String outboundTriggerFieldName,
+        String outboundTriggerFieldValues,
+        String inboundConfigJson,
+        String outboundConfigJson
+    ) {
         if (recordId == null) {
-            AuraHandledException ex = new AuraHandledException('Record ID is required.');
-            ex.setMessage('Record ID is required.');
-            throw ex;
+            throwAuraException('Record ID is required.');
         }
 
-        validateMappingConfigurationJson(configJson);
+        String normalizedTargetObjectApiName = normalizeObjectApiName(
+            targetObjectApiName,
+            'Target object API name is required.'
+        );
+        String normalizedTriggerFieldName = normalizeBlank(outboundTriggerFieldName);
+        validateInboundMappingConfigurationJson(inboundConfigJson, normalizedTargetObjectApiName);
+        validateOutboundMappingConfigurationJson(outboundConfigJson, normalizedTargetObjectApiName);
+        validateRelatedRecordConfigurationJson(relatedRecordConfigurationJson, normalizedTargetObjectApiName);
+        validateTriggerFieldConfiguration(
+            normalizedTargetObjectApiName,
+            normalizedTriggerFieldName,
+            outboundTriggerFieldValues
+        );
 
         update new PublicApi_Integration_Config__c(
             Id = recordId,
-            Outbound_Payload_Configuration__c = String.isNotBlank(configJson) ? configJson : null
+            Target_Object_API_Name__c = normalizedTargetObjectApiName,
+            Sync_Inbound_And_Outbound__c = syncInboundAndOutbound,
+            Outbound_Trigger_Enabled__c = outboundTriggerEnabled,
+            Outbound_Trigger_Field_Name__c = normalizedTriggerFieldName,
+            Outbound_Trigger_Field_Values__c = normalizeLongTextBlank(outboundTriggerFieldValues),
+            Related_Record_Configuration__c =
+                String.isNotBlank(relatedRecordConfigurationJson) ? relatedRecordConfigurationJson : null,
+            Inbound_Payload_Configuration__c = String.isNotBlank(inboundConfigJson) ? inboundConfigJson : null,
+            Outbound_Payload_Configuration__c = String.isNotBlank(outboundConfigJson) ? outboundConfigJson : null
         );
     }
 
@@ -83,9 +214,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         String additionalHeadersJson
     ) {
         if (recordId == null) {
-            AuraHandledException ex = new AuraHandledException('Record ID is required.');
-            ex.setMessage('Record ID is required.');
-            throw ex;
+            throwAuraException('Record ID is required.');
         }
 
         validateConfigurationJson(additionalHeadersJson, true);
@@ -111,49 +240,68 @@ public with sharing class PublicApiPayloadBuilderCtrl {
                 parsed instanceof Map<String, Object> ||
                 (allowArray && parsed instanceof List<Object>);
             if (!isValid) {
-                String message = allowArray
-                    ? 'Configuration must be a JSON object or array.'
-                    : 'Configuration must be a JSON object.';
-                AuraHandledException ex = new AuraHandledException(message);
-                ex.setMessage(message);
-                throw ex;
+                throwAuraException(
+                    allowArray
+                        ? 'Configuration must be a JSON object or array.'
+                        : 'Configuration must be a JSON object.'
+                );
             }
         } catch (JSONException e) {
-            String message = 'Invalid JSON: ' + e.getMessage();
-            AuraHandledException ex = new AuraHandledException(message);
-            ex.setMessage(message);
-            throw ex;
+            throwAuraException('Invalid JSON: ' + e.getMessage());
         }
     }
 
-    private static void validateMappingConfigurationJson(String configJson) {
+    private static void validateInboundMappingConfigurationJson(
+        String configJson,
+        String targetObjectApiName
+    ) {
+        validateDirectionalMappingConfigurationJson(configJson, targetObjectApiName, true);
+    }
+
+    private static void validateOutboundMappingConfigurationJson(
+        String configJson,
+        String targetObjectApiName
+    ) {
+        validateDirectionalMappingConfigurationJson(configJson, targetObjectApiName, false);
+    }
+
+    private static void validateRelatedRecordConfigurationJson(
+        String configJson,
+        String targetObjectApiName
+    ) {
         if (String.isBlank(configJson)) {
             return;
         }
 
         try {
-            PublicApiRequestMappingService.MappingConfiguration mappings =
-                PublicApiRequestMappingService.parseConfiguration(configJson);
-            if (mappings.inboundMappings.isEmpty() && mappings.outboundMappings.isEmpty()) {
-                AuraHandledException ex = new AuraHandledException(
-                    'Mappings configuration must contain at least one valid row.'
-                );
-                ex.setMessage('Mappings configuration must contain at least one valid row.');
-                throw ex;
-            }
-            PublicApiRequestMappingService.validateMappings(
-                configJson,
-                PublicApiRequestMappingService.getDefaultDirection()
-            );
+            PublicApiRelatedRecordService.validateRules(configJson, targetObjectApiName);
         } catch (JSONException e) {
-            String message = 'Invalid JSON: ' + e.getMessage();
-            AuraHandledException ex = new AuraHandledException(message);
-            ex.setMessage(message);
-            throw ex;
+            throwAuraException('Invalid JSON: ' + e.getMessage());
         } catch (PublicApiIntakeServiceException e) {
-            AuraHandledException ex = new AuraHandledException(e.getMessage());
-            ex.setMessage(e.getMessage());
-            throw ex;
+            throwAuraException(e.getMessage());
+        }
+    }
+
+    private static void validateDirectionalMappingConfigurationJson(
+        String configJson,
+        String targetObjectApiName,
+        Boolean inboundMode
+    ) {
+        if (String.isBlank(configJson)) {
+            return;
+        }
+
+        try {
+            PublicApiRequestMappingService.parseMappings(configJson);
+            if (inboundMode) {
+                PublicApiRequestMappingService.validateInboundMappings(configJson, targetObjectApiName);
+            } else {
+                PublicApiRequestMappingService.validateOutboundMappings(configJson, targetObjectApiName);
+            }
+        } catch (JSONException e) {
+            throwAuraException('Invalid JSON: ' + e.getMessage());
+        } catch (PublicApiIntakeServiceException e) {
+            throwAuraException(e.getMessage());
         }
     }
 
@@ -161,4 +309,59 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         return String.isBlank(value) ? null : value.trim();
     }
 
+    private static String normalizeLongTextBlank(String value) {
+        return String.isBlank(value) ? null : value.trim();
+    }
+
+    private static String normalizeObjectApiName(String objectApiName, String requiredMessage) {
+        String normalized = normalizeBlank(objectApiName);
+        if (String.isBlank(normalized)) {
+            throwAuraException(requiredMessage);
+        }
+
+        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+        if (!globalDescribe.containsKey(normalized)) {
+            throwAuraException('Unknown object API name: ' + normalized);
+        }
+        return normalized;
+    }
+
+    private static void validateTriggerFieldConfiguration(
+        String targetObjectApiName,
+        String fieldName,
+        String rawValues
+    ) {
+        if (String.isBlank(fieldName)) {
+            return;
+        }
+
+        List<String> availableFieldNames =
+            PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(targetObjectApiName);
+        if (!availableFieldNames.contains(fieldName)) {
+            throwAuraException('Select a valid outbound trigger field name for the target object.');
+        }
+
+        List<String> suggestedValues =
+            PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(targetObjectApiName, fieldName);
+        if (suggestedValues.isEmpty() || String.isBlank(rawValues)) {
+            return;
+        }
+
+        Set<String> validValues = new Set<String>();
+        for (String suggestedValue : suggestedValues) {
+            validValues.add(suggestedValue);
+        }
+
+        for (String configuredValue : PublicApiOutboundTriggerService.parseTriggerFieldValues(rawValues)) {
+            if (!validValues.contains(configuredValue)) {
+                throwAuraException('Select valid outbound trigger values for ' + fieldName + '.');
+            }
+        }
+    }
+
+    private static void throwAuraException(String message) {
+        AuraHandledException ex = new AuraHandledException(message);
+        ex.setMessage(message);
+        throw ex;
+    }
 }

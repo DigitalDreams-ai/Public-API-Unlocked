@@ -10,14 +10,26 @@ public without sharing class PublicApiConfigRepository {
                    Is_Active__c,
                    Webhook_Secret__c,
                    API_Key__c,
+                   Outbound_Trigger_Enabled__c,
+                   Outbound_Trigger_Field_Name__c,
+                   Outbound_Trigger_Field_Values__c,
                    Outbound_Webhook_URL__c,
+                   Outbound_Remote_Site_Domain__c,
+                   Outbound_Remote_Site_Name__c,
+                   Outbound_Remote_Site_Status__c,
+                   Outbound_Remote_Site_Last_Error__c,
+                   Outbound_Remote_Site_Last_Provisioned_At__c,
                    Outbound_Webhook_Secret__c,
                    Outbound_Auth_Mode__c,
                    Outbound_Header_Name__c,
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
+                   Inbound_Payload_Configuration__c,
+                   Outbound_Payload_Configuration__c,
+                   Related_Record_Configuration__c,
+                   Target_Object_API_Name__c,
+                   Sync_Inbound_And_Outbound__c
             FROM PublicApi_Integration_Config__c
             WHERE Is_Active__c = true
             AND API_Key__c = :trimmedApiKey
@@ -36,14 +48,26 @@ public without sharing class PublicApiConfigRepository {
                    Is_Active__c,
                    Webhook_Secret__c,
                    API_Key__c,
+                   Outbound_Trigger_Enabled__c,
+                   Outbound_Trigger_Field_Name__c,
+                   Outbound_Trigger_Field_Values__c,
                    Outbound_Webhook_URL__c,
+                   Outbound_Remote_Site_Domain__c,
+                   Outbound_Remote_Site_Name__c,
+                   Outbound_Remote_Site_Status__c,
+                   Outbound_Remote_Site_Last_Error__c,
+                   Outbound_Remote_Site_Last_Provisioned_At__c,
                    Outbound_Webhook_Secret__c,
                    Outbound_Auth_Mode__c,
                    Outbound_Header_Name__c,
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
+                   Inbound_Payload_Configuration__c,
+                   Outbound_Payload_Configuration__c,
+                   Related_Record_Configuration__c,
+                   Target_Object_API_Name__c,
+                   Sync_Inbound_And_Outbound__c
             FROM PublicApi_Integration_Config__c
             WHERE Id = :configId
             LIMIT 1
@@ -66,17 +90,69 @@ public without sharing class PublicApiConfigRepository {
                    Is_Active__c,
                    Webhook_Secret__c,
                    API_Key__c,
+                   Outbound_Trigger_Enabled__c,
+                   Outbound_Trigger_Field_Name__c,
+                   Outbound_Trigger_Field_Values__c,
                    Outbound_Webhook_URL__c,
+                   Outbound_Remote_Site_Domain__c,
+                   Outbound_Remote_Site_Name__c,
+                   Outbound_Remote_Site_Status__c,
+                   Outbound_Remote_Site_Last_Error__c,
+                   Outbound_Remote_Site_Last_Provisioned_At__c,
                    Outbound_Webhook_Secret__c,
                    Outbound_Auth_Mode__c,
                    Outbound_Header_Name__c,
                    Outbound_Header_Value__c,
                    Outbound_Additional_Headers_JSON__c,
                    Outbound_Content_Type__c,
-                   Outbound_Payload_Configuration__c
+                   Inbound_Payload_Configuration__c,
+                   Outbound_Payload_Configuration__c,
+                   Related_Record_Configuration__c,
+                   Target_Object_API_Name__c,
+                   Sync_Inbound_And_Outbound__c
             FROM PublicApi_Integration_Config__c
             WHERE Id IN :configIds
             AND Is_Active__c = true
+        ];
+    }
+
+    public static List<PublicApi_Integration_Config__c> findActiveByTargetObjectApiName(String targetObjectApiName) {
+        String normalizedTargetObjectApiName = String.isBlank(targetObjectApiName)
+            ? null
+            : targetObjectApiName.trim();
+        if (String.isBlank(normalizedTargetObjectApiName)) {
+            return new List<PublicApi_Integration_Config__c>();
+        }
+
+        return [
+            SELECT Id,
+                   Is_Active__c,
+                   Webhook_Secret__c,
+                   API_Key__c,
+                   Outbound_Trigger_Enabled__c,
+                   Outbound_Trigger_Field_Name__c,
+                   Outbound_Trigger_Field_Values__c,
+                   Outbound_Webhook_URL__c,
+                   Outbound_Remote_Site_Domain__c,
+                   Outbound_Remote_Site_Name__c,
+                   Outbound_Remote_Site_Status__c,
+                   Outbound_Remote_Site_Last_Error__c,
+                   Outbound_Remote_Site_Last_Provisioned_At__c,
+                   Outbound_Webhook_Secret__c,
+                   Outbound_Auth_Mode__c,
+                   Outbound_Header_Name__c,
+                   Outbound_Header_Value__c,
+                   Outbound_Additional_Headers_JSON__c,
+                   Outbound_Content_Type__c,
+                   Inbound_Payload_Configuration__c,
+                   Outbound_Payload_Configuration__c,
+                   Related_Record_Configuration__c,
+                   Target_Object_API_Name__c,
+                   Sync_Inbound_And_Outbound__c
+            FROM PublicApi_Integration_Config__c
+            WHERE Is_Active__c = true
+            AND Target_Object_API_Name__c = :normalizedTargetObjectApiName
+            ORDER BY CreatedDate DESC
         ];
     }
 }

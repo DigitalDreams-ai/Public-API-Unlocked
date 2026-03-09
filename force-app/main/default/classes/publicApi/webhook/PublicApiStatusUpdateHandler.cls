@@ -1,126 +1,218 @@
 public without sharing class PublicApiStatusUpdateHandler {
     @TestVisible
-    static final Set<String> NOTIFIABLE_STATUSES = new Set<String>{ 'Referred Out', 'Converted' };
-
-    private static Set<String> processedEventKeys = new Set<String>();
-    private static Set<Id> processedRecordIds = new Set<Id>();
-
-    public static void handleBeforeUpdate(List<PublicApi_Submission__c> newRecords, Map<Id, PublicApi_Submission__c> oldMap) {
-        if (newRecords == null || newRecords.isEmpty() || oldMap == null || oldMap.isEmpty()) {
-            return;
-        }
-
-        Set<Id> candidateIds = new Set<Id>();
-        for (PublicApi_Submission__c newRecord : newRecords) {
-            PublicApi_Submission__c oldRecord = oldMap.get(newRecord.Id);
-            if (oldRecord == null || !didStatusChange(newRecord, oldRecord)) {
-                continue;
-            }
-            String currentStatus = normalizeStatus(newRecord.Status__c);
-            if (!shouldSendStatusUpdate(currentStatus)) {
-                continue;
-            }
-            candidateIds.add(newRecord.Id);
-        }
-        if (candidateIds.isEmpty()) {
-            return;
-        }
-
-        Map<Id, PublicApi_Intake_Tracking__c> trackingByRecordId =
-            PublicApiIntakeTrackingService.getTrackingByIntakeId(candidateIds);
-        if (trackingByRecordId.isEmpty()) {
-            return;
-        }
-
-        for (PublicApi_Submission__c newRecord : newRecords) {
-            if (!candidateIds.contains(newRecord.Id) || !trackingByRecordId.containsKey(newRecord.Id)) {
-                continue;
-            }
-            if (Schema.sObjectType.PublicApi_Submission__c.fields.Google_Ads_Conversion_Event__c != null) {
-                newRecord.Google_Ads_Conversion_Event__c = normalizeStatus(newRecord.Status__c);
-            }
-            if (Schema.sObjectType.PublicApi_Submission__c.fields.Google_Ads_Conversion_Time__c != null) {
-                newRecord.Google_Ads_Conversion_Time__c = System.now();
-            }
-        }
-    }
+    static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
+    @TestVisible
+    static final String INTAKE_OBJECT_API_NAME = 'litify_pm__Intake__c';
+    @TestVisible
+    static final String CONFIG_LOOKUP_FIELD_API_NAME = 'PublicApi_Integration_Config__c';
 
     public static void handleAfterUpdate(List<PublicApi_Submission__c> newRecords, Map<Id, PublicApi_Submission__c> oldMap) {
+        handleAfterUpdateGeneric(
+            toSObjectList(newRecords),
+            toSObjectMap(oldMap),
+            SUBMISSION_OBJECT_API_NAME
+        );
+    }
+
+    public static void handleAfterUpdate(List<litify_pm__Intake__c> newRecords, Map<Id, litify_pm__Intake__c> oldMap) {
+        handleAfterUpdateGeneric(
+            toSObjectList(newRecords),
+            toSObjectMap(oldMap),
+            INTAKE_OBJECT_API_NAME
+        );
+    }
+
+    private static void handleAfterUpdateGeneric(
+        List<SObject> newRecords,
+        Map<Id, SObject> oldMap,
+        String targetObjectApiName
+    ) {
         if (newRecords == null || newRecords.isEmpty() || oldMap == null || oldMap.isEmpty()) {
             return;
         }
 
-        Set<Id> changedIds = new Set<Id>();
-        for (PublicApi_Submission__c newRecord : newRecords) {
-            PublicApi_Submission__c oldRecord = oldMap.get(newRecord.Id);
-            if (oldRecord != null && didStatusChange(newRecord, oldRecord)) {
-                if (shouldSendStatusUpdate(normalizeStatus(newRecord.Status__c))) {
-                    changedIds.add(newRecord.Id);
+        Set<Id> linkedConfigIds = new Set<Id>();
+        for (SObject newRecord : newRecords) {
+            Id configId = getLinkedConfigId(newRecord);
+            if (configId != null) {
+                linkedConfigIds.add(configId);
+            }
+        }
+
+        Map<Id, PublicApiConfigService.Config> linkedConfigsById = linkedConfigIds.isEmpty()
+            ? new Map<Id, PublicApiConfigService.Config>()
+            : PublicApiConfigService.getConfigsById(linkedConfigIds);
+        List<PublicApiConfigService.Config> objectConfigs =
+            PublicApiConfigService.getConfigsForTargetObject(targetObjectApiName);
+        List<PublicApiOutboundTriggerService.ChangeRequest> requests =
+            new List<PublicApiOutboundTriggerService.ChangeRequest>();
+        for (SObject newRecord : newRecords) {
+            if (newRecord == null) {
+                continue;
+            }
+
+            SObject oldRecord = oldMap.get((Id) newRecord.get('Id'));
+            if (oldRecord == null) {
+                continue;
+            }
+
+            List<PublicApiConfigService.Config> applicableConfigs =
+                getApplicableConfigs(newRecord, linkedConfigsById, objectConfigs);
+            for (PublicApiConfigService.Config config : applicableConfigs) {
+                String triggerFieldName = PublicApiOutboundTriggerService.getConfiguredTriggerFieldName(config);
+                if (!hasField(newRecord, triggerFieldName) || !didFieldChange(newRecord, oldRecord, triggerFieldName)) {
+                    continue;
                 }
+
+                requests.add(new PublicApiOutboundTriggerService.ChangeRequest(
+                    (Id) newRecord.get('Id'),
+                    config.id,
+                    normalizeValue(oldRecord.get(triggerFieldName)),
+                    normalizeValue(newRecord.get(triggerFieldName)),
+                    System.now()
+                ));
             }
         }
-        if (changedIds.isEmpty()) {
-            return;
-        }
-
-        Map<Id, PublicApi_Intake_Tracking__c> trackingByRecordId =
-            PublicApiIntakeTrackingService.getTrackingByIntakeId(changedIds);
-        if (trackingByRecordId.isEmpty()) {
-            return;
-        }
-
-        List<PublicApiStatusUpdateQueueable.DeliveryItem> items = new List<PublicApiStatusUpdateQueueable.DeliveryItem>();
-        for (PublicApi_Submission__c newRecord : newRecords) {
-            PublicApi_Submission__c oldRecord = oldMap.get(newRecord.Id);
-            if (oldRecord == null || !didStatusChange(newRecord, oldRecord)) {
-                continue;
-            }
-            String currentStatus = normalizeStatus(newRecord.Status__c);
-            if (!shouldSendStatusUpdate(currentStatus)) {
-                continue;
-            }
-
-            PublicApi_Intake_Tracking__c tracking = trackingByRecordId.get(newRecord.Id);
-            if (tracking == null || tracking.PublicApi_Integration_Config__c == null) {
-                continue;
-            }
-            if (processedRecordIds.contains(newRecord.Id)) {
-                continue;
-            }
-
-            String eventKey = String.valueOf(newRecord.Id) + ':' + normalizeStatus(oldRecord.Status__c) + ':' + currentStatus;
-            if (processedEventKeys.contains(eventKey)) {
-                continue;
-            }
-            processedEventKeys.add(eventKey);
-            processedRecordIds.add(newRecord.Id);
-
-            items.add(new PublicApiStatusUpdateQueueable.DeliveryItem(
-                newRecord.Id,
-                tracking.PublicApi_Integration_Config__c,
-                normalizeStatus(oldRecord.Status__c),
-                currentStatus,
-                System.now(),
-                UserInfo.getSessionId()
-            ));
-        }
-
-        if (!items.isEmpty()) {
-            PublicApiStatusUpdateQueueable.enqueue(items);
-        }
+        PublicApiOutboundTriggerService.enqueueFieldChanges(requests);
     }
 
     @TestVisible
     static Boolean didStatusChange(PublicApi_Submission__c newRecord, PublicApi_Submission__c oldRecord) {
-        return normalizeStatus(newRecord.Status__c) != normalizeStatus(oldRecord.Status__c);
+        return didFieldChange(newRecord, oldRecord, 'Status__c');
     }
 
     @TestVisible
-    static Boolean shouldSendStatusUpdate(String status) {
-        return String.isNotBlank(status) && NOTIFIABLE_STATUSES.contains(status);
+    static Boolean didFieldChange(SObject newRecord, SObject oldRecord, String fieldApiName) {
+        if (newRecord == null || oldRecord == null || String.isBlank(fieldApiName)) {
+            return false;
+        }
+        return normalizeValue(newRecord.get(fieldApiName)) != normalizeValue(oldRecord.get(fieldApiName));
     }
 
-    private static String normalizeStatus(String status) {
-        return status == null ? null : status.trim();
+    @TestVisible
+    static Boolean supportsSubmissionTrigger(PublicApiConfigService.Config config) {
+        if (config == null) {
+            return false;
+        }
+        return SUBMISSION_OBJECT_API_NAME.equalsIgnoreCase(
+            String.isBlank(config.targetObjectApiName) ? SUBMISSION_OBJECT_API_NAME : config.targetObjectApiName
+        );
+    }
+
+    @TestVisible
+    static List<PublicApiConfigService.Config> getApplicableConfigs(
+        SObject record,
+        Map<Id, PublicApiConfigService.Config> linkedConfigsById,
+        List<PublicApiConfigService.Config> objectConfigs
+    ) {
+        List<PublicApiConfigService.Config> configs = new List<PublicApiConfigService.Config>();
+        Id linkedConfigId = getLinkedConfigId(record);
+        if (linkedConfigId != null) {
+            PublicApiConfigService.Config linkedConfig =
+                linkedConfigsById == null ? null : linkedConfigsById.get(linkedConfigId);
+            if (linkedConfig != null) {
+                configs.add(linkedConfig);
+            }
+            return configs;
+        }
+
+        if (objectConfigs == null) {
+            return configs;
+        }
+        for (PublicApiConfigService.Config config : objectConfigs) {
+            if (config != null && config.id != null) {
+                configs.add(config);
+            }
+        }
+        return configs;
+    }
+
+    @TestVisible
+    static Id getLinkedConfigId(SObject record) {
+        if (!hasField(record, CONFIG_LOOKUP_FIELD_API_NAME)) {
+            return null;
+        }
+
+        Object rawValue = record.get(CONFIG_LOOKUP_FIELD_API_NAME);
+        if (rawValue == null) {
+            return null;
+        }
+        return (Id) rawValue;
+    }
+
+    @TestVisible
+    static Boolean hasField(SObject record, String fieldApiName) {
+        if (record == null || String.isBlank(fieldApiName)) {
+            return false;
+        }
+        return record.getSObjectType().getDescribe().fields.getMap().containsKey(fieldApiName);
+    }
+
+    @TestVisible
+    static Boolean shouldSendStatusUpdate(PublicApiConfigService.Config config, String status) {
+        return PublicApiOutboundTriggerService.shouldSendOutboundTrigger(config, status);
+    }
+
+    @TestVisible
+    static Boolean isOutboundTriggerEnabled(PublicApiConfigService.Config config) {
+        return PublicApiOutboundTriggerService.isOutboundTriggerEnabled(config);
+    }
+
+    @TestVisible
+    static Set<String> getConfiguredTriggerStatuses(PublicApiConfigService.Config config) {
+        return PublicApiOutboundTriggerService.getConfiguredTriggerFieldValues(config);
+    }
+
+    @TestVisible
+    static Set<String> parseTriggerStatuses(String rawValues) {
+        return PublicApiOutboundTriggerService.parseTriggerFieldValues(rawValues);
+    }
+
+    private static String normalizeValue(Object value) {
+        return value == null ? null : String.valueOf(value).trim();
+    }
+
+    private static List<SObject> toSObjectList(List<PublicApi_Submission__c> records) {
+        List<SObject> converted = new List<SObject>();
+        if (records == null) {
+            return converted;
+        }
+        for (PublicApi_Submission__c record : records) {
+            converted.add(record);
+        }
+        return converted;
+    }
+
+    private static List<SObject> toSObjectList(List<litify_pm__Intake__c> records) {
+        List<SObject> converted = new List<SObject>();
+        if (records == null) {
+            return converted;
+        }
+        for (litify_pm__Intake__c record : records) {
+            converted.add(record);
+        }
+        return converted;
+    }
+
+    private static Map<Id, SObject> toSObjectMap(Map<Id, PublicApi_Submission__c> recordsById) {
+        Map<Id, SObject> converted = new Map<Id, SObject>();
+        if (recordsById == null) {
+            return converted;
+        }
+        for (Id recordId : recordsById.keySet()) {
+            converted.put(recordId, recordsById.get(recordId));
+        }
+        return converted;
+    }
+
+    private static Map<Id, SObject> toSObjectMap(Map<Id, litify_pm__Intake__c> recordsById) {
+        Map<Id, SObject> converted = new Map<Id, SObject>();
+        if (recordsById == null) {
+            return converted;
+        }
+        for (Id recordId : recordsById.keySet()) {
+            converted.put(recordId, recordsById.get(recordId));
+        }
+        return converted;
     }
 }
