@@ -1000,7 +1000,8 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             hasMatchFieldSuggestions: matchFieldSuggestions.length > 0,
             createMappings: (row.createMappings || []).map((mapping) =>
                 this.hydrateRelatedCreateMappingRow(mapping, row.availableCreateFieldNames || [])
-            )
+            ),
+            hasCreateMappings: (row.createMappings || []).length > 0
         };
     }
 

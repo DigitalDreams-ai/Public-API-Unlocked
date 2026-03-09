@@ -32,6 +32,7 @@ tasks:
 
     run_tests:
         options:
+            test_suite_names: PublicApiUnlocked
             required_org_code_coverage_percent: 75
 
     assign_permission_set_groups:

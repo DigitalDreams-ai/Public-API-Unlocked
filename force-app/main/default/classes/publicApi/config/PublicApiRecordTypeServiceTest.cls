@@ -13,21 +13,21 @@ private class PublicApiRecordTypeServiceTest {
     @IsTest
     static void testApplyDefaultRecordTypeDoesNotThrowForObjectsWithoutDefaults() {
         Task taskRecord = new Task(Subject = 'No Default');
-        PublicApiRecordTypeService.applyDefaultRecordType(taskRecord);
+        PublicApiRecordTypeService.applyDefaultTargetRecordType(taskRecord);
         System.assertEquals(null, taskRecord.get('RecordTypeId'));
     }
 
     @IsTest
-    static void testApplyDefaultRecordTypeUsesAccountIndividualWhenAvailable() {
+    static void testApplyDefaultTargetRecordTypeUsesAccountIndividualWhenAvailable() {
         Account accountRecord = new Account(Name = 'Record Type Test');
-        PublicApiRecordTypeService.applyDefaultRecordType(accountRecord);
+        PublicApiRecordTypeService.applyDefaultTargetRecordType(accountRecord);
 
         Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
         System.assertEquals(expectedRecordTypeId, accountRecord.RecordTypeId);
     }
 
     @IsTest
-    static void testApplyDefaultRecordTypeDoesNotOverrideExistingRecordType() {
+    static void testApplyDefaultTargetRecordTypeDoesNotOverrideExistingRecordType() {
         Account accountRecord = new Account(Name = 'Existing Record Type');
         Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
         if (expectedRecordTypeId == null) {
@@ -36,7 +36,15 @@ private class PublicApiRecordTypeServiceTest {
         }
 
         accountRecord.RecordTypeId = expectedRecordTypeId;
-        PublicApiRecordTypeService.applyDefaultRecordType(accountRecord);
+        PublicApiRecordTypeService.applyDefaultTargetRecordType(accountRecord);
         System.assertEquals(expectedRecordTypeId, accountRecord.RecordTypeId);
+    }
+
+    @IsTest
+    static void testApplyDefaultRelatedRecordTypeDoesNotForceAccountRecordType() {
+        Account accountRecord = new Account(Name = 'Related Record Type Test');
+        PublicApiRecordTypeService.applyDefaultRelatedRecordType(accountRecord);
+        Id expectedIndividualRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        System.assertEquals(expectedIndividualRecordTypeId, accountRecord.RecordTypeId);
     }
 }

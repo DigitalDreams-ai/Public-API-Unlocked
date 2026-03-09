@@ -18,15 +18,18 @@ private class PublicApiPayloadBuilderCtrlTest {
             '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
         String outboundJson =
             '[{"externalKey":"createdDate","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":1}]';
+        String relatedRecordJson =
+            '[' +
+                '{"targetLookupField":"PublicApi_Integration_Config__c","relatedObjectApiName":"PublicApi_Integration_Config__c",' +
+                '"matchFieldName":"API_Key__c","sourceKey":"configKey","createIfMissing":true,"onMultipleMatches":"Error",' +
+                '"createMappings":[{"sourceKey":"configKey","fieldName":"API_Key__c"}]}' +
+            ']';
 
         PublicApiPayloadBuilderCtrl.savePayloadSettings(
             config.Id,
             false,
             'PublicApi_Submission__c',
-            '[' +
-                '{"targetLookupField":"PublicApi_Integration_Config__c","relatedObjectApiName":"PublicApi_Integration_Config__c",' +
-                '"matchFieldName":"API_Key__c","sourceKey":"configKey","createIfMissing":false,"onMultipleMatches":"Error"}' +
-            ']',
+            relatedRecordJson,
             true,
             'Status__c',
             'Converted',
@@ -51,7 +54,7 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertEquals(true, updated.Outbound_Trigger_Enabled__c);
         System.assertEquals('Status__c', updated.Outbound_Trigger_Field_Name__c);
         System.assertEquals('Converted', updated.Outbound_Trigger_Field_Values__c);
-        System.assert(updated.Related_Record_Configuration__c.contains('"targetLookupField":"PublicApi_Integration_Config__c"'));
+        System.assertEquals(relatedRecordJson, updated.Related_Record_Configuration__c);
         System.assertEquals('PublicApi_Submission__c', updated.Target_Object_API_Name__c);
         System.assertEquals(false, updated.Sync_Inbound_And_Outbound__c);
     }
