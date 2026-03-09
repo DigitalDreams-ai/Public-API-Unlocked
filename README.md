@@ -56,6 +56,8 @@ We strongly advocate adhering to a "Release Train" development methodology for S
 7. Submit a PR.
 8. Monitor for Success/Failure
 
+This package is Litify-dependent. It is intended to run in orgs that already have Litify installed, while keeping the Public API runtime configurable through `PublicApi_Integration_Config__c`.
+
 To test the Public API Intake API in dev via Experience Cloud (guest, no session), see [Experience Cloud site setup for API testing](docs/experience-site-dev-setup.md).
 
 Full API documentation (Shulman-style structure) is available at [docs/content](docs/content/README.md).

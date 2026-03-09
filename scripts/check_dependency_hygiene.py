@@ -3,8 +3,8 @@
 Dependency hygiene gate for PublicApi-Unlocked.
 
 Fails CI when:
-1) `project.dependencies` is reintroduced in `cumulusci.yml`.
-2) Banned dependency-coupling tokens are found in `force-app/main/default`.
+1) `Shulman-Core` is reintroduced in `cumulusci.yml`.
+2) Banned Shulman-Core coupling tokens are found in `force-app/main/default`.
 """
 
 from __future__ import annotations
@@ -18,28 +18,9 @@ FORCE_APP_ROOT = REPO_ROOT / "force-app" / "main" / "default"
 CUMULUSCI_FILE = REPO_ROOT / "cumulusci.yml"
 
 BANNED_TOKENS = [
-    "litify_pm__",
     "Shulman-Core",
     "Nimba-Solutions/Shulman-Core",
 ]
-
-
-def has_project_dependencies(cumulusci_text: str) -> bool:
-    in_project_block = False
-    for raw_line in cumulusci_text.splitlines():
-        line = raw_line.rstrip("\n")
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-
-        is_top_level = len(line) - len(line.lstrip(" ")) == 0
-        if is_top_level:
-            in_project_block = stripped.startswith("project:")
-            continue
-
-        if in_project_block and stripped.startswith("dependencies:"):
-            return True
-    return False
 
 
 def scan_force_app_for_banned_tokens() -> list[str]:
@@ -69,10 +50,10 @@ def main() -> int:
         violations.append(f"Missing {CUMULUSCI_FILE.relative_to(REPO_ROOT)}")
     else:
         cumulusci_text = CUMULUSCI_FILE.read_text(encoding="utf-8", errors="ignore")
-        if has_project_dependencies(cumulusci_text):
-            violations.append("`cumulusci.yml` reintroduced `project.dependencies`.")
         if "Nimba-Solutions/Shulman-Core" in cumulusci_text:
             violations.append("`cumulusci.yml` references `Nimba-Solutions/Shulman-Core`.")
+        if "package_name: Shulman-Core" in cumulusci_text:
+            violations.append("`cumulusci.yml` references `Shulman-Core`.")
 
     violations.extend(scan_force_app_for_banned_tokens())
 
