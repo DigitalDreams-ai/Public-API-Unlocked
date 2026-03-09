@@ -70,6 +70,16 @@
     position: relative;
 }
 
+.related-rule-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.related-rule-card {
+    position: relative;
+}
+
 .target-object-picker {
     position: relative;
 }

@@ -22,7 +22,11 @@ public without sharing class PublicApiIntakeService {
         if (!globalDescribe.containsKey(targetObjectApiName)) {
             throw new PublicApiIntakeServiceException('Submission object not found: ' + targetObjectApiName);
         }
-        validateInboundMappings(config.inboundPayloadConfiguration, targetObjectApiName);
+        validateInboundConfiguration(
+            config.inboundPayloadConfiguration,
+            config.relatedRecordConfiguration,
+            targetObjectApiName
+        );
         Schema.DescribeSObjectResult objectDescribe = globalDescribe.get(targetObjectApiName).getDescribe();
         if (!objectDescribe.isCreateable()) {
             throw new PublicApiIntakeServiceException(
@@ -36,6 +40,11 @@ public without sharing class PublicApiIntakeService {
             payload,
             config.inboundPayloadConfiguration,
             targetObjectApiName
+        );
+        PublicApiRelatedRecordService.applyRelatedRecordRules(
+            submission,
+            payload,
+            config.relatedRecordConfiguration
         );
 
         putIfFieldExists(submission, 'PublicApi_Integration_Config__c', config.id);
@@ -103,7 +112,11 @@ public without sharing class PublicApiIntakeService {
     }
 
     @TestVisible
-    private static void validateInboundMappings(String inboundConfigurationJson, String targetObjectApiName) {
+    private static void validateInboundConfiguration(
+        String inboundConfigurationJson,
+        String relatedRecordConfigurationJson,
+        String targetObjectApiName
+    ) {
         if (String.isBlank(inboundConfigurationJson)) {
             throw new PublicApiIntakeServiceException(
                 'Inbound mapping configuration is required on Public API Integration Config.'
@@ -126,6 +139,12 @@ public without sharing class PublicApiIntakeService {
             PublicApiRequestMappingService.validateInboundMappings(inboundConfigurationJson, targetObjectApiName);
         } catch (PublicApiIntakeServiceException e) {
             throw new PublicApiIntakeServiceException('Inbound mapping configuration is invalid: ' + e.getMessage());
+        }
+
+        try {
+            PublicApiRelatedRecordService.validateRules(relatedRecordConfigurationJson, targetObjectApiName);
+        } catch (PublicApiIntakeServiceException e) {
+            throw new PublicApiIntakeServiceException('Related record configuration is invalid: ' + e.getMessage());
         }
     }
 }

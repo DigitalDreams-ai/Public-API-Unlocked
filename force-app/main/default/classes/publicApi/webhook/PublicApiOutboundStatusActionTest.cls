@@ -38,7 +38,7 @@ private class PublicApiOutboundStatusActionTest {
         );
         insert config;
 
-        Account accountRecord = new Account(Name = 'Acme Status Record');
+        Account accountRecord = createAccount('Acme Status Record');
         insert accountRecord;
 
         PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
@@ -77,5 +77,28 @@ private class PublicApiOutboundStatusActionTest {
         System.assertEquals(accountRecord.Id, deliveries[0].Source_Record_Id__c);
         System.assertEquals('Account', deliveries[0].Source_Object_API_Name__c);
         System.assert(String.valueOf(deliveries[0].Request_JSON__c).contains('Acme Status Record'));
+    }
+
+    private static Account createAccount(String name) {
+        Account accountRecord = new Account(Name = name);
+        Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
+        for (String preferredFieldName : new List<String>{ 'LastName', 'litify_pm__Last_Name__c' }) {
+            if (fieldMap.containsKey(preferredFieldName) &&
+                fieldMap.get(preferredFieldName).getDescribe().isCreateable()) {
+                accountRecord.put(preferredFieldName, name);
+                return accountRecord;
+            }
+        }
+
+        for (Schema.SObjectField fieldToken : fieldMap.values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (describe.isCreateable() &&
+                describe.getType() == Schema.DisplayType.String &&
+                describe.getName().toLowerCase().contains('last')) {
+                accountRecord.put(describe.getName(), name);
+                break;
+            }
+        }
+        return accountRecord;
     }
 }

@@ -120,6 +120,78 @@ public without sharing class PublicApiPayloadTemplateService {
         return values;
     }
 
+    public static List<String> getAvailableLookupFieldNames(String objectApiName) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        List<String> fieldNames = new List<String>();
+        for (Schema.SObjectField fieldToken : objectType.getDescribe().fields.getMap().values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (isUsableLookupField(describe)) {
+                fieldNames.add(describe.getName());
+            }
+        }
+        fieldNames.sort();
+        return fieldNames;
+    }
+
+    public static List<String> getAvailableLookupTargetObjectApiNames(String objectApiName, String lookupFieldName) {
+        Schema.DescribeFieldResult describe = resolveFieldDescribe(objectApiName, lookupFieldName);
+        if (!isUsableLookupField(describe)) {
+            return new List<String>();
+        }
+
+        List<String> objectApiNames = new List<String>();
+        for (Schema.SObjectType relatedType : describe.getReferenceTo()) {
+            if (relatedType == null) {
+                continue;
+            }
+            Schema.DescribeSObjectResult relatedDescribe = relatedType.getDescribe();
+            if (!isUsableTargetObject(relatedDescribe)) {
+                continue;
+            }
+            objectApiNames.add(relatedDescribe.getName());
+        }
+        objectApiNames.sort();
+        return objectApiNames;
+    }
+
+    public static List<String> getAvailableMatchFieldNames(String objectApiName) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        List<String> fieldNames = new List<String>();
+        for (Schema.SObjectField fieldToken : objectType.getDescribe().fields.getMap().values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (isUsableMatchField(describe)) {
+                fieldNames.add(describe.getName());
+            }
+        }
+        fieldNames.sort();
+        return fieldNames;
+    }
+
+    public static List<String> getAvailableCreateFieldNames(String objectApiName) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        List<String> fieldNames = new List<String>();
+        for (Schema.SObjectField fieldToken : objectType.getDescribe().fields.getMap().values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (isUsableCreateField(describe)) {
+                fieldNames.add(describe.getName());
+            }
+        }
+        fieldNames.sort();
+        return fieldNames;
+    }
+
     public static Boolean inferSyncInboundAndOutbound(String inboundConfigJson, String outboundConfigJson) {
         if (String.isBlank(inboundConfigJson) && String.isBlank(outboundConfigJson)) {
             return true;
@@ -200,6 +272,31 @@ public without sharing class PublicApiPayloadTemplateService {
         return fieldType != Schema.DisplayType.Address &&
             fieldType != Schema.DisplayType.Location &&
             fieldType != Schema.DisplayType.Base64;
+    }
+
+    private static Boolean isUsableLookupField(Schema.DescribeFieldResult describe) {
+        return describe != null &&
+            describe.isCreateable() &&
+            describe.getType() == Schema.DisplayType.Reference &&
+            !describe.isCalculated();
+    }
+
+    private static Boolean isUsableMatchField(Schema.DescribeFieldResult describe) {
+        return describe != null &&
+            describe.isAccessible() &&
+            describe.isFilterable() &&
+            !describe.isCalculated() &&
+            !describe.isAutoNumber() &&
+            describe.getType() != Schema.DisplayType.Address &&
+            describe.getType() != Schema.DisplayType.Location &&
+            describe.getType() != Schema.DisplayType.Base64;
+    }
+
+    private static Boolean isUsableCreateField(Schema.DescribeFieldResult describe) {
+        return describe != null &&
+            describe.isCreateable() &&
+            !describe.isCalculated() &&
+            !describe.isAutoNumber();
     }
 
     private static Schema.SObjectType resolveSObjectType(

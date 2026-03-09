@@ -3,6 +3,10 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getPayloadSettings from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getPayloadSettings';
 import getHeaderSettings from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getHeaderSettings';
 import getFieldReferences from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getFieldReferences';
+import getLookupFieldNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getLookupFieldNames';
+import getLookupTargetObjectApiNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getLookupTargetObjectApiNames';
+import getMatchFieldNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getMatchFieldNames';
+import getCreateFieldNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getCreateFieldNames';
 import getTriggerFieldNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getTriggerFieldNames';
 import getTriggerFieldValues from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getTriggerFieldValues';
 import savePayloadSettings from '@salesforce/apex/PublicApiPayloadBuilderCtrl.savePayloadSettings';
@@ -11,9 +15,16 @@ import saveHeaderSettings from '@salesforce/apex/PublicApiPayloadBuilderCtrl.sav
 const DEFAULT_CONTENT_TYPE = 'application/json';
 const DEFAULT_OBJECT_API_NAME = 'PublicApi_Submission__c';
 const SUGGESTION_LIMIT = 12;
+const MULTI_MATCH_POLICY_OPTIONS = [
+    { label: 'Error', value: 'Error' },
+    { label: 'Use Oldest', value: 'UseOldest' },
+    { label: 'Use Newest', value: 'UseNewest' }
+];
 
 let headerCounter = 0;
 let mappingCounter = 0;
+let relatedRuleCounter = 0;
+let relatedCreateMappingCounter = 0;
 
 export default class PublicApiJsonPayloadBuilder extends LightningElement {
     @api recordId;
@@ -32,6 +43,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     availableObjectApiNames = [];
     availableInboundFieldReferences = [];
     availableOutboundFieldReferences = [];
+    availableLookupFieldNames = [];
     outboundTriggerEnabled = true;
     outboundTriggerFieldName = '';
     outboundTriggerFieldValues = '';
@@ -41,6 +53,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     availableTriggerFieldValues = [];
     inboundMappingRows = [];
     outboundMappingRows = [];
+    relatedRecordRows = [];
     authMode = 'None';
     contentType = DEFAULT_CONTENT_TYPE;
     headerName = '';
@@ -56,6 +69,10 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             { label: 'Basic Auth', value: 'BasicAuth' },
             { label: 'HMAC Signature', value: 'HmacSignature' }
         ];
+    }
+
+    get multiMatchPolicyOptions() {
+        return MULTI_MATCH_POLICY_OPTIONS;
     }
 
     get valuePlaceholder() {
@@ -76,8 +93,28 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         return this.outboundMappingRows.length > 0;
     }
 
+    get hasRelatedRecordRows() {
+        return this.relatedRecordRows.length > 0;
+    }
+
     get mappingPreviewJson() {
         return JSON.stringify(this.buildPayloadPreview(), null, 2);
+    }
+
+    get relatedRecordsPreviewJson() {
+        return JSON.stringify(this.buildRelatedRuleArray(this.relatedRecordRows), null, 2);
+    }
+
+    get triggersPreviewJson() {
+        return JSON.stringify(
+            {
+                enabled: this.outboundTriggerEnabled,
+                fieldName: this.outboundTriggerFieldName || null,
+                values: this.parseTriggerValues(this.outboundTriggerFieldValues)
+            },
+            null,
+            2
+        );
     }
 
     get filteredTriggerFieldSuggestions() {
@@ -230,6 +267,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             this.availableObjectApiNames = payloadSettings?.availableObjectApiNames || [];
             this.availableInboundFieldReferences = payloadSettings?.availableInboundFieldReferences || [];
             this.availableOutboundFieldReferences = payloadSettings?.availableOutboundFieldReferences || [];
+            this.availableLookupFieldNames = payloadSettings?.availableLookupFieldNames || [];
             this.outboundTriggerEnabled = payloadSettings?.outboundTriggerEnabled !== false;
             this.outboundTriggerFieldName = payloadSettings?.outboundTriggerFieldName || '';
             this.outboundTriggerFieldValues = payloadSettings?.outboundTriggerFieldValues || '';
@@ -255,6 +293,10 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             if (this.syncDirections) {
                 this.outboundMappingRows = this.cloneRows(this.inboundMappingRows, 'outbound');
             }
+            this.relatedRecordRows = this.parseRelatedRuleArray(
+                payloadSettings?.relatedRecordConfigurationJson
+            );
+            await this.refreshRelatedRowsMetadata();
 
             this.authMode = headerSettings?.authMode || 'None';
             this.contentType = headerSettings?.contentType || DEFAULT_CONTENT_TYPE;
@@ -283,6 +325,11 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                     recordId: this.recordId,
                     syncInboundAndOutbound: this.syncDirections,
                     targetObjectApiName: this.targetObjectApiName,
+                    relatedRecordConfigurationJson: JSON.stringify(
+                        this.buildRelatedRuleArray(this.relatedRecordRows),
+                        null,
+                        2
+                    ),
                     outboundTriggerEnabled: this.outboundTriggerEnabled,
                     outboundTriggerFieldName: this.outboundTriggerFieldName,
                     outboundTriggerFieldValues: this.outboundTriggerFieldValues,
@@ -367,6 +414,8 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         await this.refreshMetadataForTargetObject();
         this.inboundMappingRows = this.rehydrateRowsForScope('inbound', this.inboundMappingRows);
         this.outboundMappingRows = this.rehydrateRowsForScope('outbound', this.outboundMappingRows);
+        this.relatedRecordRows = this.rehydrateRelatedRows(this.relatedRecordRows);
+        await this.refreshRelatedRowsMetadata();
         this.isDirty = true;
     }
 
@@ -524,6 +573,196 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
     handleRemoveMapping(event) {
         this.removeMappingRow(event.currentTarget.dataset.scope, event.currentTarget.dataset.id);
+    }
+
+    handleAddRelatedRule() {
+        this.relatedRecordRows = [...this.relatedRecordRows, this.createRelatedRuleRow()];
+        this.isDirty = true;
+    }
+
+    handleRemoveRelatedRule(event) {
+        const rowId = event.currentTarget.dataset.id;
+        this.relatedRecordRows = this.relatedRecordRows.filter((row) => row.id !== rowId);
+        this.isDirty = true;
+    }
+
+    handleRelatedLookupFieldInput(event) {
+        this.updateRelatedRuleRow(event.target.dataset.id, {
+            targetLookupField: event.target.value || '',
+            showLookupFieldSuggestions: true
+        });
+    }
+
+    handleRelatedLookupFieldFocus(event) {
+        this.updateRelatedRuleRow(event.target.dataset.id, { showLookupFieldSuggestions: true });
+    }
+
+    handleRelatedLookupFieldBlur(event) {
+        const rowId = event.target.dataset.id;
+        window.setTimeout(() => {
+            this.updateRelatedRuleRow(rowId, { showLookupFieldSuggestions: false });
+        }, 150);
+    }
+
+    async handleSelectRelatedLookupFieldSuggestion(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const value = event.currentTarget.dataset.value;
+        this.updateRelatedRuleRow(rowId, {
+            targetLookupField: value,
+            relatedObjectApiName: '',
+            relatedObjectSearchValue: '',
+            matchFieldName: '',
+            createMappings: [],
+            availableRelatedObjectApiNames: [],
+            availableMatchFieldNames: [],
+            availableCreateFieldNames: [],
+            showLookupFieldSuggestions: false
+        });
+        await this.refreshRelatedRuleMetadata(rowId);
+        this.isDirty = true;
+    }
+
+    handleRelatedObjectInput(event) {
+        const rowId = event.target.dataset.id;
+        const typedValue = event.target.value || '';
+        const row = this.findRelatedRuleRow(rowId);
+        this.updateRelatedRuleRow(rowId, {
+            relatedObjectSearchValue: typedValue,
+            relatedObjectApiName: this.resolveExactMatch(row?.availableRelatedObjectApiNames || [], typedValue),
+            showRelatedObjectSuggestions: true
+        });
+    }
+
+    handleRelatedObjectFocus(event) {
+        this.updateRelatedRuleRow(event.target.dataset.id, { showRelatedObjectSuggestions: true });
+    }
+
+    handleRelatedObjectBlur(event) {
+        const rowId = event.target.dataset.id;
+        window.setTimeout(() => {
+            this.updateRelatedRuleRow(rowId, { showRelatedObjectSuggestions: false });
+        }, 150);
+    }
+
+    async handleSelectRelatedObjectSuggestion(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const value = event.currentTarget.dataset.value;
+        this.updateRelatedRuleRow(rowId, {
+            relatedObjectApiName: value,
+            relatedObjectSearchValue: value,
+            matchFieldName: '',
+            createMappings: [],
+            showRelatedObjectSuggestions: false
+        });
+        await this.refreshRelatedRuleMetadata(rowId);
+        this.isDirty = true;
+    }
+
+    handleRelatedMatchFieldInput(event) {
+        this.updateRelatedRuleRow(event.target.dataset.id, {
+            matchFieldName: event.target.value || '',
+            showMatchFieldSuggestions: true
+        });
+    }
+
+    handleRelatedMatchFieldFocus(event) {
+        this.updateRelatedRuleRow(event.target.dataset.id, { showMatchFieldSuggestions: true });
+    }
+
+    handleRelatedMatchFieldBlur(event) {
+        const rowId = event.target.dataset.id;
+        window.setTimeout(() => {
+            this.updateRelatedRuleRow(rowId, { showMatchFieldSuggestions: false });
+        }, 150);
+    }
+
+    handleSelectRelatedMatchFieldSuggestion(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const value = event.currentTarget.dataset.value;
+        this.updateRelatedRuleRow(rowId, {
+            matchFieldName: value,
+            showMatchFieldSuggestions: false
+        });
+        this.isDirty = true;
+    }
+
+    handleRelatedSourceKeyChange(event) {
+        this.updateRelatedRuleRow(event.target.dataset.id, {
+            sourceKey: event.target.value || ''
+        });
+    }
+
+    handleRelatedCreateIfMissingChange(event) {
+        this.updateRelatedRuleRow(event.target.dataset.id, {
+            createIfMissing: event.target.checked
+        });
+    }
+
+    handleRelatedMultiMatchPolicyChange(event) {
+        this.updateRelatedRuleRow(event.target.dataset.id, {
+            onMultipleMatches: event.detail.value
+        });
+    }
+
+    handleAddRelatedCreateMapping(event) {
+        const rowId = event.currentTarget.dataset.id;
+        const row = this.findRelatedRuleRow(rowId);
+        if (!row) {
+            return;
+        }
+        this.updateRelatedRuleRow(rowId, {
+            createMappings: [...row.createMappings, this.createRelatedCreateMappingRow()]
+        });
+    }
+
+    handleRemoveRelatedCreateMapping(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const mappingId = event.currentTarget.dataset.id;
+        const row = this.findRelatedRuleRow(rowId);
+        if (!row) {
+            return;
+        }
+        this.updateRelatedRuleRow(rowId, {
+            createMappings: row.createMappings.filter((mapping) => mapping.id !== mappingId)
+        });
+    }
+
+    handleRelatedCreateSourceKeyChange(event) {
+        this.updateRelatedCreateMapping(event.target.dataset.rowId, event.target.dataset.id, {
+            sourceKey: event.target.value || ''
+        });
+    }
+
+    handleRelatedCreateFieldInput(event) {
+        this.updateRelatedCreateMapping(event.target.dataset.rowId, event.target.dataset.id, {
+            fieldName: event.target.value || '',
+            showFieldSuggestions: true
+        });
+    }
+
+    handleRelatedCreateFieldFocus(event) {
+        this.updateRelatedCreateMapping(event.target.dataset.rowId, event.target.dataset.id, {
+            showFieldSuggestions: true
+        });
+    }
+
+    handleRelatedCreateFieldBlur(event) {
+        const rowId = event.target.dataset.rowId;
+        const mappingId = event.target.dataset.id;
+        window.setTimeout(() => {
+            this.updateRelatedCreateMapping(rowId, mappingId, { showFieldSuggestions: false });
+        }, 150);
+    }
+
+    handleSelectRelatedCreateFieldSuggestion(event) {
+        this.updateRelatedCreateMapping(
+            event.currentTarget.dataset.rowId,
+            event.currentTarget.dataset.mappingId,
+            {
+                fieldName: event.currentTarget.dataset.value,
+                showFieldSuggestions: false
+            }
+        );
     }
 
     createMappingRow(scope, externalKey = '', value = '', sortOrder = 0) {
@@ -706,12 +945,240 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         return !normalizedValue || this.getFieldReferenceOptions(scope).includes(normalizedValue);
     }
 
+    createRelatedRuleRow(rule = {}) {
+        relatedRuleCounter++;
+        return this.hydrateRelatedRuleRow({
+            id: rule.id || `related_${relatedRuleCounter}`,
+            targetLookupField: rule.targetLookupField || '',
+            relatedObjectApiName: rule.relatedObjectApiName || '',
+            relatedObjectSearchValue: rule.relatedObjectApiName || '',
+            matchFieldName: rule.matchFieldName || '',
+            sourceKey: rule.sourceKey || '',
+            createIfMissing: rule.createIfMissing === true,
+            onMultipleMatches: rule.onMultipleMatches || 'Error',
+            createMappings: (rule.createMappings || []).map((mapping) => this.createRelatedCreateMappingRow(mapping)),
+            availableRelatedObjectApiNames: rule.availableRelatedObjectApiNames || [],
+            availableMatchFieldNames: rule.availableMatchFieldNames || [],
+            availableCreateFieldNames: rule.availableCreateFieldNames || [],
+            showLookupFieldSuggestions: false,
+            showRelatedObjectSuggestions: false,
+            showMatchFieldSuggestions: false
+        });
+    }
+
+    createRelatedCreateMappingRow(mapping = {}) {
+        relatedCreateMappingCounter++;
+        return {
+            id: mapping.id || `related_create_${relatedCreateMappingCounter}`,
+            sourceKey: mapping.sourceKey || '',
+            fieldName: mapping.fieldName || '',
+            showFieldSuggestions: false
+        };
+    }
+
+    hydrateRelatedRuleRow(row) {
+        const lookupFieldSuggestions = this.getFilteredSuggestions(
+            this.availableLookupFieldNames,
+            row.targetLookupField
+        );
+        const relatedObjectSuggestions = this.getFilteredSuggestions(
+            row.availableRelatedObjectApiNames || [],
+            row.relatedObjectSearchValue
+        );
+        const matchFieldSuggestions = this.getFilteredSuggestions(
+            row.availableMatchFieldNames || [],
+            row.matchFieldName
+        );
+
+        return {
+            ...row,
+            lookupFieldSuggestions,
+            hasLookupFieldSuggestions: lookupFieldSuggestions.length > 0,
+            relatedObjectSuggestions,
+            hasRelatedObjectSuggestions: relatedObjectSuggestions.length > 0,
+            matchFieldSuggestions,
+            hasMatchFieldSuggestions: matchFieldSuggestions.length > 0,
+            createMappings: (row.createMappings || []).map((mapping) =>
+                this.hydrateRelatedCreateMappingRow(mapping, row.availableCreateFieldNames || [])
+            )
+        };
+    }
+
+    hydrateRelatedCreateMappingRow(mapping, availableCreateFieldNames) {
+        const fieldSuggestions = this.getFilteredSuggestions(
+            availableCreateFieldNames || [],
+            mapping.fieldName
+        );
+        return {
+            ...mapping,
+            fieldSuggestions,
+            hasFieldSuggestions: fieldSuggestions.length > 0
+        };
+    }
+
+    parseRelatedRuleArray(configJson) {
+        if (!configJson) {
+            return [];
+        }
+
+        let parsed;
+        try {
+            parsed = JSON.parse(configJson);
+        } catch (error) {
+            return [];
+        }
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+
+        return parsed.map((rule) => this.createRelatedRuleRow(rule));
+    }
+
+    buildRelatedRuleArray(rows) {
+        return (rows || [])
+            .map((row) => ({
+                targetLookupField: (row.targetLookupField || '').trim(),
+                relatedObjectApiName: (row.relatedObjectApiName || '').trim(),
+                matchFieldName: (row.matchFieldName || '').trim(),
+                sourceKey: (row.sourceKey || '').trim(),
+                createIfMissing: row.createIfMissing === true,
+                onMultipleMatches: row.onMultipleMatches || 'Error',
+                createMappings: (row.createMappings || [])
+                    .map((mapping) => ({
+                        sourceKey: (mapping.sourceKey || '').trim(),
+                        fieldName: (mapping.fieldName || '').trim()
+                    }))
+                    .filter((mapping) => mapping.sourceKey || mapping.fieldName)
+            }))
+            .filter((rule) =>
+                rule.targetLookupField ||
+                rule.relatedObjectApiName ||
+                rule.matchFieldName ||
+                rule.sourceKey ||
+                rule.createMappings.length > 0
+            );
+    }
+
+    updateRelatedRuleRow(rowId, changes) {
+        this.relatedRecordRows = this.relatedRecordRows.map((row) => {
+            if (row.id !== rowId) {
+                return row;
+            }
+            return this.hydrateRelatedRuleRow({
+                ...row,
+                ...changes
+            });
+        });
+        this.isDirty = true;
+    }
+
+    updateRelatedCreateMapping(rowId, mappingId, changes) {
+        this.relatedRecordRows = this.relatedRecordRows.map((row) => {
+            if (row.id !== rowId) {
+                return row;
+            }
+            return this.hydrateRelatedRuleRow({
+                ...row,
+                createMappings: row.createMappings.map((mapping) =>
+                    mapping.id === mappingId ? { ...mapping, ...changes } : mapping
+                )
+            });
+        });
+        this.isDirty = true;
+    }
+
+    findRelatedRuleRow(rowId) {
+        return this.relatedRecordRows.find((row) => row.id === rowId);
+    }
+
+    rehydrateRelatedRows(rows) {
+        return (rows || []).map((row) => this.hydrateRelatedRuleRow(row));
+    }
+
+    async refreshRelatedRowsMetadata() {
+        for (const row of [...this.relatedRecordRows]) {
+            await this.refreshRelatedRuleMetadata(row.id);
+        }
+    }
+
+    async refreshRelatedRuleMetadata(rowId) {
+        const row = this.findRelatedRuleRow(rowId);
+        if (!row) {
+            return;
+        }
+
+        let availableRelatedObjectApiNames = [];
+        let availableMatchFieldNames = [];
+        let availableCreateFieldNames = [];
+
+        if (row.targetLookupField) {
+            availableRelatedObjectApiNames = await this.fetchLookupTargetObjects(
+                this.targetObjectApiName,
+                row.targetLookupField
+            );
+        }
+
+        const relatedObjectApiName = availableRelatedObjectApiNames.includes(row.relatedObjectApiName)
+            ? row.relatedObjectApiName
+            : '';
+        if (relatedObjectApiName) {
+            [availableMatchFieldNames, availableCreateFieldNames] = await Promise.all([
+                this.fetchMatchFieldNames(relatedObjectApiName),
+                this.fetchCreateFieldNames(relatedObjectApiName)
+            ]);
+        }
+
+        this.relatedRecordRows = this.relatedRecordRows.map((candidate) => {
+            if (candidate.id !== rowId) {
+                return candidate;
+            }
+
+            const normalizedMappings = (candidate.createMappings || []).map((mapping) => ({
+                ...mapping,
+                fieldName: availableCreateFieldNames.includes(mapping.fieldName) ? mapping.fieldName : ''
+            }));
+
+            return this.hydrateRelatedRuleRow({
+                ...candidate,
+                relatedObjectApiName,
+                relatedObjectSearchValue: relatedObjectApiName || candidate.relatedObjectSearchValue,
+                matchFieldName: availableMatchFieldNames.includes(candidate.matchFieldName)
+                    ? candidate.matchFieldName
+                    : '',
+                createMappings: normalizedMappings,
+                availableRelatedObjectApiNames,
+                availableMatchFieldNames,
+                availableCreateFieldNames
+            });
+        });
+    }
+
+    getFilteredSuggestions(values, searchTerm) {
+        const normalizedSearch = (searchTerm || '').trim().toLowerCase();
+        return (values || [])
+            .filter((value) => !normalizedSearch || value.toLowerCase().includes(normalizedSearch))
+            .slice(0, SUGGESTION_LIMIT)
+            .map((value) => ({ label: value, value }));
+    }
+
     clearSuggestionState() {
         this.inboundMappingRows = this.inboundMappingRows.map((row) =>
             this.hydrateMappingRow({ ...row, showSuggestions: false })
         );
         this.outboundMappingRows = this.outboundMappingRows.map((row) =>
             this.hydrateMappingRow({ ...row, showSuggestions: false })
+        );
+        this.relatedRecordRows = this.relatedRecordRows.map((row) =>
+            this.hydrateRelatedRuleRow({
+                ...row,
+                showLookupFieldSuggestions: false,
+                showRelatedObjectSuggestions: false,
+                showMatchFieldSuggestions: false,
+                createMappings: row.createMappings.map((mapping) => ({
+                    ...mapping,
+                    showFieldSuggestions: false
+                }))
+            })
         );
         this.showTriggerFieldSuggestions = false;
         this.showTriggerValueSuggestions = false;
@@ -798,10 +1265,113 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             isValid = isValid && !message;
         });
 
+        const relatedRowsById = new Map(this.relatedRecordRows.map((row) => [row.id, row]));
+        const relatedLookupInputs = this.template.querySelectorAll('lightning-input[data-role="related-lookup-field"]');
+        const relatedObjectInputs = this.template.querySelectorAll('lightning-input[data-role="related-object"]');
+        const relatedMatchInputs = this.template.querySelectorAll('lightning-input[data-role="related-match-field"]');
+        const relatedSourceInputs = this.template.querySelectorAll('lightning-input[data-role="related-source-key"]');
+        const relatedCreateFieldInputs = this.template.querySelectorAll('lightning-input[data-role="related-create-field"]');
+        const relatedCreateSourceInputs = this.template.querySelectorAll('lightning-input[data-role="related-create-source-key"]');
+
+        relatedLookupInputs.forEach((input) => {
+            const row = relatedRowsById.get(input.dataset.id);
+            const hasAnyValue = this.relatedRowHasContent(row);
+            let message = '';
+            if (hasAnyValue && !(row?.targetLookupField || '').trim()) {
+                message = 'Lookup field is required.';
+            } else if ((row?.targetLookupField || '').trim() &&
+                !this.availableLookupFieldNames.includes((row.targetLookupField || '').trim())) {
+                message = 'Select a valid lookup field on the target object.';
+            }
+            input.setCustomValidity(message);
+            input.reportValidity();
+            isValid = isValid && !message;
+        });
+
+        relatedObjectInputs.forEach((input) => {
+            const row = relatedRowsById.get(input.dataset.id);
+            const hasAnyValue = this.relatedRowHasContent(row);
+            let message = '';
+            if (hasAnyValue && !(row?.relatedObjectApiName || '').trim()) {
+                message = 'Related object is required.';
+            } else if ((row?.relatedObjectApiName || '').trim() &&
+                !(row?.availableRelatedObjectApiNames || []).includes((row.relatedObjectApiName || '').trim())) {
+                message = 'Select a valid related object for the chosen lookup field.';
+            }
+            input.setCustomValidity(message);
+            input.reportValidity();
+            isValid = isValid && !message;
+        });
+
+        relatedMatchInputs.forEach((input) => {
+            const row = relatedRowsById.get(input.dataset.id);
+            const hasAnyValue = this.relatedRowHasContent(row);
+            let message = '';
+            if (hasAnyValue && !(row?.matchFieldName || '').trim()) {
+                message = 'Match field is required.';
+            } else if ((row?.matchFieldName || '').trim() &&
+                !(row?.availableMatchFieldNames || []).includes((row.matchFieldName || '').trim())) {
+                message = 'Select a valid related match field.';
+            }
+            input.setCustomValidity(message);
+            input.reportValidity();
+            isValid = isValid && !message;
+        });
+
+        relatedSourceInputs.forEach((input) => {
+            const row = relatedRowsById.get(input.dataset.id);
+            const hasAnyValue = this.relatedRowHasContent(row);
+            const message = hasAnyValue && !(row?.sourceKey || '').trim() ? 'Source key is required.' : '';
+            input.setCustomValidity(message);
+            input.reportValidity();
+            isValid = isValid && !message;
+        });
+
+        relatedCreateFieldInputs.forEach((input) => {
+            const row = relatedRowsById.get(input.dataset.rowId);
+            const mapping = (row?.createMappings || []).find((candidate) => candidate.id === input.dataset.id);
+            const hasAnyValue = !!((mapping?.sourceKey || '').trim() || (mapping?.fieldName || '').trim());
+            let message = '';
+            if (hasAnyValue && !(mapping?.fieldName || '').trim()) {
+                message = 'Field name is required.';
+            } else if ((mapping?.fieldName || '').trim() &&
+                !(row?.availableCreateFieldNames || []).includes((mapping.fieldName || '').trim())) {
+                message = 'Select a valid create field.';
+            }
+            input.setCustomValidity(message);
+            input.reportValidity();
+            isValid = isValid && !message;
+        });
+
+        relatedCreateSourceInputs.forEach((input) => {
+            const row = relatedRowsById.get(input.dataset.rowId);
+            const mapping = (row?.createMappings || []).find((candidate) => candidate.id === input.dataset.id);
+            const hasAnyValue = !!((mapping?.sourceKey || '').trim() || (mapping?.fieldName || '').trim());
+            const message = hasAnyValue && !(mapping?.sourceKey || '').trim() ? 'Source key is required.' : '';
+            input.setCustomValidity(message);
+            input.reportValidity();
+            isValid = isValid && !message;
+        });
+
         if (!isValid) {
-            this.errorMessage = 'Fix the payload mapping rows before saving.';
+            this.errorMessage = 'Fix the request builder configuration before saving.';
         }
         return isValid;
+    }
+
+    relatedRowHasContent(row) {
+        if (!row) {
+            return false;
+        }
+        return !!(
+            (row.targetLookupField || '').trim() ||
+            (row.relatedObjectApiName || '').trim() ||
+            (row.matchFieldName || '').trim() ||
+            (row.sourceKey || '').trim() ||
+            (row.createMappings || []).some((mapping) =>
+                (mapping.sourceKey || '').trim() || (mapping.fieldName || '').trim()
+            )
+        );
     }
 
     handleAddHeaderRow() {
@@ -963,6 +1533,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     async refreshMetadataForTargetObject() {
         await Promise.all([
             this.refreshFieldReferences(),
+            this.refreshLookupFieldNames(),
             this.refreshTriggerFieldNames()
         ]);
         await this.refreshTriggerFieldValues();
@@ -974,6 +1545,47 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                 objectApiName,
                 inboundMode
             });
+        } catch (error) {
+            this.errorMessage = this.extractErrorMessage(error);
+            return [];
+        }
+    }
+
+    async refreshLookupFieldNames() {
+        try {
+            this.availableLookupFieldNames = await getLookupFieldNames({
+                objectApiName: this.targetObjectApiName
+            });
+        } catch (error) {
+            this.errorMessage = this.extractErrorMessage(error);
+            this.availableLookupFieldNames = [];
+        }
+    }
+
+    async fetchLookupTargetObjects(objectApiName, lookupFieldName) {
+        try {
+            return await getLookupTargetObjectApiNames({
+                objectApiName,
+                lookupFieldName
+            });
+        } catch (error) {
+            this.errorMessage = this.extractErrorMessage(error);
+            return [];
+        }
+    }
+
+    async fetchMatchFieldNames(objectApiName) {
+        try {
+            return await getMatchFieldNames({ objectApiName });
+        } catch (error) {
+            this.errorMessage = this.extractErrorMessage(error);
+            return [];
+        }
+    }
+
+    async fetchCreateFieldNames(objectApiName) {
+        try {
+            return await getCreateFieldNames({ objectApiName });
         } catch (error) {
             this.errorMessage = this.extractErrorMessage(error);
             return [];
@@ -1049,18 +1661,22 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         return Array.from(new Set(tokens)).join(', ');
     }
 
+    parseTriggerValues(rawValues) {
+        return (rawValues || '')
+            .replace(/\r/g, '\n')
+            .replace(/;/g, ',')
+            .split(/[,\n]+/)
+            .map((value) => value.trim())
+            .filter((value) => value);
+    }
+
     areValidTriggerValues() {
         if (this.availableTriggerFieldValues.length === 0) {
             return true;
         }
 
         const validValues = new Set(this.availableTriggerFieldValues);
-        const configuredValues = (this.outboundTriggerFieldValues || '')
-            .replace(/\r/g, '\n')
-            .replace(/;/g, ',')
-            .split(/[,\n]+/)
-            .map((value) => value.trim())
-            .filter((value) => value);
+        const configuredValues = this.parseTriggerValues(this.outboundTriggerFieldValues);
         return configuredValues.every((value) => validValues.has(value));
     }
 

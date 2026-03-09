@@ -270,4 +270,74 @@ private class PublicApiIntakeApiTest {
         Account created = [SELECT Id, Name FROM Account WHERE Id = :recordId];
         System.assertEquals('Acme Public API', created.Name);
     }
+
+    @IsTest
+    static void testCreateSubmissionResolvesRelatedAccountForContactTarget() {
+        String accountLastNameFieldName = getAccountLastNameFieldName();
+        String createMappingsJson =
+            accountLastNameFieldName == null
+                ? ''
+                : ',"createMappings":[{"sourceKey":"accountLastName","fieldName":"' +
+                    accountLastNameFieldName + '"}]';
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-9',
+            Target_Object_API_Name__c = 'Task',
+            Inbound_Payload_Configuration__c =
+                '[' +
+                    '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}' +
+                ']',
+            Related_Record_Configuration__c =
+                '[' +
+                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                    '"sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error"' +
+                    createMappingsJson + '}' +
+                ']'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf(
+            '{"subject":"Resolved Task","accountName":"Resolved Account","accountLastName":"Resolved Account"}'
+        );
+        req.headers.put('x-api-key', 'api-test-key-9');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
+
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
+        Id recordId = (Id) response.get('recordId');
+        Task created = [SELECT Id, Subject, WhatId FROM Task WHERE Id = :recordId];
+        System.assertEquals('Resolved Task', created.Subject);
+        System.assertNotEquals(null, created.WhatId);
+
+        Account related = [SELECT Id, Name FROM Account WHERE Id = :created.WhatId];
+        System.assertEquals('Resolved Account', related.Name);
+    }
+
+    private static String getAccountLastNameFieldName() {
+        Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
+        for (String preferredFieldName : new List<String>{ 'LastName', 'litify_pm__Last_Name__c' }) {
+            if (fieldMap.containsKey(preferredFieldName) &&
+                fieldMap.get(preferredFieldName).getDescribe().isCreateable()) {
+                return preferredFieldName;
+            }
+        }
+
+        for (Schema.SObjectField fieldToken : fieldMap.values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (describe.isCreateable() &&
+                describe.getType() == Schema.DisplayType.String &&
+                describe.getName().toLowerCase().contains('last')) {
+                return describe.getName();
+            }
+        }
+        return null;
+    }
 }

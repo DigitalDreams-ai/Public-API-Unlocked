@@ -82,5 +82,22 @@ private class PublicApiPayloadTemplateServiceTest {
             'NotAField__c'
         );
         System.assertEquals(0, missingValues.size());
+
+        List<String> lookupFields = PublicApiPayloadTemplateService.getAvailableLookupFieldNames(
+            'PublicApi_Submission__c'
+        );
+        System.assertEquals(true, lookupFields.contains('PublicApi_Integration_Config__c'));
+
+        List<String> lookupTargets = PublicApiPayloadTemplateService.getAvailableLookupTargetObjectApiNames(
+            'PublicApi_Submission__c',
+            'PublicApi_Integration_Config__c'
+        );
+        System.assertEquals(new List<String>{ 'PublicApi_Integration_Config__c' }, lookupTargets);
+
+        List<String> matchFields = PublicApiPayloadTemplateService.getAvailableMatchFieldNames('Account');
+        System.assertEquals(true, matchFields.contains('Name'));
+
+        List<String> createFields = PublicApiPayloadTemplateService.getAvailableCreateFieldNames('Account');
+        System.assertEquals(true, createFields.contains('Name'));
     }
 }
