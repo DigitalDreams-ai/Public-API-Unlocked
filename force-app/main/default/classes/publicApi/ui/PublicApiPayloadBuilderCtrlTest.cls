@@ -1,5 +1,22 @@
 @IsTest
 private class PublicApiPayloadBuilderCtrlTest {
+    private class MetadataApiMock implements HttpCalloutMock {
+        private Integer statusCode;
+        private String body;
+
+        MetadataApiMock(Integer statusCode, String body) {
+            this.statusCode = statusCode;
+            this.body = body;
+        }
+
+        public HttpResponse respond(HttpRequest request) {
+            HttpResponse response = new HttpResponse();
+            response.setStatusCode(statusCode);
+            response.setBody(body);
+            return response;
+        }
+    }
+
     @IsTest
     static void testPayloadSettingsRoundTrip() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
@@ -107,6 +124,34 @@ private class PublicApiPayloadBuilderCtrlTest {
     }
 
     @IsTest
+    static void testProvisionWebhookDomainReturnsUpdatedHeaderSettings() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'header-builder-test-key-2',
+            Outbound_Webhook_URL__c = 'https://example.com/webhook'
+        );
+        insert config;
+
+        Test.setMock(HttpCalloutMock.class, new MetadataApiMock(
+            200,
+            metadataApiSuccess('PublicApiWebhook_Example')
+        ));
+        PublicApiConfigProvisioningService.sessionIdOverride = 'test-session-id';
+
+        Test.startTest();
+        PublicApiPayloadBuilderCtrl.HeaderSettings settings =
+            PublicApiPayloadBuilderCtrl.provisionWebhookDomain(config.Id);
+        Test.stopTest();
+
+        System.assertEquals('https://example.com', settings.outboundRemoteSiteDomain);
+        System.assertEquals('PublicApiWebhook_Example', settings.outboundRemoteSiteName);
+        System.assertEquals(PublicApiConfigService.REMOTE_SITE_STATUS_PROVISIONED, settings.outboundRemoteSiteStatus);
+        System.assertEquals(null, settings.outboundRemoteSiteLastError);
+        System.assertNotEquals(null, settings.outboundRemoteSiteLastProvisionedAt);
+        PublicApiConfigProvisioningService.sessionIdOverride = null;
+    }
+
+    @IsTest
     static void testSavePayloadSettingsRejectsInvalidJson() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
@@ -208,5 +253,19 @@ private class PublicApiPayloadBuilderCtrlTest {
         } catch (AuraHandledException e) {
             System.assert(e.getMessage().contains('Invalid JSON'));
         }
+    }
+
+    private static String metadataApiSuccess(String fullName) {
+        return '<?xml version="1.0" encoding="UTF-8"?>' +
+            '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">' +
+            '<soapenv:Body>' +
+            '<createMetadataResponse xmlns="http://soap.sforce.com/2006/04/metadata">' +
+            '<result>' +
+            '<success>true</success>' +
+            '<fullName>' + fullName + '</fullName>' +
+            '</result>' +
+            '</createMetadataResponse>' +
+            '</soapenv:Body>' +
+            '</soapenv:Envelope>';
     }
 }

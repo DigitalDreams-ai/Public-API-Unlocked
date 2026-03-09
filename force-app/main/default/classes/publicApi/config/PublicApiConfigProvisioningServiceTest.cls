@@ -18,19 +18,22 @@ private class PublicApiConfigProvisioningServiceTest {
     }
 
     @IsTest
-    static void testInsertQueuesProvisioningAndMarksConfigProvisioned() {
+    static void testProvisionRemoteSiteMarksConfigProvisioned() {
         PublicApiConfigProvisioningService.sessionIdOverride = 'test-session-id';
         Test.setMock(HttpCalloutMock.class, new MetadataApiMock(200, metadataApiSuccess('PublicApiWebhook_Example')));
 
-        Test.startTest();
-        insert new PublicApi_Integration_Config__c(
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'provision-config-key-1',
             Outbound_Webhook_URL__c = 'https://example.com/webhook'
         );
+        insert config;
+
+        Test.startTest();
+        PublicApiConfigProvisioningService.provisionRemoteSite(config.Id);
         Test.stopTest();
 
-        PublicApi_Integration_Config__c config = [
+        PublicApi_Integration_Config__c updated = [
             SELECT Outbound_Remote_Site_Domain__c,
                    Outbound_Remote_Site_Name__c,
                    Outbound_Remote_Site_Status__c,
@@ -41,19 +44,19 @@ private class PublicApiConfigProvisioningServiceTest {
             LIMIT 1
         ];
 
-        System.assertEquals('https://example.com', config.Outbound_Remote_Site_Domain__c);
-        System.assertEquals('PublicApiWebhook_Example', config.Outbound_Remote_Site_Name__c);
+        System.assertEquals('https://example.com', updated.Outbound_Remote_Site_Domain__c);
+        System.assertEquals('PublicApiWebhook_Example', updated.Outbound_Remote_Site_Name__c);
         System.assertEquals(
             PublicApiConfigService.REMOTE_SITE_STATUS_PROVISIONED,
-            config.Outbound_Remote_Site_Status__c
+            updated.Outbound_Remote_Site_Status__c
         );
-        System.assertEquals(null, config.Outbound_Remote_Site_Last_Error__c);
-        System.assertNotEquals(null, config.Outbound_Remote_Site_Last_Provisioned_At__c);
+        System.assertEquals(null, updated.Outbound_Remote_Site_Last_Error__c);
+        System.assertNotEquals(null, updated.Outbound_Remote_Site_Last_Provisioned_At__c);
         PublicApiConfigProvisioningService.sessionIdOverride = null;
     }
 
     @IsTest
-    static void testSaveAfterFailedProvisioningRequeuesAndClearsError() {
+    static void testProvisionRemoteSiteAfterFailedProvisioningClearsError() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'provision-config-key-2',
@@ -64,20 +67,15 @@ private class PublicApiConfigProvisioningServiceTest {
             Outbound_Remote_Site_Last_Error__c = 'old error'
         );
         PublicApiTestConfigFactory.insertConfig(config);
-        update new PublicApi_Integration_Config__c(
-            Id = config.Id,
-            Outbound_Remote_Site_Status__c = PublicApiConfigService.REMOTE_SITE_STATUS_FAILED,
-            Outbound_Remote_Site_Last_Error__c = 'old error'
-        );
+        config.Outbound_Remote_Site_Status__c = PublicApiConfigService.REMOTE_SITE_STATUS_FAILED;
+        config.Outbound_Remote_Site_Last_Error__c = 'old error';
+        update config;
 
         PublicApiConfigProvisioningService.sessionIdOverride = 'test-session-id';
         Test.setMock(HttpCalloutMock.class, new MetadataApiMock(200, metadataApiSuccess('PublicApiWebhook_Example')));
 
         Test.startTest();
-        update new PublicApi_Integration_Config__c(
-            Id = config.Id,
-            API_Key__c = 'provision-config-key-2b'
-        );
+        PublicApiConfigProvisioningService.provisionRemoteSite(config.Id);
         Test.stopTest();
 
         PublicApi_Integration_Config__c updated = [
@@ -89,7 +87,7 @@ private class PublicApiConfigProvisioningServiceTest {
             WHERE Id = :config.Id
         ];
 
-        System.assertEquals('provision-config-key-2b', updated.API_Key__c);
+        System.assertEquals('provision-config-key-2', updated.API_Key__c);
         System.assertEquals(
             PublicApiConfigService.REMOTE_SITE_STATUS_PROVISIONED,
             updated.Outbound_Remote_Site_Status__c
@@ -100,7 +98,7 @@ private class PublicApiConfigProvisioningServiceTest {
     }
 
     @IsTest
-    static void testBlankWebhookClearsProvisioningState() {
+    static void testProvisionRemoteSiteWithBlankWebhookClearsProvisioningState() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'provision-config-key-3',
@@ -113,10 +111,12 @@ private class PublicApiConfigProvisioningServiceTest {
         );
         PublicApiTestConfigFactory.insertConfig(config);
 
-        update new PublicApi_Integration_Config__c(
-            Id = config.Id,
-            Outbound_Webhook_URL__c = null
-        );
+        config.Outbound_Webhook_URL__c = null;
+        update config;
+
+        Test.startTest();
+        PublicApiConfigProvisioningService.provisionRemoteSite(config.Id);
+        Test.stopTest();
 
         PublicApi_Integration_Config__c updated = [
             SELECT Outbound_Remote_Site_Domain__c,

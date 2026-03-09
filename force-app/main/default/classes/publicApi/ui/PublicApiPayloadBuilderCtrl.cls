@@ -25,6 +25,11 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         @AuraEnabled public String headerValue;
         @AuraEnabled public String additionalHeadersJson;
         @AuraEnabled public Boolean hasWebhookSecret;
+        @AuraEnabled public String outboundRemoteSiteDomain;
+        @AuraEnabled public String outboundRemoteSiteName;
+        @AuraEnabled public String outboundRemoteSiteStatus;
+        @AuraEnabled public String outboundRemoteSiteLastError;
+        @AuraEnabled public Datetime outboundRemoteSiteLastProvisionedAt;
     }
 
     @AuraEnabled(cacheable=true)
@@ -98,6 +103,11 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         settings.headerValue = record.Outbound_Header_Value__c;
         settings.additionalHeadersJson = record.Outbound_Additional_Headers_JSON__c;
         settings.hasWebhookSecret = String.isNotBlank(record.Outbound_Webhook_Secret__c);
+        settings.outboundRemoteSiteDomain = record.Outbound_Remote_Site_Domain__c;
+        settings.outboundRemoteSiteName = record.Outbound_Remote_Site_Name__c;
+        settings.outboundRemoteSiteStatus = record.Outbound_Remote_Site_Status__c;
+        settings.outboundRemoteSiteLastError = record.Outbound_Remote_Site_Last_Error__c;
+        settings.outboundRemoteSiteLastProvisionedAt = record.Outbound_Remote_Site_Last_Provisioned_At__c;
         return settings;
     }
 
@@ -227,6 +237,21 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             Outbound_Header_Value__c = normalizeBlank(headerValue),
             Outbound_Additional_Headers_JSON__c = String.isNotBlank(additionalHeadersJson) ? additionalHeadersJson : null
         );
+    }
+
+    @AuraEnabled
+    public static HeaderSettings provisionWebhookDomain(Id recordId) {
+        if (recordId == null) {
+            throwAuraException('Record ID is required.');
+        }
+
+        try {
+            PublicApiConfigProvisioningService.provisionRemoteSite(recordId);
+            return getHeaderSettings(recordId);
+        } catch (PublicApiRemoteSiteSettingException e) {
+            throwAuraException(e.getMessage());
+            return null;
+        }
     }
 
     private static void validateConfigurationJson(String configJson, Boolean allowArray) {
