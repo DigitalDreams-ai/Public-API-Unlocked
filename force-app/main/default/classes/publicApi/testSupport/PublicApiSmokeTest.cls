@@ -22,7 +22,7 @@ private class PublicApiSmokeTest {
             Outbound_Payload_Configuration__c =
                 '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
         );
-        insert config;
+        PublicApiTestConfigFactory.insertConfig(config);
 
         RestRequest req = new RestRequest();
         req.requestURI = '/services/apexrest/v1/publicapi/submissions';

@@ -36,7 +36,7 @@ private class PublicApiOutboundStatusActionTest {
             Outbound_Payload_Configuration__c =
                 '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
         );
-        insert config;
+        PublicApiTestConfigFactory.insertConfig(config);
 
         Account accountRecord = createAccount('Acme Status Record');
         insert accountRecord;

@@ -5,6 +5,12 @@
 public without sharing class PublicApiConfigService {
     @TestVisible
     public static final String DEFAULT_SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
+    @TestVisible
+    public static final String REMOTE_SITE_STATUS_PENDING = 'Pending';
+    @TestVisible
+    public static final String REMOTE_SITE_STATUS_PROVISIONED = 'Provisioned';
+    @TestVisible
+    public static final String REMOTE_SITE_STATUS_FAILED = 'Failed';
 
     public class Config {
         public Id id;
@@ -25,6 +31,11 @@ public without sharing class PublicApiConfigService {
         public String relatedRecordConfiguration;
         public String targetObjectApiName;
         public Boolean syncInboundAndOutbound;
+        public String outboundRemoteSiteDomain;
+        public String outboundRemoteSiteName;
+        public String outboundRemoteSiteStatus;
+        public String outboundRemoteSiteLastError;
+        public Datetime outboundRemoteSiteLastProvisionedAt;
     }
 
     public static Config getConfigForApiKey(String apiKey) {
@@ -62,6 +73,19 @@ public without sharing class PublicApiConfigService {
         return configsById;
     }
 
+    public static List<Config> getConfigsForTargetObject(String targetObjectApiName) {
+        List<Config> configs = new List<Config>();
+        if (String.isBlank(targetObjectApiName)) {
+            return configs;
+        }
+
+        for (PublicApi_Integration_Config__c setting :
+            PublicApiConfigRepository.findActiveByTargetObjectApiName(targetObjectApiName)) {
+            configs.add(fromSetting(setting));
+        }
+        return configs;
+    }
+
     private static Config fromSetting(PublicApi_Integration_Config__c setting) {
         Config c = new Config();
         c.id = setting.Id;
@@ -71,6 +95,11 @@ public without sharing class PublicApiConfigService {
         c.outboundTriggerFieldName = setting.Outbound_Trigger_Field_Name__c;
         c.outboundTriggerFieldValues = setting.Outbound_Trigger_Field_Values__c;
         c.statusUpdateWebhookUrl = setting.Outbound_Webhook_URL__c;
+        c.outboundRemoteSiteDomain = setting.Outbound_Remote_Site_Domain__c;
+        c.outboundRemoteSiteName = setting.Outbound_Remote_Site_Name__c;
+        c.outboundRemoteSiteStatus = setting.Outbound_Remote_Site_Status__c;
+        c.outboundRemoteSiteLastError = setting.Outbound_Remote_Site_Last_Error__c;
+        c.outboundRemoteSiteLastProvisionedAt = setting.Outbound_Remote_Site_Last_Provisioned_At__c;
         c.statusUpdateWebhookSecret = setting.Outbound_Webhook_Secret__c;
         c.outboundAuthMode = setting.Outbound_Auth_Mode__c;
         c.outboundHeaderName = setting.Outbound_Header_Name__c;

@@ -118,6 +118,31 @@
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Integration_Config__c.Outbound_Remote_Site_Domain__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Integration_Config__c.Outbound_Remote_Site_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Integration_Config__c.Outbound_Remote_Site_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Integration_Config__c.Outbound_Remote_Site_Last_Error__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Integration_Config__c.Outbound_Remote_Site_Last_Provisioned_At__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
         <editable>true</editable>
         <field>PublicApi_Integration_Config__c.Last_Webhook_Delivery_Attempt__c</field>
         <readable>true</readable>

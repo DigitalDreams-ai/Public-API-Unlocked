@@ -18,7 +18,7 @@ public with sharing class PublicApiRemoteSiteSettingService {
             );
         }
 
-        String fullName = generateRemoteSiteSettingName(domainUrl);
+        String fullName = getRemoteSiteSettingNameForDomain(domainUrl);
         return createRemoteSiteSetting(
             fullName,
             domainUrl,
@@ -28,29 +28,8 @@ public with sharing class PublicApiRemoteSiteSettingService {
         );
     }
 
-    public static void ensureStatusWebhookRemoteSitesAsync(List<String> webhookUrls) {
-        ensureStatusWebhookRemoteSitesAsync(webhookUrls, UserInfo.getSessionId());
-    }
-
-    @future(callout=true)
-    public static void ensureStatusWebhookRemoteSitesAsync(List<String> webhookUrls, String sessionId) {
-        if (webhookUrls == null || webhookUrls.isEmpty()) {
-            return;
-        }
-
-        Set<String> processedDomains = new Set<String>();
-        for (String webhookUrl : webhookUrls) {
-            if (String.isBlank(webhookUrl)) {
-                continue;
-            }
-
-            String domainUrl = extractDomainFromUrl(webhookUrl);
-            if (String.isBlank(domainUrl) || processedDomains.contains(domainUrl)) {
-                continue;
-            }
-            processedDomains.add(domainUrl);
-            ensureStatusWebhookRemoteSite(domainUrl, sessionId);
-        }
+    public static String getRemoteSiteSettingNameForDomain(String domainUrl) {
+        return generateRemoteSiteSettingName(domainUrl);
     }
 
     public static String createRemoteSiteSetting(

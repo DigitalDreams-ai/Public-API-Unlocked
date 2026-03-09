@@ -27,7 +27,6 @@ public without sharing class PublicApiOutboundStatusAction {
 
         List<PublicApiOutboundTriggerService.ChangeRequest> normalizedRequests =
             new List<PublicApiOutboundTriggerService.ChangeRequest>();
-        String sessionId = UserInfo.getSessionId();
         for (Request request : requests) {
             if (request == null || request.recordId == null || request.configId == null) {
                 continue;
@@ -37,8 +36,7 @@ public without sharing class PublicApiOutboundStatusAction {
                 request.configId,
                 request.previousStatus,
                 request.currentStatus,
-                request.changedAt,
-                sessionId
+                request.changedAt
             ));
         }
         PublicApiOutboundTriggerService.enqueueFieldChanges(normalizedRequests);

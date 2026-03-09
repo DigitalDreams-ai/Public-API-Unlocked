@@ -14,7 +14,6 @@ public without sharing class PublicApiOutboundTriggerService {
         public String previousValue;
         public String currentValue;
         public Datetime changedAt;
-        public String sessionId;
 
         public ChangeRequest() {}
 
@@ -23,15 +22,13 @@ public without sharing class PublicApiOutboundTriggerService {
             Id configId,
             String previousValue,
             String currentValue,
-            Datetime changedAt,
-            String sessionId
+            Datetime changedAt
         ) {
             this.recordId = recordId;
             this.configId = configId;
             this.previousValue = previousValue;
             this.currentValue = currentValue;
             this.changedAt = changedAt;
-            this.sessionId = sessionId;
         }
     }
 
@@ -77,8 +74,7 @@ public without sharing class PublicApiOutboundTriggerService {
                 request.configId,
                 normalizeTriggerValue(request.previousValue),
                 normalizedCurrentValue,
-                request.changedAt == null ? System.now() : request.changedAt,
-                request.sessionId
+                request.changedAt == null ? System.now() : request.changedAt
             ));
         }
 

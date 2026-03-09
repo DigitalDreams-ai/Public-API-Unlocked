@@ -3,7 +3,6 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
     @TestVisible static final String DEFAULT_API_KEY_HEADER = 'X-API-KEY';
     @TestVisible static final String DEFAULT_AUTHORIZATION_HEADER = 'Authorization';
     @TestVisible static final String DEFAULT_SIGNATURE_HEADER = 'x-publicapi-signature';
-    @TestVisible static Set<String> provisionedWebhookDomainsInTransaction = new Set<String>();
 
     @TestVisible static final String AUTH_MODE_NONE = 'None';
     @TestVisible static final String AUTH_MODE_API_KEY_HEADER = 'ApiKeyHeader';
@@ -27,15 +26,6 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
         SObject record,
         PublicApiConfigService.Config config
     ) {
-        return sendStatusUpdate(http, record, config, null);
-    }
-
-    public static SendOutcome sendStatusUpdate(
-        Http http,
-        SObject record,
-        PublicApiConfigService.Config config,
-        String sessionId
-    ) {
         SendOutcome outcome = new SendOutcome();
         if (http == null || record == null || config == null || String.isBlank(config.statusUpdateWebhookUrl)) {
             return outcome;
@@ -54,7 +44,7 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
                 );
             }
             outcome.payloadJson = JSON.serialize(payloadMap);
-            ensureWebhookDomainIsProvisioned(config.statusUpdateWebhookUrl, sessionId);
+            validateProvisionedWebhookDomain(config);
 
             HttpRequest request = new HttpRequest();
             request.setMethod('POST');
@@ -86,20 +76,30 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
     }
 
     @TestVisible
-    static void ensureWebhookDomainIsProvisioned(String webhookUrl, String sessionId) {
-        if (String.isBlank(webhookUrl)) {
+    static void validateProvisionedWebhookDomain(PublicApiConfigService.Config config) {
+        if (config == null || String.isBlank(config.statusUpdateWebhookUrl)) {
             return;
         }
-        String normalizedSessionId = String.isBlank(sessionId) ? null : sessionId.trim();
-        if (String.isBlank(normalizedSessionId)) {
-            return;
+
+        String expectedDomain = PublicApiRemoteSiteSettingService.extractDomainFromUrl(config.statusUpdateWebhookUrl);
+        if (String.isBlank(expectedDomain)) {
+            throw new PublicApiRemoteSiteSettingException(
+                'Webhook domain is invalid. Save the Public API Integration Config with a valid outbound webhook URL.'
+            );
         }
-        String domainUrl = PublicApiRemoteSiteSettingService.extractDomainFromUrl(webhookUrl);
-        if (String.isBlank(domainUrl) || provisionedWebhookDomainsInTransaction.contains(domainUrl)) {
-            return;
+
+        if (config.outboundRemoteSiteStatus != PublicApiConfigService.REMOTE_SITE_STATUS_PROVISIONED) {
+            throw new PublicApiRemoteSiteSettingException(
+                'Webhook domain is not provisioned for this configuration. Save the Public API Integration Config as an API-enabled user to provision the remote site before outbound delivery.'
+            );
         }
-        PublicApiRemoteSiteSettingService.ensureStatusWebhookRemoteSite(domainUrl, normalizedSessionId);
-        provisionedWebhookDomainsInTransaction.add(domainUrl);
+
+        if (String.isBlank(config.outboundRemoteSiteDomain) ||
+            config.outboundRemoteSiteDomain.trim().toLowerCase() != expectedDomain.trim().toLowerCase()) {
+            throw new PublicApiRemoteSiteSettingException(
+                'Webhook domain provisioning is out of date for this configuration. Save the Public API Integration Config to reprovision the current webhook domain before outbound delivery.'
+            );
+        }
     }
 
     @TestVisible
