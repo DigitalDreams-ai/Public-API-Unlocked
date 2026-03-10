@@ -14,6 +14,11 @@ on:
       - "force-app/**"
       - "unpackaged/**"
       - "datasets/**"
+
+concurrency:
+  group: beta-create-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   project-initialized-check:
     runs-on: ubuntu-latest
