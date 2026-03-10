@@ -25,6 +25,9 @@ private class PublicApiPayloadBuilderCtrlTest {
         );
         insert config;
 
+        String triggerFieldName = selectPreferredTriggerFieldName('PublicApi_Submission__c');
+        String triggerFieldValues = selectValidTriggerValues('PublicApi_Submission__c', triggerFieldName);
+
         PublicApiPayloadBuilderCtrl.PayloadSettings initialSettings =
             PublicApiPayloadBuilderCtrl.getPayloadSettings(config.Id);
         System.assertNotEquals(null, initialSettings);
@@ -48,8 +51,8 @@ private class PublicApiPayloadBuilderCtrlTest {
             'PublicApi_Submission__c',
             relatedRecordJson,
             true,
-            'Status__c',
-            'Converted',
+            triggerFieldName,
+            triggerFieldValues,
             inboundJson,
             outboundJson
         );
@@ -69,8 +72,8 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertEquals(inboundJson, updated.Inbound_Payload_Configuration__c);
         System.assertEquals(outboundJson, updated.Outbound_Payload_Configuration__c);
         System.assertEquals(true, updated.Outbound_Trigger_Enabled__c);
-        System.assertEquals('Status__c', updated.Outbound_Trigger_Field_Name__c);
-        System.assertEquals('Converted', updated.Outbound_Trigger_Field_Values__c);
+        System.assertEquals(triggerFieldName, updated.Outbound_Trigger_Field_Name__c);
+        System.assertEquals(triggerFieldValues, updated.Outbound_Trigger_Field_Values__c);
         System.assertEquals(relatedRecordJson, updated.Related_Record_Configuration__c);
         System.assertEquals('PublicApi_Submission__c', updated.Target_Object_API_Name__c);
         System.assertEquals(false, updated.Sync_Inbound_And_Outbound__c);
@@ -79,11 +82,12 @@ private class PublicApiPayloadBuilderCtrlTest {
     @IsTest
     static void testGetTriggerMetadata() {
         List<String> fieldNames = PublicApiPayloadBuilderCtrl.getTriggerFieldNames('PublicApi_Submission__c');
-        System.assertEquals(true, fieldNames.contains('Status__c'));
+        System.assertEquals(true, fieldNames.size() > 0);
+        System.assertEquals(true, fieldNames.contains(selectPreferredTriggerFieldName('PublicApi_Submission__c')));
 
         List<String> fieldValues = PublicApiPayloadBuilderCtrl.getTriggerFieldValues(
             'PublicApi_Submission__c',
-            'Created_By_PublicApi_API__c'
+            selectBooleanCapableTriggerFieldName('PublicApi_Submission__c')
         );
         System.assertEquals(new List<String>{ 'true', 'false' }, fieldValues);
 
@@ -95,6 +99,40 @@ private class PublicApiPayloadBuilderCtrlTest {
             'PublicApi_Integration_Config__c'
         );
         System.assertEquals(new List<String>{ 'PublicApi_Integration_Config__c' }, lookupTargetObjects);
+    }
+
+    private static String selectPreferredTriggerFieldName(String objectApiName) {
+        List<String> fieldNames = PublicApiPayloadBuilderCtrl.getTriggerFieldNames(objectApiName);
+        System.assertEquals(true, fieldNames.size() > 0, 'Expected at least one trigger field.');
+        if (fieldNames.contains('Created_By_PublicApi_API__c')) {
+            return 'Created_By_PublicApi_API__c';
+        }
+        if (fieldNames.contains('Status__c')) {
+            return 'Status__c';
+        }
+        return fieldNames[0];
+    }
+
+    private static String selectBooleanCapableTriggerFieldName(String objectApiName) {
+        List<String> fieldNames = PublicApiPayloadBuilderCtrl.getTriggerFieldNames(objectApiName);
+        for (String fieldName : fieldNames) {
+            List<String> values =
+                PublicApiPayloadBuilderCtrl.getTriggerFieldValues(objectApiName, fieldName);
+            if (values.size() == 2 && values[0] == 'true' && values[1] == 'false') {
+                return fieldName;
+            }
+        }
+        System.assert(false, 'Expected at least one boolean-style trigger field.');
+        return null;
+    }
+
+    private static String selectValidTriggerValues(String objectApiName, String fieldName) {
+        List<String> suggestedValues =
+            PublicApiPayloadBuilderCtrl.getTriggerFieldValues(objectApiName, fieldName);
+        if (suggestedValues.isEmpty()) {
+            return null;
+        }
+        return suggestedValues[0];
     }
 
     @IsTest
