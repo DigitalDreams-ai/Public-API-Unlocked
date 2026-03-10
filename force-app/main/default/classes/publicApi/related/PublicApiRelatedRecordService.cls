@@ -53,11 +53,13 @@ public without sharing class PublicApiRelatedRecordService {
             throw new PublicApiIntakeServiceException('Unknown target object: ' + targetObjectApiName);
         }
 
+        List<PublicApiRelatedRecordConfig.Rule> parsedRules =
+            PublicApiRelatedRecordConfig.parseRules(relatedRecordConfigurationJson);
         Map<String, Schema.SObjectField> targetFieldMap = targetObjectType.getDescribe().fields.getMap();
-        for (PublicApiRelatedRecordConfig.Rule rule :
-            PublicApiRelatedRecordConfig.parseRules(relatedRecordConfigurationJson)) {
+        for (PublicApiRelatedRecordConfig.Rule rule : parsedRules) {
             validateRule(rule, targetObjectType.getDescribe().getName(), targetFieldMap, globalDescribe);
         }
+        validateCrossRuleConstraints(parsedRules, targetObjectType.getDescribe().getName());
     }
 
     @TestVisible
@@ -117,6 +119,53 @@ public without sharing class PublicApiRelatedRecordService {
         return rule != null &&
             String.isNotBlank(rule.relatedObjectApiName) &&
             rule.relatedObjectApiName.trim().equalsIgnoreCase('Account');
+    }
+
+    @TestVisible
+    private static void validateCrossRuleConstraints(
+        List<PublicApiRelatedRecordConfig.Rule> rules,
+        String targetObjectApiName
+    ) {
+        if (rules == null || rules.isEmpty() || !isActivityObject(targetObjectApiName)) {
+            return;
+        }
+
+        Boolean hasLeadWhoRule = false;
+        Boolean hasAccountWhatRule = false;
+        for (PublicApiRelatedRecordConfig.Rule rule : rules) {
+            if (rule == null) {
+                continue;
+            }
+
+            String targetLookupField = String.isBlank(rule.targetLookupField)
+                ? null
+                : rule.targetLookupField.trim().toLowerCase();
+            String relatedObjectName = String.isBlank(rule.relatedObjectApiName)
+                ? null
+                : rule.relatedObjectApiName.trim().toLowerCase();
+
+            if (targetLookupField == 'whoid' && relatedObjectName == 'lead') {
+                hasLeadWhoRule = true;
+            }
+            if (targetLookupField == 'whatid' && relatedObjectName == 'account') {
+                hasAccountWhatRule = true;
+            }
+        }
+
+        if (hasLeadWhoRule && hasAccountWhatRule) {
+            throw new PublicApiIntakeServiceException(
+                'Task/Event related-record configuration cannot combine Lead on WhoId with Account on WhatId.'
+            );
+        }
+    }
+
+    @TestVisible
+    private static Boolean isActivityObject(String targetObjectApiName) {
+        if (String.isBlank(targetObjectApiName)) {
+            return false;
+        }
+        String normalizedObjectName = targetObjectApiName.trim().toLowerCase();
+        return normalizedObjectName == 'task' || normalizedObjectName == 'event';
     }
 
     private static void validateRule(

@@ -274,6 +274,42 @@ private class PublicApiIntakeApiTest {
     }
 
     @IsTest
+    static void testCreateSubmissionRejectsUnsupportedTaskLeadAndAccountRelatedRecordCombination() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-7c',
+            Inbound_Payload_Configuration__c =
+                '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
+            Target_Object_API_Name__c = 'Task',
+            Related_Record_Configuration__c =
+                '[' +
+                    '{"targetLookupField":"WhoId","relatedObjectApiName":"Lead","matchFieldName":"Email",' +
+                    '"sourceKey":"email","createIfMissing":false,"onMultipleMatches":"Error"},' +
+                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"litify_pm__Email__c",' +
+                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"}' +
+                ']'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"subject":"Unsupported Related Combination","email":"combo@example.com"}');
+        req.headers.put('x-api-key', 'api-test-key-7c');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiIntakeApi.createSubmission();
+        System.assertEquals(400, res.statusCode);
+        System.assert(
+            res.responseBody.toString().contains('cannot combine Lead on WhoId with Account on WhatId')
+        );
+        System.assertEquals(0, [SELECT Count() FROM Task WHERE Subject = 'Unsupported Related Combination']);
+    }
+
+    @IsTest
     static void testCreateSubmissionSupportsInboundTargetObjectWithoutStatusField() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,

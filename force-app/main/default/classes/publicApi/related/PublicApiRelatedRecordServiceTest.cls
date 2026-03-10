@@ -194,6 +194,26 @@ private class PublicApiRelatedRecordServiceTest {
     }
 
     @IsTest
+    static void testValidateRulesRejectsLeadWhoAndAccountWhatCombinationForTask() {
+        try {
+            PublicApiRelatedRecordService.validateRules(
+                '[' +
+                    '{"targetLookupField":"WhoId","relatedObjectApiName":"Lead","matchFieldName":"Email",' +
+                    '"sourceKey":"email","createIfMissing":false,"onMultipleMatches":"Error"},' +
+                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"litify_pm__Email__c",' +
+                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"}' +
+                ']',
+                'Task'
+            );
+            System.assert(false, 'Expected unsupported Task Lead/Account activity combination to be rejected.');
+        } catch (PublicApiIntakeServiceException e) {
+            System.assert(
+                e.getMessage().contains('cannot combine Lead on WhoId with Account on WhatId')
+            );
+        }
+    }
+
+    @IsTest
     static void testApplyRelatedRecordRulesRejectsUnsatisfiedRequiredFieldsBeforeInsert() {
         Task target = new Task(Subject = 'Related Lead');
         Map<String, Object> payload = new Map<String, Object>{

@@ -57,4 +57,5 @@ private class PublicApiRelatedRecordEventServiceTest {
             )
         );
     }
+
 }
