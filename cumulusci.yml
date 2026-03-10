@@ -19,6 +19,11 @@ project:
       version_id: "04tHs000000w1CEIAY"
 
 tasks:
+    delete_existing_beta_release:
+        class_path: cumulusci.tasks.command.Command
+        options:
+            command: python scripts/delete_existing_github_release.py --version 0.0.0 --tag-prefix beta/
+
     robot:
         options:
             suites: robot/PublicApi-Unlocked/tests
@@ -54,6 +59,41 @@ tasks:
             path: scripts/set_publicApi_config_org_default.apex
 
 flows:
+    release_unlocked_beta:
+        steps:
+            1:
+                task: create_package_version
+                options:
+                    package_type: Unlocked
+                    package_name: $project_config.project__package__name
+                    skip_validation: False
+                    version_base: latest_github_release
+                    version_type: minor
+                    force_upload: True
+                    create_unlocked_dependency_packages: False
+            2:
+                task: delete_existing_beta_release
+                options:
+                    command: python scripts/delete_existing_github_release.py --version ^^create_package_version.version_number --tag-prefix $project_config.project__git__prefix_beta
+            3:
+                task: github_release
+                options:
+                    version: ^^create_package_version.version_number
+                    version_id: ^^create_package_version.subscriber_package_version_id
+                    dependencies: ^^create_package_version.dependencies
+                    package_type: 2GP
+                    tag_prefix: $project_config.project__git__prefix_beta
+            4:
+                task: github_release_notes
+                options:
+                    link_pr: True
+                    publish: True
+                    tag: ^^github_release.tag_name
+                    include_empty: True
+                    version_id: ^^create_package_version.subscriber_package_version_id
+            5:
+                task: github_automerge_main
+
     config_dev:
         steps:
             3.0:
