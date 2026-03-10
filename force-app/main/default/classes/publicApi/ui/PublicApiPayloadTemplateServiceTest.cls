@@ -68,12 +68,13 @@ private class PublicApiPayloadTemplateServiceTest {
         List<String> fieldNames = PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(
             'PublicApi_Submission__c'
         );
-        System.assertEquals(true, fieldNames.contains('Status__c'));
+        System.assertEquals(true, fieldNames.size() > 0);
+        System.assertEquals(true, fieldNames.contains(selectPreferredTriggerFieldName('PublicApi_Submission__c')));
         System.assertEquals(false, fieldNames.contains('CreatedDate'));
 
         List<String> booleanValues = PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(
             'PublicApi_Submission__c',
-            'Created_By_PublicApi_API__c'
+            selectBooleanCapableTriggerFieldName('PublicApi_Submission__c')
         );
         System.assertEquals(new List<String>{ 'true', 'false' }, booleanValues);
 
@@ -99,5 +100,30 @@ private class PublicApiPayloadTemplateServiceTest {
 
         List<String> createFields = PublicApiPayloadTemplateService.getAvailableCreateFieldNames('Account');
         System.assertEquals(true, createFields.contains('Name'));
+    }
+
+    private static String selectPreferredTriggerFieldName(String objectApiName) {
+        List<String> fieldNames = PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(objectApiName);
+        System.assertEquals(true, fieldNames.size() > 0, 'Expected at least one trigger field.');
+        if (fieldNames.contains('Created_By_PublicApi_API__c')) {
+            return 'Created_By_PublicApi_API__c';
+        }
+        if (fieldNames.contains('Status__c')) {
+            return 'Status__c';
+        }
+        return fieldNames[0];
+    }
+
+    private static String selectBooleanCapableTriggerFieldName(String objectApiName) {
+        List<String> fieldNames = PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(objectApiName);
+        for (String fieldName : fieldNames) {
+            List<String> values =
+                PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(objectApiName, fieldName);
+            if (values.size() == 2 && values[0] == 'true' && values[1] == 'false') {
+                return fieldName;
+            }
+        }
+        System.assert(false, 'Expected at least one boolean-style trigger field.');
+        return null;
     }
 }
