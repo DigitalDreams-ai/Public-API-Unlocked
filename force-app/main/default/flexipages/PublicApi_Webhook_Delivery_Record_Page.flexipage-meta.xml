@@ -71,16 +71,6 @@
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Intake__c</fieldItem>
-                <identifier>RecordIntake_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
                 <fieldItem>Record.Source_Object_API_Name__c</fieldItem>
                 <identifier>RecordSource_Object_API_Name_cField</identifier>
             </fieldInstance>
@@ -91,8 +81,8 @@
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Source_Record_Id__c</fieldItem>
-                <identifier>RecordSource_Record_Id_cField</identifier>
+                <fieldItem>Record.Created_Record_Link__c</fieldItem>
+                <identifier>RecordCreated_Record_Link_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <itemInstances>

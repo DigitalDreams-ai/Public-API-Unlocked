@@ -18,7 +18,7 @@
                 <div class="slds-box slds-theme_default builder-section slds-m-bottom_medium">
                     <div class="section-heading">Configuration</div>
                     <div class="slds-grid slds-gutters slds-wrap">
-                        <div class="slds-col slds-size_1-of-1 slds-large-size_8-of-12">
+                        <div class="slds-col slds-size_1-of-1">
                             <div class="target-object-picker">
                                 <lightning-input
                                     type="text"
@@ -53,7 +53,7 @@
                                 </template>
                             </div>
                         </div>
-                        <div class="slds-col slds-size_1-of-1 slds-large-size_4-of-12">
+                        <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
                             <lightning-input
                                 type="checkbox"
                                 label="Inbound and Outbound are the same"
@@ -794,7 +794,7 @@
                                     </div>
                                     <template if:true={isHmacMode}>
                                         <div class="slds-text-body_small slds-m-top_x-small slds-text-color_weak">
-                                            HMAC mode uses `Outbound Webhook Secret` to generate the signature value.
+                                            HMAC mode uses the Outbound Webhook Secret to generate the signature value.
                                         </div>
                                     </template>
                                 </div>

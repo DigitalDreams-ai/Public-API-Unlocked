@@ -235,7 +235,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             return 'This header sends Basic <base64(username:password)>. Leave the name blank to default to Authorization.';
         }
         if (this.isHmacMode) {
-            return 'This header carries the generated request signature. The signature value comes from Outbound Webhook Secret.';
+            return 'This header carries the generated request signature. The signature value comes from the Outbound Webhook Secret.';
         }
         return '';
     }
