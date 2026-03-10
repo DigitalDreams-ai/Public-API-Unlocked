@@ -46,7 +46,7 @@ Current environment defaults:
 ## Prerequisites
 
 - At least one active **Public API Integration Config** record with a unique **API Key**.
-- If you also use outbound status updates, the first outbound delivery execution provisions a Remote Site Setting for the webhook domain.
+- If you also use outbound status updates, provision the webhook domain explicitly from the Request Builder before testing deliveries.
 - For Experience Cloud: **Public API Guest Access** permission set assigned to the site guest profile.
 - For Beta and Production, keep `/api` in **base_url** if the site path prefix is `api`.
 

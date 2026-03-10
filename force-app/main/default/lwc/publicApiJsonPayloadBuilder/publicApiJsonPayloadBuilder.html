@@ -18,7 +18,7 @@
                 <div class="slds-box slds-theme_default builder-section slds-m-bottom_medium">
                     <div class="section-heading">Configuration</div>
                     <div class="slds-grid slds-gutters slds-wrap">
-                        <div class="slds-col slds-size_1-of-1 slds-large-size_8-of-12">
+                        <div class="slds-col slds-size_1-of-1">
                             <div class="target-object-picker">
                                 <lightning-input
                                     type="text"
@@ -53,7 +53,7 @@
                                 </template>
                             </div>
                         </div>
-                        <div class="slds-col slds-size_1-of-1 slds-large-size_4-of-12">
+                        <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
                             <lightning-input
                                 type="checkbox"
                                 label="Inbound and Outbound are the same"
@@ -475,6 +475,96 @@
                                                         </lightning-combobox>
                                                     </div>
                                                 </div>
+                                                <template if:true={row.createIfMissing}>
+                                                    <div class="slds-m-top_medium slds-border_top slds-p-top_medium">
+                                                        <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
+                                                            <div>
+                                                                <div class="section-heading">Create Mappings</div>
+                                                                <div class="slds-text-body_small slds-text-color_weak">
+                                                                    These fields are populated only when a new related record is created.
+                                                                </div>
+                                                            </div>
+                                                            <lightning-button-icon
+                                                                icon-name="utility:add"
+                                                                alternative-text="Add create mapping"
+                                                                title="Add create mapping"
+                                                                data-id={row.id}
+                                                                onclick={handleAddRelatedCreateMapping}>
+                                                            </lightning-button-icon>
+                                                        </div>
+                                                        <template if:true={row.hasCreateMappings}>
+                                                            <template for:each={row.createMappings} for:item="mapping">
+                                                                <div key={mapping.id} class="slds-grid slds-gutters_x-small slds-m-bottom_x-small header-row">
+                                                                    <div class="slds-col slds-size_5-of-12">
+                                                                        <lightning-input
+                                                                            data-role="related-create-source-key"
+                                                                            data-row-id={row.id}
+                                                                            data-id={mapping.id}
+                                                                            type="text"
+                                                                            label="Source Key"
+                                                                            placeholder="phone or data.phone"
+                                                                            value={mapping.sourceKey}
+                                                                            onchange={handleRelatedCreateSourceKeyChange}>
+                                                                        </lightning-input>
+                                                                    </div>
+                                                                    <div class="slds-col slds-size_6-of-12">
+                                                                        <div class="target-object-picker">
+                                                                            <lightning-input
+                                                                                data-role="related-create-field"
+                                                                                data-row-id={row.id}
+                                                                                data-id={mapping.id}
+                                                                                type="text"
+                                                                                label="Field Name"
+                                                                                placeholder="Start typing a related object field"
+                                                                                value={mapping.fieldName}
+                                                                                onfocus={handleRelatedCreateFieldFocus}
+                                                                                onblur={handleRelatedCreateFieldBlur}
+                                                                                onkeyup={handleRelatedCreateFieldInput}
+                                                                                onchange={handleRelatedCreateFieldInput}>
+                                                                            </lightning-input>
+                                                                            <template if:true={mapping.showFieldSuggestions}>
+                                                                                <div class="suggestions-panel">
+                                                                                    <template if:true={mapping.hasFieldSuggestions}>
+                                                                                        <template for:each={mapping.fieldSuggestions} for:item="suggestion">
+                                                                                            <button
+                                                                                                key={suggestion.value}
+                                                                                                type="button"
+                                                                                                class="suggestion-item"
+                                                                                                data-row-id={row.id}
+                                                                                                data-mapping-id={mapping.id}
+                                                                                                data-value={suggestion.value}
+                                                                                                onclick={handleSelectRelatedCreateFieldSuggestion}>
+                                                                                                {suggestion.label}
+                                                                                            </button>
+                                                                                        </template>
+                                                                                    </template>
+                                                                                    <template if:false={mapping.hasFieldSuggestions}>
+                                                                                        <div class="suggestion-empty">No writable create fields are available for the selected related object.</div>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </template>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="slds-col slds-size_1-of-12 header-row-action">
+                                                                        <lightning-button-icon
+                                                                            icon-name="utility:delete"
+                                                                            alternative-text="Remove create mapping"
+                                                                            title="Remove create mapping"
+                                                                            data-row-id={row.id}
+                                                                            data-id={mapping.id}
+                                                                            onclick={handleRemoveRelatedCreateMapping}>
+                                                                        </lightning-button-icon>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                        </template>
+                                                        <template if:false={row.hasCreateMappings}>
+                                                            <div class="builder-empty-state">
+                                                                No create mappings configured.
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
                                             </div>
                                         </template>
                                     </template>
@@ -605,6 +695,42 @@
                                 </div>
 
                                 <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                    <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
+                                        <div>
+                                            <div class="section-heading">Webhook Domain Provisioning</div>
+                                            <div class="slds-text-body_small slds-text-color_weak">
+                                                Provision the outbound webhook domain explicitly after changing the webhook URL.
+                                            </div>
+                                        </div>
+                                        <lightning-button
+                                            label="Provision Webhook Domain"
+                                            onclick={handleProvisionWebhookDomain}>
+                                        </lightning-button>
+                                    </div>
+                                    <div class="slds-grid slds-gutters slds-wrap">
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                            <lightning-badge label={remoteSiteStatusLabel} class={remoteSiteStatusVariant}></lightning-badge>
+                                            <div class="slds-text-body_small slds-m-top_x-small">
+                                                <strong>Domain:</strong> {outboundRemoteSiteDomain}
+                                            </div>
+                                            <div class="slds-text-body_small">
+                                                <strong>Remote Site Name:</strong> {outboundRemoteSiteName}
+                                            </div>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                            <div class="slds-text-body_small">
+                                                <strong>Last Provisioned:</strong> {outboundRemoteSiteLastProvisionedAt}
+                                            </div>
+                                            <template if:true={outboundRemoteSiteLastError}>
+                                                <div class="slds-text-color_error slds-text-body_small slds-m-top_x-small">
+                                                    <strong>Last Error:</strong> {outboundRemoteSiteLastError}
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
                                     <div class="section-heading">Authentication</div>
                                     <div class="slds-grid slds-gutters slds-wrap">
                                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
@@ -668,7 +794,7 @@
                                     </div>
                                     <template if:true={isHmacMode}>
                                         <div class="slds-text-body_small slds-m-top_x-small slds-text-color_weak">
-                                            HMAC mode uses `Outbound Webhook Secret` to generate the signature value.
+                                            HMAC mode uses the Outbound Webhook Secret to generate the signature value.
                                         </div>
                                     </template>
                                 </div>

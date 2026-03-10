@@ -11,6 +11,7 @@ import getTriggerFieldNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.g
 import getTriggerFieldValues from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getTriggerFieldValues';
 import savePayloadSettings from '@salesforce/apex/PublicApiPayloadBuilderCtrl.savePayloadSettings';
 import saveHeaderSettings from '@salesforce/apex/PublicApiPayloadBuilderCtrl.saveHeaderSettings';
+import provisionWebhookDomain from '@salesforce/apex/PublicApiPayloadBuilderCtrl.provisionWebhookDomain';
 
 const DEFAULT_CONTENT_TYPE = 'application/json';
 const DEFAULT_OBJECT_API_NAME = 'PublicApi_Submission__c';
@@ -59,6 +60,11 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     headerName = '';
     headerValue = '';
     hasWebhookSecret = false;
+    outboundRemoteSiteDomain = '';
+    outboundRemoteSiteName = '';
+    outboundRemoteSiteStatus = '';
+    outboundRemoteSiteLastError = '';
+    outboundRemoteSiteLastProvisionedAt = null;
     headerRows = [];
 
     get authModeOptions() {
@@ -153,6 +159,20 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         return JSON.stringify(this.buildEffectiveHeadersObject(), null, 2);
     }
 
+    get remoteSiteStatusLabel() {
+        return this.outboundRemoteSiteStatus || 'Not Provisioned';
+    }
+
+    get remoteSiteStatusVariant() {
+        if (this.outboundRemoteSiteStatus === 'Provisioned') {
+            return 'success';
+        }
+        if (this.outboundRemoteSiteStatus === 'Failed') {
+            return 'error';
+        }
+        return 'offline';
+    }
+
     get isSaveDisabled() {
         return this.isLoading || !this.isDirty;
     }
@@ -215,7 +235,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             return 'This header sends Basic <base64(username:password)>. Leave the name blank to default to Authorization.';
         }
         if (this.isHmacMode) {
-            return 'This header carries the generated request signature. The signature value comes from Outbound Webhook Secret.';
+            return 'This header carries the generated request signature. The signature value comes from the Outbound Webhook Secret.';
         }
         return '';
     }
@@ -303,6 +323,12 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             this.headerName = headerSettings?.headerName || '';
             this.headerValue = headerSettings?.headerValue || '';
             this.hasWebhookSecret = !!headerSettings?.hasWebhookSecret;
+            this.outboundRemoteSiteDomain = headerSettings?.outboundRemoteSiteDomain || '';
+            this.outboundRemoteSiteName = headerSettings?.outboundRemoteSiteName || '';
+            this.outboundRemoteSiteStatus = headerSettings?.outboundRemoteSiteStatus || '';
+            this.outboundRemoteSiteLastError = headerSettings?.outboundRemoteSiteLastError || '';
+            this.outboundRemoteSiteLastProvisionedAt =
+                headerSettings?.outboundRemoteSiteLastProvisionedAt || null;
             this.headerRows = this.parseHeaderConfiguration(headerSettings?.additionalHeadersJson);
             this.isDirty = false;
         } catch (error) {
@@ -1000,7 +1026,8 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             hasMatchFieldSuggestions: matchFieldSuggestions.length > 0,
             createMappings: (row.createMappings || []).map((mapping) =>
                 this.hydrateRelatedCreateMappingRow(mapping, row.availableCreateFieldNames || [])
-            )
+            ),
+            hasCreateMappings: (row.createMappings || []).length > 0
         };
     }
 
@@ -1402,6 +1429,41 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     handleClearHeaders() {
         this.headerRows = [];
         this.isDirty = true;
+    }
+
+    async handleProvisionWebhookDomain() {
+        this.isLoading = true;
+        this.errorMessage = '';
+        try {
+            const headerSettings = await provisionWebhookDomain({ recordId: this.recordId });
+            this.headerName = headerSettings?.headerName || '';
+            this.headerValue = headerSettings?.headerValue || '';
+            this.hasWebhookSecret = !!headerSettings?.hasWebhookSecret;
+            this.outboundRemoteSiteDomain = headerSettings?.outboundRemoteSiteDomain || '';
+            this.outboundRemoteSiteName = headerSettings?.outboundRemoteSiteName || '';
+            this.outboundRemoteSiteStatus = headerSettings?.outboundRemoteSiteStatus || '';
+            this.outboundRemoteSiteLastError = headerSettings?.outboundRemoteSiteLastError || '';
+            this.outboundRemoteSiteLastProvisionedAt =
+                headerSettings?.outboundRemoteSiteLastProvisionedAt || null;
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Success',
+                    message: 'Webhook domain provisioning completed.',
+                    variant: 'success'
+                })
+            );
+        } catch (error) {
+            this.errorMessage = this.extractErrorMessage(error);
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Error',
+                    message: this.errorMessage,
+                    variant: 'error'
+                })
+            );
+        } finally {
+            this.isLoading = false;
+        }
     }
 
     handleHeaderNameChange(event) {

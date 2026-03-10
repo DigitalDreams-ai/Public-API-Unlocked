@@ -27,8 +27,12 @@ public without sharing class PublicApiIntakeService {
             config.relatedRecordConfiguration,
             targetObjectApiName
         );
+        String immediateRelatedRecordConfiguration =
+            PublicApiRelatedRecordService.getImmediateRulesJson(config.relatedRecordConfiguration);
+        String deferredRelatedRecordConfiguration =
+            PublicApiRelatedRecordService.getDeferredRulesJson(config.relatedRecordConfiguration);
         SObject submission = globalDescribe.get(targetObjectApiName).newSObject();
-        PublicApiRecordTypeService.applyDefaultRecordType(submission);
+        PublicApiRecordTypeService.applyDefaultTargetRecordType(submission);
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             payload,
@@ -38,7 +42,7 @@ public without sharing class PublicApiIntakeService {
         PublicApiRelatedRecordService.applyRelatedRecordRules(
             submission,
             payload,
-            config.relatedRecordConfiguration
+            immediateRelatedRecordConfiguration
         );
 
         putIfFieldExists(submission, 'PublicApi_Integration_Config__c', config.id);
@@ -49,6 +53,13 @@ public without sharing class PublicApiIntakeService {
 
         try {
             insert submission;
+            PublicApiRelatedRecordEventService.publishRequest(
+                config.id,
+                submission.Id,
+                targetObjectApiName,
+                payload,
+                deferredRelatedRecordConfiguration
+            );
             return submission;
         } catch (DmlException e) {
             throw new PublicApiIntakeServiceException('Failed to create submission: ' + e.getMessage());

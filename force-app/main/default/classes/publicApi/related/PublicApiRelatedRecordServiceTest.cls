@@ -56,10 +56,7 @@ private class PublicApiRelatedRecordServiceTest {
         if (accountLastNameFieldName != null) {
             System.assertEquals('Created Account', created.get(accountLastNameFieldName));
         }
-        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
-        if (expectedRecordTypeId != null) {
-            System.assertEquals(expectedRecordTypeId, created.get('RecordTypeId'));
-        }
+        assertAccountRecordTypeWasNotForcedToIndividual(created);
     }
 
     @IsTest
@@ -86,10 +83,82 @@ private class PublicApiRelatedRecordServiceTest {
         if (accountLastNameFieldName != null) {
             System.assertEquals('Swift', created.get(accountLastNameFieldName));
         }
-        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
-        if (expectedRecordTypeId != null) {
-            System.assertEquals(expectedRecordTypeId, created.get('RecordTypeId'));
-        }
+        assertAccountRecordTypeWasNotForcedToIndividual(created);
+    }
+
+    @IsTest
+    static void testApplyRelatedRecordRulesUsesOldestMatchWhenConfigured() {
+        Account oldestAccount = createAccount('Duplicate Match');
+        insert oldestAccount;
+        Account newestAccount = createAccount('Duplicate Match');
+        insert newestAccount;
+
+        Test.setCreatedDate(oldestAccount.Id, Datetime.newInstance(2024, 1, 1, 8, 0, 0));
+        Test.setCreatedDate(newestAccount.Id, Datetime.newInstance(2024, 1, 2, 8, 0, 0));
+
+        Contact target = new Contact(LastName = 'Oldest');
+        Map<String, Object> payload = new Map<String, Object>{
+            'accountName' => 'Duplicate Match'
+        };
+
+        PublicApiRelatedRecordService.applyRelatedRecordRules(
+            target,
+            payload,
+            '[' +
+                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '"sourceKey":"accountName","createIfMissing":false,"onMultipleMatches":"UseOldest"}' +
+            ']'
+        );
+
+        System.assertEquals(oldestAccount.Id, target.AccountId);
+    }
+
+    @IsTest
+    static void testApplyRelatedRecordRulesUsesNewestMatchWhenConfigured() {
+        Account oldestAccount = createAccount('Duplicate Match');
+        insert oldestAccount;
+        Account newestAccount = createAccount('Duplicate Match');
+        insert newestAccount;
+
+        Test.setCreatedDate(oldestAccount.Id, Datetime.newInstance(2024, 1, 1, 8, 0, 0));
+        Test.setCreatedDate(newestAccount.Id, Datetime.newInstance(2024, 1, 2, 8, 0, 0));
+
+        Contact target = new Contact(LastName = 'Newest');
+        Map<String, Object> payload = new Map<String, Object>{
+            'accountName' => 'Duplicate Match'
+        };
+
+        PublicApiRelatedRecordService.applyRelatedRecordRules(
+            target,
+            payload,
+            '[' +
+                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '"sourceKey":"accountName","createIfMissing":false,"onMultipleMatches":"UseNewest"}' +
+            ']'
+        );
+
+        System.assertEquals(newestAccount.Id, target.AccountId);
+    }
+
+    @IsTest
+    static void testDeferredRulesSplitAccountRulesFromImmediateRules() {
+        String configJson =
+            '[' +
+                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '"sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error"},' +
+                '{"targetLookupField":"WhoId","relatedObjectApiName":"Lead","matchFieldName":"Email",' +
+                '"sourceKey":"email","createIfMissing":false,"onMultipleMatches":"Error"}' +
+            ']';
+
+        String immediateJson = PublicApiRelatedRecordService.getImmediateRulesJson(configJson);
+        String deferredJson = PublicApiRelatedRecordService.getDeferredRulesJson(configJson);
+
+        System.assertEquals(false, String.isBlank(immediateJson));
+        System.assertEquals(false, String.isBlank(deferredJson));
+        System.assertEquals(1, PublicApiRelatedRecordConfig.parseRules(immediateJson).size());
+        System.assertEquals('Lead', PublicApiRelatedRecordConfig.parseRules(immediateJson)[0].relatedObjectApiName);
+        System.assertEquals(1, PublicApiRelatedRecordConfig.parseRules(deferredJson).size());
+        System.assertEquals('Account', PublicApiRelatedRecordConfig.parseRules(deferredJson)[0].relatedObjectApiName);
     }
 
     @IsTest
@@ -121,6 +190,26 @@ private class PublicApiRelatedRecordServiceTest {
             System.assert(false, 'Expected unsupported multiple match policy to be rejected.');
         } catch (PublicApiIntakeServiceException e) {
             System.assert(e.getMessage().contains('Unsupported related record multiple match policy'));
+        }
+    }
+
+    @IsTest
+    static void testValidateRulesRejectsLeadWhoAndAccountWhatCombinationForTask() {
+        try {
+            PublicApiRelatedRecordService.validateRules(
+                '[' +
+                    '{"targetLookupField":"WhoId","relatedObjectApiName":"Lead","matchFieldName":"Email",' +
+                    '"sourceKey":"email","createIfMissing":false,"onMultipleMatches":"Error"},' +
+                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"litify_pm__Email__c",' +
+                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"}' +
+                ']',
+                'Task'
+            );
+            System.assert(false, 'Expected unsupported Task Lead/Account activity combination to be rejected.');
+        } catch (PublicApiIntakeServiceException e) {
+            System.assert(
+                e.getMessage().contains('cannot combine Lead on WhoId with Account on WhatId')
+            );
         }
     }
 
@@ -215,5 +304,10 @@ private class PublicApiRelatedRecordServiceTest {
         return Database.query(
             'SELECT ' + String.join(fieldNames, ', ') + ' FROM Account WHERE Id = :accountId'
         );
+    }
+
+    private static void assertAccountRecordTypeWasNotForcedToIndividual(SObject accountRecord) {
+        Id individualRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        System.assertEquals(individualRecordTypeId, accountRecord.get('RecordTypeId'));
     }
 }

@@ -1,17 +1,42 @@
 public without sharing class PublicApiRecordTypeService {
     @TestVisible
-    static final Map<String, String> DEFAULT_RECORD_TYPE_BY_OBJECT = new Map<String, String>{
+    static final Map<String, String> DEFAULT_TARGET_RECORD_TYPE_BY_OBJECT = new Map<String, String>{
         'Account' => 'Individual',
         'litify_pm__Intake__c' => 'Lead_Intake'
     };
 
-    public static void applyDefaultRecordType(SObject record) {
+    @TestVisible
+    static final Map<String, String> DEFAULT_RELATED_RECORD_TYPE_BY_OBJECT = new Map<String, String>{
+        'Account' => 'Individual'
+    };
+
+    public static void applyDefaultTargetRecordType(SObject record) {
         if (record == null) {
             return;
         }
 
         String objectApiName = record.getSObjectType().getDescribe().getName();
-        String preferredDeveloperName = getPreferredRecordTypeDeveloperName(objectApiName);
+        String preferredDeveloperName = getPreferredRecordTypeDeveloperName(
+            objectApiName,
+            DEFAULT_TARGET_RECORD_TYPE_BY_OBJECT
+        );
+        if (String.isBlank(preferredDeveloperName)) {
+            return;
+        }
+
+        applyRecordTypeByDeveloperName(record, preferredDeveloperName);
+    }
+
+    public static void applyDefaultRelatedRecordType(SObject record) {
+        if (record == null) {
+            return;
+        }
+
+        String objectApiName = record.getSObjectType().getDescribe().getName();
+        String preferredDeveloperName = getPreferredRecordTypeDeveloperName(
+            objectApiName,
+            DEFAULT_RELATED_RECORD_TYPE_BY_OBJECT
+        );
         if (String.isBlank(preferredDeveloperName)) {
             return;
         }
@@ -41,19 +66,31 @@ public without sharing class PublicApiRecordTypeService {
 
     @TestVisible
     static String getPreferredRecordTypeDeveloperName(String objectApiName) {
+        return getPreferredRecordTypeDeveloperName(objectApiName, DEFAULT_TARGET_RECORD_TYPE_BY_OBJECT);
+    }
+
+    @TestVisible
+    static String getPreferredRecordTypeDeveloperName(
+        String objectApiName,
+        Map<String, String> defaultsByObject
+    ) {
         if (String.isBlank(objectApiName)) {
             return null;
         }
 
-        if (DEFAULT_RECORD_TYPE_BY_OBJECT.containsKey(objectApiName)) {
-            return DEFAULT_RECORD_TYPE_BY_OBJECT.get(objectApiName);
+        if (defaultsByObject == null || defaultsByObject.isEmpty()) {
+            return null;
+        }
+
+        if (defaultsByObject.containsKey(objectApiName)) {
+            return defaultsByObject.get(objectApiName);
         }
 
         String normalizedObjectApiName = objectApiName.trim().toLowerCase();
-        for (String candidateObjectApiName : DEFAULT_RECORD_TYPE_BY_OBJECT.keySet()) {
+        for (String candidateObjectApiName : defaultsByObject.keySet()) {
             if (candidateObjectApiName != null &&
                 candidateObjectApiName.toLowerCase() == normalizedObjectApiName) {
-                return DEFAULT_RECORD_TYPE_BY_OBJECT.get(candidateObjectApiName);
+                return defaultsByObject.get(candidateObjectApiName);
             }
         }
         return null;
