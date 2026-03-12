@@ -30,6 +30,7 @@ public without sharing class PublicApiConfigService {
         public String outboundPayloadConfiguration;
         public String relatedRecordConfiguration;
         public String targetObjectApiName;
+        public String targetRecordTypeDeveloperName;
         public Boolean syncInboundAndOutbound;
         public String outboundRemoteSiteDomain;
         public String outboundRemoteSiteName;
@@ -112,6 +113,9 @@ public without sharing class PublicApiConfigService {
         c.targetObjectApiName = String.isBlank(setting.Target_Object_API_Name__c)
             ? DEFAULT_SUBMISSION_OBJECT_API_NAME
             : setting.Target_Object_API_Name__c.trim();
+        c.targetRecordTypeDeveloperName = String.isBlank(setting.Target_Record_Type_Developer_Name__c)
+            ? null
+            : setting.Target_Record_Type_Developer_Name__c.trim();
         c.syncInboundAndOutbound = setting.Sync_Inbound_And_Outbound__c == null
             ? true
             : setting.Sync_Inbound_And_Outbound__c;

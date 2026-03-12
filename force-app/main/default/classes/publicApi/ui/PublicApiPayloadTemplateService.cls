@@ -44,6 +44,10 @@ public without sharing class PublicApiPayloadTemplateService {
         return objectApiNames;
     }
 
+    public static List<String> getAvailableRecordTypeDeveloperNames(String objectApiName) {
+        return PublicApiRecordTypeService.getAvailableRecordTypeDeveloperNames(objectApiName);
+    }
+
     public static List<String> getAvailableFieldReferences(String objectApiName, Boolean inboundMode) {
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
         if (String.isBlank(objectApiName)) {
@@ -133,6 +137,73 @@ public without sharing class PublicApiPayloadTemplateService {
                 fieldNames.add(describe.getName());
             }
         }
+        fieldNames.sort();
+        return fieldNames;
+    }
+
+    public static List<String> getAvailableRelatedObjectApiNames(String objectApiName) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        Set<String> objectApiNames = new Set<String>();
+        for (Schema.SObjectField fieldToken : objectType.getDescribe().fields.getMap().values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (!isUsableLookupField(describe)) {
+                continue;
+            }
+
+            for (Schema.SObjectType relatedType : describe.getReferenceTo()) {
+                if (relatedType == null) {
+                    continue;
+                }
+                Schema.DescribeSObjectResult relatedDescribe = relatedType.getDescribe();
+                if (!isUsableTargetObject(relatedDescribe)) {
+                    continue;
+                }
+                objectApiNames.add(relatedDescribe.getName());
+            }
+        }
+
+        List<String> results = new List<String>(objectApiNames);
+        results.sort();
+        return results;
+    }
+
+    public static List<String> getAvailableLookupFieldNamesForRelatedObject(
+        String objectApiName,
+        String relatedObjectApiName
+    ) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        Schema.SObjectType relatedObjectType = resolveSObjectType(relatedObjectApiName, Schema.getGlobalDescribe());
+        if (objectType == null || relatedObjectType == null) {
+            return new List<String>();
+        }
+
+        String canonicalRelatedObjectApiName = relatedObjectType.getDescribe().getName();
+        List<String> fieldNames = new List<String>();
+        for (Schema.SObjectField fieldToken : objectType.getDescribe().fields.getMap().values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (!isUsableLookupField(describe)) {
+                continue;
+            }
+
+            for (Schema.SObjectType referenceType : describe.getReferenceTo()) {
+                if (referenceType == null) {
+                    continue;
+                }
+                Schema.DescribeSObjectResult referenceDescribe = referenceType.getDescribe();
+                if (!isUsableTargetObject(referenceDescribe)) {
+                    continue;
+                }
+                if (referenceDescribe.getName() == canonicalRelatedObjectApiName) {
+                    fieldNames.add(describe.getName());
+                    break;
+                }
+            }
+        }
+
         fieldNames.sort();
         return fieldNames;
     }

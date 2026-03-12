@@ -92,13 +92,13 @@ private class PublicApiPayloadTemplateServiceTest {
             'PublicApi_Submission__c'
         );
         System.assertNotEquals(null, lookupFields);
-        if (!lookupFields.isEmpty()) {
-            List<String> lookupTargets = PublicApiPayloadTemplateService.getAvailableLookupTargetObjectApiNames(
-                'PublicApi_Submission__c',
-                lookupFields[0]
-            );
-            System.assertEquals(true, lookupTargets.size() > 0);
-        }
+        List<String> relatedObjects = PublicApiPayloadTemplateService.getAvailableRelatedObjectApiNames('Task');
+        System.assertEquals(true, relatedObjects.size() > 0);
+        System.assertEquals(true, relatedObjects.contains('Account'));
+
+        List<String> taskLookupFields =
+            PublicApiPayloadTemplateService.getAvailableLookupFieldNamesForRelatedObject('Task', 'Account');
+        System.assertEquals(true, taskLookupFields.contains('WhatId'));
 
         List<String> matchFields = PublicApiPayloadTemplateService.getAvailableMatchFieldNames('Account');
         System.assertEquals(true, matchFields.contains('Name'));

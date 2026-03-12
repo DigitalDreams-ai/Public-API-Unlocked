@@ -90,6 +90,7 @@ public without sharing class PublicApiRelatedRecordService {
         public String matchFieldApiName;
         public String sourceKey;
         public Boolean createIfMissing;
+        public String createRecordTypeDeveloperName;
         public String multiMatchPolicy;
         public List<PublicApiRelatedRecordConfig.CreateFieldMapping> createMappings;
         public Schema.DescribeFieldResult matchFieldDescribe;
@@ -272,6 +273,17 @@ public without sharing class PublicApiRelatedRecordService {
                 }
             }
         }
+
+        if (String.isNotBlank(rule.createRecordTypeDeveloperName) &&
+            PublicApiRecordTypeService.getRecordTypeId(
+                relatedObjectType,
+                rule.createRecordTypeDeveloperName
+            ) == null) {
+            throw new PublicApiIntakeServiceException(
+                'Unknown related create record type on ' + canonicalRelatedObjectApiName + ': ' +
+                rule.createRecordTypeDeveloperName
+            );
+        }
     }
 
     private static ResolvedRule resolveRule(PublicApiRelatedRecordConfig.Rule rule, SObject targetRecord) {
@@ -289,6 +301,9 @@ public without sharing class PublicApiRelatedRecordService {
         resolved.matchFieldApiName = resolveFieldApiName(rule.matchFieldName, relatedFieldMap);
         resolved.sourceKey = rule.sourceKey.trim();
         resolved.createIfMissing = rule.createIfMissing == true;
+        resolved.createRecordTypeDeveloperName = String.isBlank(rule.createRecordTypeDeveloperName)
+            ? null
+            : rule.createRecordTypeDeveloperName.trim();
         resolved.multiMatchPolicy = String.isBlank(rule.onMultipleMatches)
             ? DEFAULT_MULTI_MATCH_POLICY
             : rule.onMultipleMatches.trim();
@@ -333,7 +348,7 @@ public without sharing class PublicApiRelatedRecordService {
         Object rawMatchValue
     ) {
         SObject relatedRecord = Schema.getGlobalDescribe().get(rule.relatedObjectApiName).newSObject();
-        PublicApiRecordTypeService.applyDefaultRelatedRecordType(relatedRecord);
+        PublicApiRecordTypeService.applyRelatedRecordType(relatedRecord, rule.createRecordTypeDeveloperName);
         Set<String> assignedFieldApiNames = new Set<String>();
         for (PublicApiRelatedRecordConfig.CreateFieldMapping mapping : rule.createMappings) {
             if (mapping == null || String.isBlank(mapping.sourceKey) || String.isBlank(mapping.fieldName)) {

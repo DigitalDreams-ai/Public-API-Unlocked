@@ -32,7 +32,7 @@ public without sharing class PublicApiIntakeService {
         String deferredRelatedRecordConfiguration =
             PublicApiRelatedRecordService.getDeferredRulesJson(config.relatedRecordConfiguration);
         SObject submission = globalDescribe.get(targetObjectApiName).newSObject();
-        PublicApiRecordTypeService.applyDefaultTargetRecordType(submission);
+        PublicApiRecordTypeService.applyTargetRecordType(submission, config.targetRecordTypeDeveloperName);
         PublicApiRequestMappingService.applyInboundMappings(
             submission,
             payload,

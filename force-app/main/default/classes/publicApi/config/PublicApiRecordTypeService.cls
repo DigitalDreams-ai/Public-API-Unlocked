@@ -10,14 +10,15 @@ public without sharing class PublicApiRecordTypeService {
         'Account' => 'Individual'
     };
 
-    public static void applyDefaultTargetRecordType(SObject record) {
+    public static void applyTargetRecordType(SObject record, String configuredDeveloperName) {
         if (record == null) {
             return;
         }
 
         String objectApiName = record.getSObjectType().getDescribe().getName();
-        String preferredDeveloperName = getPreferredRecordTypeDeveloperName(
+        String preferredDeveloperName = getEffectiveRecordTypeDeveloperName(
             objectApiName,
+            configuredDeveloperName,
             DEFAULT_TARGET_RECORD_TYPE_BY_OBJECT
         );
         if (String.isBlank(preferredDeveloperName)) {
@@ -27,14 +28,15 @@ public without sharing class PublicApiRecordTypeService {
         applyRecordTypeByDeveloperName(record, preferredDeveloperName);
     }
 
-    public static void applyDefaultRelatedRecordType(SObject record) {
+    public static void applyRelatedRecordType(SObject record, String configuredDeveloperName) {
         if (record == null) {
             return;
         }
 
         String objectApiName = record.getSObjectType().getDescribe().getName();
-        String preferredDeveloperName = getPreferredRecordTypeDeveloperName(
+        String preferredDeveloperName = getEffectiveRecordTypeDeveloperName(
             objectApiName,
+            configuredDeveloperName,
             DEFAULT_RELATED_RECORD_TYPE_BY_OBJECT
         );
         if (String.isBlank(preferredDeveloperName)) {
@@ -42,6 +44,23 @@ public without sharing class PublicApiRecordTypeService {
         }
 
         applyRecordTypeByDeveloperName(record, preferredDeveloperName);
+    }
+
+    public static List<String> getAvailableRecordTypeDeveloperNames(String objectApiName) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName);
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        List<String> developerNames = new List<String>();
+        for (Schema.RecordTypeInfo recordTypeInfo :
+            objectType.getDescribe().getRecordTypeInfosByDeveloperName().values()) {
+            if (recordTypeInfo != null && recordTypeInfo.isActive()) {
+                developerNames.add(recordTypeInfo.getDeveloperName());
+            }
+        }
+        developerNames.sort();
+        return developerNames;
     }
 
     @TestVisible
@@ -65,8 +84,49 @@ public without sharing class PublicApiRecordTypeService {
     }
 
     @TestVisible
-    static String getPreferredRecordTypeDeveloperName(String objectApiName) {
+    static String getDefaultTargetRecordTypeDeveloperName(String objectApiName) {
         return getPreferredRecordTypeDeveloperName(objectApiName, DEFAULT_TARGET_RECORD_TYPE_BY_OBJECT);
+    }
+
+    @TestVisible
+    static String getDefaultRelatedRecordTypeDeveloperName(String objectApiName) {
+        return getPreferredRecordTypeDeveloperName(objectApiName, DEFAULT_RELATED_RECORD_TYPE_BY_OBJECT);
+    }
+
+    @TestVisible
+    static String getEffectiveTargetRecordTypeDeveloperName(
+        String objectApiName,
+        String configuredDeveloperName
+    ) {
+        return getEffectiveRecordTypeDeveloperName(
+            objectApiName,
+            configuredDeveloperName,
+            DEFAULT_TARGET_RECORD_TYPE_BY_OBJECT
+        );
+    }
+
+    @TestVisible
+    static String getEffectiveRelatedRecordTypeDeveloperName(
+        String objectApiName,
+        String configuredDeveloperName
+    ) {
+        return getEffectiveRecordTypeDeveloperName(
+            objectApiName,
+            configuredDeveloperName,
+            DEFAULT_RELATED_RECORD_TYPE_BY_OBJECT
+        );
+    }
+
+    @TestVisible
+    static String getEffectiveRecordTypeDeveloperName(
+        String objectApiName,
+        String configuredDeveloperName,
+        Map<String, String> defaultsByObject
+    ) {
+        if (String.isNotBlank(configuredDeveloperName)) {
+            return configuredDeveloperName.trim();
+        }
+        return getPreferredRecordTypeDeveloperName(objectApiName, defaultsByObject);
     }
 
     @TestVisible
@@ -97,7 +157,28 @@ public without sharing class PublicApiRecordTypeService {
     }
 
     @TestVisible
-    static Id getRecordTypeId(Schema.SObjectType objectType, String developerName) {
+    static Schema.SObjectType resolveSObjectType(String objectApiName) {
+        if (String.isBlank(objectApiName)) {
+            return null;
+        }
+
+        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+        if (globalDescribe.containsKey(objectApiName)) {
+            return globalDescribe.get(objectApiName);
+        }
+
+        String normalizedObjectApiName = objectApiName.trim().toLowerCase();
+        for (String candidateObjectApiName : globalDescribe.keySet()) {
+            if (candidateObjectApiName != null &&
+                candidateObjectApiName.toLowerCase() == normalizedObjectApiName) {
+                return globalDescribe.get(candidateObjectApiName);
+            }
+        }
+        return null;
+    }
+
+    @TestVisible
+    public static Id getRecordTypeId(Schema.SObjectType objectType, String developerName) {
         if (objectType == null || String.isBlank(developerName)) {
             return null;
         }

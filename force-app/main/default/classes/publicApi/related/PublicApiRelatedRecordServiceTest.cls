@@ -87,6 +87,34 @@ private class PublicApiRelatedRecordServiceTest {
     }
 
     @IsTest
+    static void testApplyRelatedRecordRulesUsesConfiguredRelatedRecordTypeWhenAvailable() {
+        Id businessRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Business');
+        if (businessRecordTypeId == null) {
+            System.assertEquals(null, businessRecordTypeId);
+            return;
+        }
+
+        Contact target = new Contact(LastName = 'Configured');
+        Map<String, Object> payload = new Map<String, Object>{
+            'accountName' => 'Configured Related Account',
+            'accountLastName' => 'Configured Related Account'
+        };
+
+        PublicApiRelatedRecordService.applyRelatedRecordRules(
+            target,
+            payload,
+            '[' +
+                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '"sourceKey":"accountName","createIfMissing":true,"createRecordTypeDeveloperName":"Business",' +
+                '"onMultipleMatches":"Error"}' +
+            ']'
+        );
+
+        Account created = [SELECT Id, RecordTypeId FROM Account WHERE Id = :target.AccountId];
+        System.assertEquals(businessRecordTypeId, created.RecordTypeId);
+    }
+
+    @IsTest
     static void testApplyRelatedRecordRulesUsesOldestMatchWhenConfigured() {
         Account oldestAccount = createAccount('Duplicate Match');
         insert oldestAccount;
@@ -190,6 +218,23 @@ private class PublicApiRelatedRecordServiceTest {
             System.assert(false, 'Expected unsupported multiple match policy to be rejected.');
         } catch (PublicApiIntakeServiceException e) {
             System.assert(e.getMessage().contains('Unsupported related record multiple match policy'));
+        }
+    }
+
+    @IsTest
+    static void testValidateRulesRejectsUnknownCreateRecordType() {
+        try {
+            PublicApiRelatedRecordService.validateRules(
+                '[' +
+                    '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                    '"sourceKey":"accountName","createIfMissing":true,"createRecordTypeDeveloperName":"DoesNotExist",' +
+                    '"onMultipleMatches":"Error"}' +
+                ']',
+                'Contact'
+            );
+            System.assert(false, 'Expected unknown related record type to be rejected.');
+        } catch (PublicApiIntakeServiceException e) {
+            System.assert(e.getMessage().contains('Unknown related create record type'));
         }
     }
 
