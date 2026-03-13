@@ -1,29 +1,10 @@
 @IsTest
 private class PublicApiRecordTypeServiceTest {
     @IsTest
-    static void testPreferredRecordTypeDeveloperNames() {
-        System.assertEquals('Individual', PublicApiRecordTypeService.getDefaultTargetRecordTypeDeveloperName('Account'));
-        System.assertEquals(
-            'Lead_Intake',
-            PublicApiRecordTypeService.getDefaultTargetRecordTypeDeveloperName('litify_pm__Intake__c')
-        );
-        System.assertEquals(null, PublicApiRecordTypeService.getDefaultTargetRecordTypeDeveloperName('Task'));
-    }
-
-    @IsTest
-    static void testApplyDefaultRecordTypeDoesNotThrowForObjectsWithoutDefaults() {
-        Task taskRecord = new Task(Subject = 'No Default');
-        PublicApiRecordTypeService.applyTargetRecordType(taskRecord, null);
-        System.assertEquals(null, taskRecord.get('RecordTypeId'));
-    }
-
-    @IsTest
-    static void testApplyTargetRecordTypeUsesDefaultWhenConfigIsBlank() {
+    static void testApplyTargetRecordTypeDoesNothingWhenConfigIsBlank() {
         Account accountRecord = new Account(Name = 'Record Type Test');
         PublicApiRecordTypeService.applyTargetRecordType(accountRecord, null);
-
-        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
-        System.assertEquals(expectedRecordTypeId, accountRecord.RecordTypeId);
+        System.assertEquals(null, accountRecord.RecordTypeId);
     }
 
     @IsTest
@@ -41,15 +22,15 @@ private class PublicApiRecordTypeServiceTest {
 
     @IsTest
     static void testApplyTargetRecordTypeDoesNotOverrideExistingRecordType() {
-        Account accountRecord = new Account(Name = 'Existing Record Type');
-        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Business');
         if (expectedRecordTypeId == null) {
-            System.assertEquals(null, accountRecord.RecordTypeId);
+            System.assertEquals(null, expectedRecordTypeId);
             return;
         }
 
+        Account accountRecord = new Account(Name = 'Existing Record Type');
         accountRecord.RecordTypeId = expectedRecordTypeId;
-        PublicApiRecordTypeService.applyTargetRecordType(accountRecord, 'Business');
+        PublicApiRecordTypeService.applyTargetRecordType(accountRecord, 'Individual');
         System.assertEquals(expectedRecordTypeId, accountRecord.RecordTypeId);
     }
 
@@ -67,11 +48,10 @@ private class PublicApiRecordTypeServiceTest {
     }
 
     @IsTest
-    static void testApplyRelatedRecordTypeFallsBackToDefaultWhenConfigBlank() {
+    static void testApplyRelatedRecordTypeDoesNothingWhenConfigIsBlank() {
         Account accountRecord = new Account(Name = 'Related Record Type Test');
         PublicApiRecordTypeService.applyRelatedRecordType(accountRecord, null);
-        Id expectedIndividualRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
-        System.assertEquals(expectedIndividualRecordTypeId, accountRecord.RecordTypeId);
+        System.assertEquals(null, accountRecord.RecordTypeId);
     }
 
     @IsTest

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Provisioning_Failures</fullName>
+    <columns>NAME</columns>
+    <columns>Is_Active__c</columns>
+    <columns>Target_Object_API_Name__c</columns>
+    <columns>Outbound_Webhook_URL__c</columns>
+    <columns>Outbound_Remote_Site_Status__c</columns>
+    <columns>Outbound_Remote_Site_Domain__c</columns>
+    <columns>Outbound_Remote_Site_Name__c</columns>
+    <columns>Outbound_Remote_Site_Last_Provisioned_At__c</columns>
+    <columns>Outbound_Remote_Site_Last_Error__c</columns>
+    <columns>CREATED_DATE</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Outbound_Remote_Site_Status__c</field>
+        <operation>equals</operation>
+        <value>Failed</value>
+    </filters>
+    <label>Provisioning Failures</label>
+</ListView>

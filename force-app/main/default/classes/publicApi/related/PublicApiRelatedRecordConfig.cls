@@ -15,52 +15,44 @@ public class PublicApiRelatedRecordConfig {
         @AuraEnabled public String fieldName;
     }
 
-    public static List<Rule> parseRules(String relatedRecordConfigurationJson) {
-        List<Rule> rules = new List<Rule>();
+    public static Rule parseRule(String relatedRecordConfigurationJson) {
         if (String.isBlank(relatedRecordConfigurationJson)) {
-            return rules;
+            return null;
         }
 
         Object parsed = JSON.deserializeUntyped(relatedRecordConfigurationJson);
-        if (!(parsed instanceof List<Object>)) {
-            throw new PublicApiIntakeServiceException(
-                'Related record configuration must be a JSON array of rule rows.'
-            );
+        if (parsed instanceof Map<String, Object>) {
+            return fromMap((Map<String, Object>) parsed);
         }
 
-        for (Object entry : (List<Object>) parsed) {
-            if (!(entry instanceof Map<String, Object>)) {
-                continue;
-            }
-
-            Rule rule = fromMap((Map<String, Object>) entry);
-            if (rule != null) {
-                rules.add(rule);
-            }
-        }
-        return rules;
+        throw new PublicApiIntakeServiceException(
+            'Related record configuration must be a JSON object representing a single rule.'
+        );
     }
 
     public static Set<String> getConfiguredSourceKeys(String relatedRecordConfigurationJson) {
         Set<String> keys = new Set<String>();
-        for (Rule rule : parseRules(relatedRecordConfigurationJson)) {
-            if (String.isNotBlank(rule.sourceKey)) {
-                keys.add(rule.sourceKey.trim());
-            }
-            if (rule.createMappings == null) {
-                continue;
-            }
-            for (CreateFieldMapping mapping : rule.createMappings) {
-                if (mapping != null && String.isNotBlank(mapping.sourceKey)) {
-                    keys.add(mapping.sourceKey.trim());
-                }
+        Rule rule = parseRule(relatedRecordConfigurationJson);
+        if (rule == null) {
+            return keys;
+        }
+
+        if (String.isNotBlank(rule.sourceKey)) {
+            keys.add(rule.sourceKey.trim());
+        }
+        if (rule.createMappings == null) {
+            return keys;
+        }
+        for (CreateFieldMapping mapping : rule.createMappings) {
+            if (mapping != null && String.isNotBlank(mapping.sourceKey)) {
+                keys.add(mapping.sourceKey.trim());
             }
         }
         return keys;
     }
 
-    public static String serializeRules(List<Rule> rules) {
-        return (rules == null || rules.isEmpty()) ? null : JSON.serialize(rules);
+    public static String serializeRule(Rule rule) {
+        return isConfigured(rule) ? JSON.serialize(rule) : null;
     }
 
     private static Rule fromMap(Map<String, Object> entry) {
@@ -87,6 +79,16 @@ public class PublicApiRelatedRecordConfig {
             return null;
         }
         return rule;
+    }
+
+    private static Boolean isConfigured(Rule rule) {
+        return rule != null &&
+            (!String.isBlank(rule.targetLookupField) ||
+             !String.isBlank(rule.relatedObjectApiName) ||
+             !String.isBlank(rule.matchFieldName) ||
+             !String.isBlank(rule.sourceKey) ||
+             !String.isBlank(rule.createRecordTypeDeveloperName) ||
+             (rule.createMappings != null && !rule.createMappings.isEmpty()));
     }
 
     private static List<CreateFieldMapping> parseCreateMappings(Object rawMappings) {

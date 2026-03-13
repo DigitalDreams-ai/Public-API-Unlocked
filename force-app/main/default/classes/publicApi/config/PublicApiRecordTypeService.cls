@@ -1,31 +1,14 @@
 public without sharing class PublicApiRecordTypeService {
-    @TestVisible
-    static final Map<String, String> DEFAULT_TARGET_RECORD_TYPE_BY_OBJECT = new Map<String, String>{
-        'Account' => 'Individual',
-        'litify_pm__Intake__c' => 'Lead_Intake'
-    };
-
-    @TestVisible
-    static final Map<String, String> DEFAULT_RELATED_RECORD_TYPE_BY_OBJECT = new Map<String, String>{
-        'Account' => 'Individual'
-    };
-
     public static void applyTargetRecordType(SObject record, String configuredDeveloperName) {
         if (record == null) {
             return;
         }
 
-        String objectApiName = record.getSObjectType().getDescribe().getName();
-        String preferredDeveloperName = getEffectiveRecordTypeDeveloperName(
-            objectApiName,
-            configuredDeveloperName,
-            DEFAULT_TARGET_RECORD_TYPE_BY_OBJECT
-        );
-        if (String.isBlank(preferredDeveloperName)) {
+        if (String.isBlank(configuredDeveloperName)) {
             return;
         }
 
-        applyRecordTypeByDeveloperName(record, preferredDeveloperName);
+        applyRecordTypeByDeveloperName(record, configuredDeveloperName.trim());
     }
 
     public static void applyRelatedRecordType(SObject record, String configuredDeveloperName) {
@@ -33,17 +16,11 @@ public without sharing class PublicApiRecordTypeService {
             return;
         }
 
-        String objectApiName = record.getSObjectType().getDescribe().getName();
-        String preferredDeveloperName = getEffectiveRecordTypeDeveloperName(
-            objectApiName,
-            configuredDeveloperName,
-            DEFAULT_RELATED_RECORD_TYPE_BY_OBJECT
-        );
-        if (String.isBlank(preferredDeveloperName)) {
+        if (String.isBlank(configuredDeveloperName)) {
             return;
         }
 
-        applyRecordTypeByDeveloperName(record, preferredDeveloperName);
+        applyRecordTypeByDeveloperName(record, configuredDeveloperName.trim());
     }
 
     public static List<String> getAvailableRecordTypeDeveloperNames(String objectApiName) {
@@ -81,79 +58,6 @@ public without sharing class PublicApiRecordTypeService {
         if (recordTypeId != null) {
             record.put('RecordTypeId', recordTypeId);
         }
-    }
-
-    @TestVisible
-    static String getDefaultTargetRecordTypeDeveloperName(String objectApiName) {
-        return getPreferredRecordTypeDeveloperName(objectApiName, DEFAULT_TARGET_RECORD_TYPE_BY_OBJECT);
-    }
-
-    @TestVisible
-    static String getDefaultRelatedRecordTypeDeveloperName(String objectApiName) {
-        return getPreferredRecordTypeDeveloperName(objectApiName, DEFAULT_RELATED_RECORD_TYPE_BY_OBJECT);
-    }
-
-    @TestVisible
-    static String getEffectiveTargetRecordTypeDeveloperName(
-        String objectApiName,
-        String configuredDeveloperName
-    ) {
-        return getEffectiveRecordTypeDeveloperName(
-            objectApiName,
-            configuredDeveloperName,
-            DEFAULT_TARGET_RECORD_TYPE_BY_OBJECT
-        );
-    }
-
-    @TestVisible
-    static String getEffectiveRelatedRecordTypeDeveloperName(
-        String objectApiName,
-        String configuredDeveloperName
-    ) {
-        return getEffectiveRecordTypeDeveloperName(
-            objectApiName,
-            configuredDeveloperName,
-            DEFAULT_RELATED_RECORD_TYPE_BY_OBJECT
-        );
-    }
-
-    @TestVisible
-    static String getEffectiveRecordTypeDeveloperName(
-        String objectApiName,
-        String configuredDeveloperName,
-        Map<String, String> defaultsByObject
-    ) {
-        if (String.isNotBlank(configuredDeveloperName)) {
-            return configuredDeveloperName.trim();
-        }
-        return getPreferredRecordTypeDeveloperName(objectApiName, defaultsByObject);
-    }
-
-    @TestVisible
-    static String getPreferredRecordTypeDeveloperName(
-        String objectApiName,
-        Map<String, String> defaultsByObject
-    ) {
-        if (String.isBlank(objectApiName)) {
-            return null;
-        }
-
-        if (defaultsByObject == null || defaultsByObject.isEmpty()) {
-            return null;
-        }
-
-        if (defaultsByObject.containsKey(objectApiName)) {
-            return defaultsByObject.get(objectApiName);
-        }
-
-        String normalizedObjectApiName = objectApiName.trim().toLowerCase();
-        for (String candidateObjectApiName : defaultsByObject.keySet()) {
-            if (candidateObjectApiName != null &&
-                candidateObjectApiName.toLowerCase() == normalizedObjectApiName) {
-                return defaultsByObject.get(candidateObjectApiName);
-            }
-        }
-        return null;
     }
 
     @TestVisible

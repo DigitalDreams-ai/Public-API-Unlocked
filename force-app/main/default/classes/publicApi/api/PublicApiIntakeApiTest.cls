@@ -19,6 +19,8 @@ private class PublicApiIntakeApiTest {
         RestRequest req = new RestRequest();
         req.requestURI = '/services/apexrest/v1/publicapi/submissions';
         req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'application/json');
+        req.headers.put('Content-Type', 'application/json');
         req.requestBody = Blob.valueOf(JSON.serialize(payload));
         req.headers.put('x-api-key', 'api-test-key-1');
 
@@ -40,7 +42,12 @@ private class PublicApiIntakeApiTest {
                    PublicApi_Integration_Config__c,
                    Received_At__c,
                    Raw_Payload__c,
-                   Status__c
+                   Request_Content_Type__c,
+                   Target_Object_API_Name__c,
+                   Target_Record_Id__c,
+                   Processing_Status__c,
+                   Related_Record_Status__c,
+                   Effective_Config_JSON__c
             FROM PublicApi_Submission__c
             WHERE Id = :recordId
         ];
@@ -48,7 +55,12 @@ private class PublicApiIntakeApiTest {
         System.assertEquals(config.Id, created.PublicApi_Integration_Config__c);
         System.assertNotEquals(null, created.Received_At__c);
         System.assert(String.isNotBlank(created.Raw_Payload__c));
-        System.assertEquals('New', created.Status__c);
+        System.assertEquals('application/json', created.Request_Content_Type__c);
+        System.assertEquals('PublicApi_Submission__c', created.Target_Object_API_Name__c);
+        System.assertEquals(String.valueOf(recordId), created.Target_Record_Id__c);
+        System.assertEquals(PublicApiIntakeService.AUDIT_STATUS_SUCCEEDED, created.Processing_Status__c);
+        System.assertEquals(PublicApiIntakeService.RELATED_STATUS_NOT_CONFIGURED, created.Related_Record_Status__c);
+        System.assert(String.isNotBlank(created.Effective_Config_JSON__c));
     }
 
     @IsTest
@@ -250,10 +262,10 @@ private class PublicApiIntakeApiTest {
                 '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
             Target_Object_API_Name__c = 'Task',
             Related_Record_Configuration__c =
-                '[' +
-                    '{"targetLookupField":"NotARealLookup__c","relatedObjectApiName":"Account",' +
-                    '"matchFieldName":"Name","sourceKey":"accountName","createIfMissing":false}' +
-                ']'
+                '{' +
+                    '"targetLookupField":"NotARealLookup__c","relatedObjectApiName":"Account",' +
+                    '"matchFieldName":"Name","sourceKey":"accountName","createIfMissing":false' +
+                '}'
         );
         insert config;
 
@@ -274,7 +286,7 @@ private class PublicApiIntakeApiTest {
     }
 
     @IsTest
-    static void testCreateSubmissionRejectsUnsupportedTaskLeadAndAccountRelatedRecordCombination() {
+    static void testCreateSubmissionRejectsLegacyArrayRelatedRecordConfiguration() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-7c',
@@ -283,10 +295,8 @@ private class PublicApiIntakeApiTest {
             Target_Object_API_Name__c = 'Task',
             Related_Record_Configuration__c =
                 '[' +
-                    '{"targetLookupField":"WhoId","relatedObjectApiName":"Lead","matchFieldName":"Email",' +
-                    '"sourceKey":"email","createIfMissing":false,"onMultipleMatches":"Error"},' +
-                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"litify_pm__Email__c",' +
-                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"}' +
+                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                    '"sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error"}' +
                 ']'
         );
         insert config;
@@ -294,7 +304,7 @@ private class PublicApiIntakeApiTest {
         RestRequest req = new RestRequest();
         req.requestURI = '/services/apexrest/v1/publicapi/submissions';
         req.httpMethod = 'POST';
-        req.requestBody = Blob.valueOf('{"subject":"Unsupported Related Combination","email":"combo@example.com"}');
+        req.requestBody = Blob.valueOf('{"subject":"Legacy Array Related Rule","accountName":"Legacy Array Account"}');
         req.headers.put('x-api-key', 'api-test-key-7c');
 
         RestResponse res = new RestResponse();
@@ -303,10 +313,8 @@ private class PublicApiIntakeApiTest {
 
         PublicApiIntakeApi.createSubmission();
         System.assertEquals(400, res.statusCode);
-        System.assert(
-            res.responseBody.toString().contains('cannot combine Lead on WhoId with Account on WhatId')
-        );
-        System.assertEquals(0, [SELECT Count() FROM Task WHERE Subject = 'Unsupported Related Combination']);
+        System.assert(res.responseBody.toString().contains('Related record configuration must be a JSON object'));
+        System.assertEquals(0, [SELECT Count() FROM Task WHERE Subject = 'Legacy Array Related Rule']);
     }
 
     @IsTest
@@ -341,11 +349,12 @@ private class PublicApiIntakeApiTest {
         Id recordId = (Id) response.get('recordId');
         Account created = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :recordId];
         System.assertEquals('Acme Public API', created.Name);
-        Id expectedRecordTypeId = String.isBlank(configuredRecordTypeDeveloperName)
-            ? PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual')
-            : PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, configuredRecordTypeDeveloperName);
-        if (expectedRecordTypeId != null) {
-            System.assertEquals(expectedRecordTypeId, created.RecordTypeId);
+        if (!String.isBlank(configuredRecordTypeDeveloperName)) {
+            Id expectedRecordTypeId =
+                PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, configuredRecordTypeDeveloperName);
+            if (expectedRecordTypeId != null) {
+                System.assertEquals(expectedRecordTypeId, created.RecordTypeId);
+            }
         }
     }
 
@@ -366,11 +375,10 @@ private class PublicApiIntakeApiTest {
                     '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}' +
                 ']',
             Related_Record_Configuration__c =
-                '[' +
-                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '{' +
+                    '"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
                     '"sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error"' +
-                    createMappingsJson + '}' +
-                ']'
+                    createMappingsJson + '}'
         );
         insert config;
 
@@ -399,7 +407,6 @@ private class PublicApiIntakeApiTest {
 
         Account related = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :created.WhatId];
         System.assertEquals('Resolved Account', related.Name);
-        assertAccountRecordTypeWasNotForcedToIndividual(related.RecordTypeId);
     }
 
     @IsTest
@@ -413,10 +420,10 @@ private class PublicApiIntakeApiTest {
                     '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}' +
                 ']',
             Related_Record_Configuration__c =
-                '[' +
-                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"}' +
-                ']'
+                '{' +
+                    '"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"' +
+                '}'
         );
         insert config;
 
@@ -448,7 +455,6 @@ private class PublicApiIntakeApiTest {
         if (accountLastNameFieldName != null) {
             System.assertEquals('Fox', related.get(accountLastNameFieldName));
         }
-        assertAccountRecordTypeWasNotForcedToIndividual((Id) related.get('RecordTypeId'));
     }
 
     private static String getAccountLastNameFieldName() {
@@ -489,8 +495,4 @@ private class PublicApiIntakeApiTest {
         );
     }
 
-    private static void assertAccountRecordTypeWasNotForcedToIndividual(Id actualRecordTypeId) {
-        Id individualRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
-        System.assertEquals(individualRecordTypeId, actualRecordTypeId);
-    }
 }

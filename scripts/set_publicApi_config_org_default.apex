@@ -3,12 +3,7 @@ String defaultApiKey = 'dev-publicApi-api-key';
 List<PublicApi_Integration_Config__c> existing = [
     SELECT Id,
            API_Key__c,
-           Is_Active__c,
-           Target_Object_API_Name__c,
-           Sync_Inbound_And_Outbound__c,
-           Outbound_Trigger_Field_Name__c,
-           Outbound_Trigger_Field_Values__c,
-           Outbound_Trigger_Enabled__c
+           Is_Active__c
     FROM PublicApi_Integration_Config__c
     WHERE Is_Active__c = true
     ORDER BY CreatedDate DESC
@@ -22,41 +17,16 @@ if (!existing.isEmpty()) {
         config.API_Key__c = defaultApiKey;
         shouldUpdate = true;
     }
-    if (String.isBlank(config.Target_Object_API_Name__c)) {
-        config.Target_Object_API_Name__c = 'PublicApi_Submission__c';
-        shouldUpdate = true;
-    }
-    if (config.Sync_Inbound_And_Outbound__c == null) {
-        config.Sync_Inbound_And_Outbound__c = true;
-        shouldUpdate = true;
-    }
-    if (config.Outbound_Trigger_Enabled__c == null) {
-        config.Outbound_Trigger_Enabled__c = true;
-        shouldUpdate = true;
-    }
-    if (String.isBlank(config.Outbound_Trigger_Field_Name__c)) {
-        config.Outbound_Trigger_Field_Name__c = 'Status__c';
-        shouldUpdate = true;
-    }
-    if (String.isBlank(config.Outbound_Trigger_Field_Values__c)) {
-        config.Outbound_Trigger_Field_Values__c = 'Referred Out,Converted';
-        shouldUpdate = true;
-    }
     if (shouldUpdate) {
         update config;
-        System.debug('Public API Integration Config: Updated active config defaults.');
+        System.debug('Public API Integration Config: Updated active config bootstrap values.');
     } else {
-        System.debug('Public API Integration Config: Active config already has API key and object defaults.');
+        System.debug('Public API Integration Config: Active config already has the required bootstrap values.');
     }
 } else {
     insert new PublicApi_Integration_Config__c(
         Is_Active__c = true,
-        API_Key__c = defaultApiKey,
-        Target_Object_API_Name__c = 'PublicApi_Submission__c',
-        Sync_Inbound_And_Outbound__c = true,
-        Outbound_Trigger_Field_Name__c = 'Status__c',
-        Outbound_Trigger_Field_Values__c = 'Referred Out,Converted',
-        Outbound_Trigger_Enabled__c = true
+        API_Key__c = defaultApiKey
     );
     System.debug('Public API Integration Config: Created active config with API Key = ' + defaultApiKey);
 }

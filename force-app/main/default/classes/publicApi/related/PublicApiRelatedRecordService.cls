@@ -13,25 +13,24 @@ public without sharing class PublicApiRelatedRecordService {
         }
 
         Map<String, Object> data = extractDataMap(payload);
-        for (PublicApiRelatedRecordConfig.Rule rule :
-            PublicApiRelatedRecordConfig.parseRules(relatedRecordConfigurationJson)) {
-            if (rule == null) {
-                continue;
-            }
+        PublicApiRelatedRecordConfig.Rule rule =
+            PublicApiRelatedRecordConfig.parseRule(relatedRecordConfigurationJson);
+        if (rule == null) {
+            return;
+        }
 
-            ResolvedRule resolvedRule = resolveRule(rule, targetRecord);
-            Object rawMatchValue = getPayloadValue(payload, data, resolvedRule.sourceKey);
-            if (rawMatchValue == null) {
-                continue;
-            }
+        ResolvedRule resolvedRule = resolveRule(rule, targetRecord);
+        Object rawMatchValue = getPayloadValue(payload, data, resolvedRule.sourceKey);
+        if (rawMatchValue == null) {
+            return;
+        }
 
-            SObject relatedRecord = findRelatedRecord(resolvedRule, rawMatchValue);
-            if (relatedRecord == null && resolvedRule.createIfMissing) {
-                relatedRecord = createRelatedRecord(resolvedRule, payload, data, rawMatchValue);
-            }
-            if (relatedRecord != null) {
-                targetRecord.put(resolvedRule.targetLookupFieldApiName, relatedRecord.Id);
-            }
+        SObject relatedRecord = findRelatedRecord(resolvedRule, rawMatchValue);
+        if (relatedRecord == null && resolvedRule.createIfMissing) {
+            relatedRecord = createRelatedRecord(resolvedRule, payload, data, rawMatchValue);
+        }
+        if (relatedRecord != null) {
+            targetRecord.put(resolvedRule.targetLookupFieldApiName, relatedRecord.Id);
         }
     }
 
@@ -53,13 +52,12 @@ public without sharing class PublicApiRelatedRecordService {
             throw new PublicApiIntakeServiceException('Unknown target object: ' + targetObjectApiName);
         }
 
-        List<PublicApiRelatedRecordConfig.Rule> parsedRules =
-            PublicApiRelatedRecordConfig.parseRules(relatedRecordConfigurationJson);
         Map<String, Schema.SObjectField> targetFieldMap = targetObjectType.getDescribe().fields.getMap();
-        for (PublicApiRelatedRecordConfig.Rule rule : parsedRules) {
-            validateRule(rule, targetObjectType.getDescribe().getName(), targetFieldMap, globalDescribe);
+        PublicApiRelatedRecordConfig.Rule parsedRule =
+            PublicApiRelatedRecordConfig.parseRule(relatedRecordConfigurationJson);
+        if (parsedRule != null) {
+            validateRule(parsedRule, targetObjectType.getDescribe().getName(), targetFieldMap, globalDescribe);
         }
-        validateCrossRuleConstraints(parsedRules, targetObjectType.getDescribe().getName());
     }
 
     @TestVisible
@@ -67,21 +65,28 @@ public without sharing class PublicApiRelatedRecordService {
         return PublicApiRelatedRecordConfig.getConfiguredSourceKeys(relatedRecordConfigurationJson);
     }
 
-    public static String getImmediateRulesJson(String relatedRecordConfigurationJson) {
-        return PublicApiRelatedRecordConfig.serializeRules(
-            filterRulesByDeferredMode(relatedRecordConfigurationJson, false)
-        );
+    public static String getImmediateRuleJson(String relatedRecordConfigurationJson) {
+        PublicApiRelatedRecordConfig.Rule rule =
+            PublicApiRelatedRecordConfig.parseRule(relatedRecordConfigurationJson);
+        return shouldDeferRule(rule) ? null : PublicApiRelatedRecordConfig.serializeRule(rule);
     }
 
-    public static String getDeferredRulesJson(String relatedRecordConfigurationJson) {
-        return PublicApiRelatedRecordConfig.serializeRules(
-            filterRulesByDeferredMode(relatedRecordConfigurationJson, true)
-        );
+    public static String getDeferredRuleJson(String relatedRecordConfigurationJson) {
+        PublicApiRelatedRecordConfig.Rule rule =
+            PublicApiRelatedRecordConfig.parseRule(relatedRecordConfigurationJson);
+        return shouldDeferRule(rule) ? PublicApiRelatedRecordConfig.serializeRule(rule) : null;
     }
 
     @TestVisible
-    static Boolean hasDeferredRules(String relatedRecordConfigurationJson) {
-        return !filterRulesByDeferredMode(relatedRecordConfigurationJson, true).isEmpty();
+    static Boolean hasDeferredRule(String relatedRecordConfigurationJson) {
+        return shouldDeferRule(PublicApiRelatedRecordConfig.parseRule(relatedRecordConfigurationJson));
+    }
+
+    @TestVisible
+    private static Boolean shouldDeferRule(PublicApiRelatedRecordConfig.Rule rule) {
+        return rule != null &&
+            String.isNotBlank(rule.relatedObjectApiName) &&
+            rule.relatedObjectApiName.trim().equalsIgnoreCase('Account');
     }
 
     private class ResolvedRule {
@@ -95,78 +100,6 @@ public without sharing class PublicApiRelatedRecordService {
         public List<PublicApiRelatedRecordConfig.CreateFieldMapping> createMappings;
         public Schema.DescribeFieldResult matchFieldDescribe;
         public Map<String, Schema.SObjectField> relatedFieldMap;
-    }
-
-    @TestVisible
-    private static List<PublicApiRelatedRecordConfig.Rule> filterRulesByDeferredMode(
-        String relatedRecordConfigurationJson,
-        Boolean deferred
-    ) {
-        List<PublicApiRelatedRecordConfig.Rule> filteredRules = new List<PublicApiRelatedRecordConfig.Rule>();
-        for (PublicApiRelatedRecordConfig.Rule rule :
-            PublicApiRelatedRecordConfig.parseRules(relatedRecordConfigurationJson)) {
-            if (rule == null) {
-                continue;
-            }
-            if (shouldDeferRule(rule) == deferred) {
-                filteredRules.add(rule);
-            }
-        }
-        return filteredRules;
-    }
-
-    @TestVisible
-    private static Boolean shouldDeferRule(PublicApiRelatedRecordConfig.Rule rule) {
-        return rule != null &&
-            String.isNotBlank(rule.relatedObjectApiName) &&
-            rule.relatedObjectApiName.trim().equalsIgnoreCase('Account');
-    }
-
-    @TestVisible
-    private static void validateCrossRuleConstraints(
-        List<PublicApiRelatedRecordConfig.Rule> rules,
-        String targetObjectApiName
-    ) {
-        if (rules == null || rules.isEmpty() || !isActivityObject(targetObjectApiName)) {
-            return;
-        }
-
-        Boolean hasLeadWhoRule = false;
-        Boolean hasAccountWhatRule = false;
-        for (PublicApiRelatedRecordConfig.Rule rule : rules) {
-            if (rule == null) {
-                continue;
-            }
-
-            String targetLookupField = String.isBlank(rule.targetLookupField)
-                ? null
-                : rule.targetLookupField.trim().toLowerCase();
-            String relatedObjectName = String.isBlank(rule.relatedObjectApiName)
-                ? null
-                : rule.relatedObjectApiName.trim().toLowerCase();
-
-            if (targetLookupField == 'whoid' && relatedObjectName == 'lead') {
-                hasLeadWhoRule = true;
-            }
-            if (targetLookupField == 'whatid' && relatedObjectName == 'account') {
-                hasAccountWhatRule = true;
-            }
-        }
-
-        if (hasLeadWhoRule && hasAccountWhatRule) {
-            throw new PublicApiIntakeServiceException(
-                'Task/Event related-record configuration cannot combine Lead on WhoId with Account on WhatId.'
-            );
-        }
-    }
-
-    @TestVisible
-    private static Boolean isActivityObject(String targetObjectApiName) {
-        if (String.isBlank(targetObjectApiName)) {
-            return false;
-        }
-        String normalizedObjectName = targetObjectApiName.trim().toLowerCase();
-        return normalizedObjectName == 'task' || normalizedObjectName == 'event';
     }
 
     private static void validateRule(

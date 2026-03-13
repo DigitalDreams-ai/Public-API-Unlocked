@@ -61,6 +61,26 @@
                 <identifier>RecordPublicApi_Integration_Config_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Target_Object_API_Name__c</fieldItem>
+                <identifier>RecordTarget_Object_API_Name_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Target_Record_Link__c</fieldItem>
+                <identifier>RecordTarget_Record_Link_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-submissionLeft</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -83,6 +103,36 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.Received_At__c</fieldItem>
                 <identifier>RecordReceived_At_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Request_Content_Type__c</fieldItem>
+                <identifier>RecordRequest_Content_Type_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Processing_Status__c</fieldItem>
+                <identifier>RecordProcessing_Status_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Related_Record_Status__c</fieldItem>
+                <identifier>RecordRelated_Record_Status_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <name>Facet-submissionRight</name>
@@ -166,6 +216,68 @@
     </flexiPageRegions>
     <flexiPageRegions>
         <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Processing_Error_Category__c</fieldItem>
+                <identifier>RecordProcessing_Error_Category_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Processing_Error_Message__c</fieldItem>
+                <identifier>RecordProcessing_Error_Message_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-processingLeft</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Effective_Config_JSON__c</fieldItem>
+                <identifier>RecordEffective_Config_JSON_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <name>Facet-processingRight</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-processingLeft</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:column</componentName>
+                <identifier>flexipage_columnProcessingLeft</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>body</name>
+                    <value>Facet-processingRight</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:column</componentName>
+                <identifier>flexipage_columnProcessingRight</identifier>
+            </componentInstance>
+        </itemInstances>
+        <name>Facet-processingColumns</name>
+        <type>Facet</type>
+    </flexiPageRegions>
+    <flexiPageRegions>
+        <itemInstances>
             <componentInstance>
                 <componentInstanceProperties>
                     <name>columns</name>
@@ -181,6 +293,24 @@
                 </componentInstanceProperties>
                 <componentName>flexipage:fieldSection</componentName>
                 <identifier>flexipage_fieldSectionSubmissionAudit</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentInstanceProperties>
+                    <name>columns</name>
+                    <value>Facet-processingColumns</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>horizontalAlignment</name>
+                    <value>false</value>
+                </componentInstanceProperties>
+                <componentInstanceProperties>
+                    <name>label</name>
+                    <value>Processing Result</value>
+                </componentInstanceProperties>
+                <componentName>flexipage:fieldSection</componentName>
+                <identifier>flexipage_fieldSectionProcessing</identifier>
             </componentInstance>
         </itemInstances>
         <itemInstances>

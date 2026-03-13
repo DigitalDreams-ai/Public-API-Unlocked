@@ -59,7 +59,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     availableTriggerFieldValues = [];
     inboundMappingRows = [];
     outboundMappingRows = [];
-    relatedRecordRows = [];
+    relatedRecordRule = null;
     authMode = 'None';
     contentType = DEFAULT_CONTENT_TYPE;
     headerName = '';
@@ -115,11 +115,11 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     }
 
     get hasRelatedRecordRows() {
-        return this.relatedRecordRows.length > 0;
+        return this.relatedRecordRule !== null;
     }
 
     get activeRelatedRecordRow() {
-        return this.relatedRecordRows.length > 0 ? this.relatedRecordRows[0] : null;
+        return this.relatedRecordRule;
     }
 
     get mappingPreviewJson() {
@@ -127,7 +127,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     }
 
     get relatedRecordsPreviewJson() {
-        return JSON.stringify(this.buildRelatedRuleArray(this.relatedRecordRows), null, 2);
+        return JSON.stringify(this.buildRelatedRuleConfig(this.activeRelatedRecordRow), null, 2);
     }
 
     get triggersPreviewJson() {
@@ -354,13 +354,13 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             if (this.syncDirections) {
                 this.outboundMappingRows = this.cloneRows(this.inboundMappingRows, 'outbound');
             }
-            this.relatedRecordRows = this.parseRelatedRuleArray(
+            this.relatedRecordRule = this.parseRelatedRuleConfig(
                 payloadSettings?.relatedRecordConfigurationJson
             );
-            if (this.relatedRecordRows.length === 0) {
-                this.relatedRecordRows = [this.createRelatedRuleRow()];
+            if (!this.relatedRecordRule) {
+                this.relatedRecordRule = this.createRelatedRuleRow();
             }
-            await this.refreshRelatedRowsMetadata();
+            await this.refreshRelatedRuleMetadata();
 
             this.authMode = headerSettings?.authMode || 'None';
             this.contentType = headerSettings?.contentType || DEFAULT_CONTENT_TYPE;
@@ -397,7 +397,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                     targetObjectApiName: this.targetObjectApiName,
                     targetRecordTypeDeveloperName: this.targetRecordTypeDeveloperName,
                     relatedRecordConfigurationJson: JSON.stringify(
-                        this.buildRelatedRuleArray(this.relatedRecordRows),
+                        this.buildRelatedRuleConfig(this.activeRelatedRecordRow),
                         null,
                         2
                     ),
@@ -556,7 +556,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         this.outboundMappingRows = this.syncDirections
             ? this.cloneRows(this.defaultInboundRows, 'outbound')
             : this.cloneRows(this.defaultOutboundRows, 'outbound');
-        this.relatedRecordRows = this.rehydrateRelatedRows(this.relatedRecordRows);
+        this.relatedRecordRule = this.rehydrateRelatedRule(this.relatedRecordRule);
         this.errorMessage = '';
         this.isDirty = true;
     }
@@ -566,7 +566,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         if (this.syncDirections) {
             this.outboundMappingRows = [];
         }
-        this.relatedRecordRows = this.rehydrateRelatedRows(this.relatedRecordRows);
+        this.relatedRecordRule = this.rehydrateRelatedRule(this.relatedRecordRule);
         this.errorMessage = '';
         this.isDirty = true;
     }
@@ -585,7 +585,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         if (this.syncDirections) {
             this.outboundMappingRows = this.cloneRows(this.inboundMappingRows, 'outbound');
         }
-        this.relatedRecordRows = this.rehydrateRelatedRows(this.relatedRecordRows);
+        this.relatedRecordRule = this.rehydrateRelatedRule(this.relatedRecordRule);
         this.isDirty = true;
     }
 
@@ -648,7 +648,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     }
 
     handleResetRelatedRule() {
-        this.relatedRecordRows = [this.createRelatedRuleRow()];
+        this.relatedRecordRule = this.createRelatedRuleRow();
         this.isDirty = true;
     }
 
@@ -1050,7 +1050,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                 this.outboundMappingRows = this.cloneRows(normalizedRows, 'outbound');
             }
         }
-        this.relatedRecordRows = this.rehydrateRelatedRows(this.relatedRecordRows);
+        this.relatedRecordRule = this.rehydrateRelatedRule(this.relatedRecordRule);
         this.isDirty = true;
     }
 
@@ -1218,90 +1218,92 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         };
     }
 
-    parseRelatedRuleArray(configJson) {
+    parseRelatedRuleConfig(configJson) {
         if (!configJson) {
-            return [];
+            return null;
         }
 
         let parsed;
         try {
             parsed = JSON.parse(configJson);
         } catch (error) {
-            return [];
+            return null;
         }
-        if (!Array.isArray(parsed)) {
-            return [];
-        }
-
-        if (parsed.length === 0) {
-            return [];
+        if (Array.isArray(parsed)) {
+            return null;
         }
 
-        const firstRule = parsed[0];
-        return firstRule ? [this.createRelatedRuleRow(firstRule)] : [];
+        if (!parsed || typeof parsed !== 'object') {
+            return null;
+        }
+
+        return this.createRelatedRuleRow(parsed);
     }
 
-    buildRelatedRuleArray(rows) {
-        return (rows || [])
-            .map((row) => ({
-                targetLookupField: (row.targetLookupField || '').trim(),
-                relatedObjectApiName: (row.relatedObjectApiName || '').trim(),
-                matchFieldName: (row.matchFieldName || '').trim(),
-                sourceKey: (row.sourceKey || '').trim(),
-                createIfMissing: row.createIfMissing === true,
-                createRecordTypeDeveloperName: (row.createRecordTypeDeveloperName || '').trim(),
-                onMultipleMatches: row.onMultipleMatches || 'Error',
-                createMappings: (row.createMappings || [])
-                    .map((mapping) => ({
-                        sourceKey: (mapping.sourceKey || '').trim(),
-                        fieldName: (mapping.fieldName || '').trim()
-                    }))
-                    .filter((mapping) => mapping.sourceKey || mapping.fieldName)
-            }))
-            .filter((rule) =>
-                rule.targetLookupField ||
-                rule.relatedObjectApiName ||
-                rule.matchFieldName ||
-                rule.sourceKey ||
-                rule.createRecordTypeDeveloperName ||
-                rule.createMappings.length > 0
-            );
+    buildRelatedRuleConfig(row) {
+        if (!row) {
+            return null;
+        }
+
+        const rule = {
+            targetLookupField: (row.targetLookupField || '').trim(),
+            relatedObjectApiName: (row.relatedObjectApiName || '').trim(),
+            matchFieldName: (row.matchFieldName || '').trim(),
+            sourceKey: (row.sourceKey || '').trim(),
+            createIfMissing: row.createIfMissing === true,
+            createRecordTypeDeveloperName: (row.createRecordTypeDeveloperName || '').trim(),
+            onMultipleMatches: row.onMultipleMatches || 'Error',
+            createMappings: (row.createMappings || [])
+                .map((mapping) => ({
+                    sourceKey: (mapping.sourceKey || '').trim(),
+                    fieldName: (mapping.fieldName || '').trim()
+                }))
+                .filter((mapping) => mapping.sourceKey || mapping.fieldName)
+        };
+
+        const hasContent =
+            rule.targetLookupField ||
+            rule.relatedObjectApiName ||
+            rule.matchFieldName ||
+            rule.sourceKey ||
+            rule.createRecordTypeDeveloperName ||
+            rule.createMappings.length > 0;
+        return hasContent ? rule : null;
     }
 
     updateRelatedRuleRow(rowId, changes) {
-        this.relatedRecordRows = this.relatedRecordRows.map((row) => {
-            if (row.id !== rowId) {
-                return row;
-            }
-            return this.hydrateRelatedRuleRow({
-                ...row,
-                ...changes
-            });
+        if (!this.relatedRecordRule || this.relatedRecordRule.id !== rowId) {
+            return;
+        }
+        this.relatedRecordRule = this.hydrateRelatedRuleRow({
+            ...this.relatedRecordRule,
+            ...changes
         });
         this.isDirty = true;
     }
 
     updateRelatedCreateMapping(rowId, mappingId, changes) {
-        this.relatedRecordRows = this.relatedRecordRows.map((row) => {
-            if (row.id !== rowId) {
-                return row;
-            }
-            return this.hydrateRelatedRuleRow({
-                ...row,
-                createMappings: row.createMappings.map((mapping) =>
-                    mapping.id === mappingId ? { ...mapping, ...changes } : mapping
-                )
-            });
+        if (!this.relatedRecordRule || this.relatedRecordRule.id !== rowId) {
+            return;
+        }
+        this.relatedRecordRule = this.hydrateRelatedRuleRow({
+            ...this.relatedRecordRule,
+            createMappings: this.relatedRecordRule.createMappings.map((mapping) =>
+                mapping.id === mappingId ? { ...mapping, ...changes } : mapping
+            )
         });
         this.isDirty = true;
     }
 
     findRelatedRuleRow(rowId) {
-        return this.relatedRecordRows.find((row) => row.id === rowId);
+        if (!this.relatedRecordRule) {
+            return null;
+        }
+        return this.relatedRecordRule.id === rowId ? this.relatedRecordRule : null;
     }
 
-    rehydrateRelatedRows(rows) {
-        return (rows || []).map((row) => this.hydrateRelatedRuleRow(row));
+    rehydrateRelatedRule(row) {
+        return row ? this.hydrateRelatedRuleRow(row) : null;
     }
 
     async applyTargetObjectSelection(value) {
@@ -1320,8 +1322,8 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         }
         this.inboundMappingRows = this.rehydrateRowsForScope('inbound', this.inboundMappingRows);
         this.outboundMappingRows = this.rehydrateRowsForScope('outbound', this.outboundMappingRows);
-        this.relatedRecordRows = this.rehydrateRelatedRows(this.relatedRecordRows);
-        await this.refreshRelatedRowsMetadata();
+        this.relatedRecordRule = this.rehydrateRelatedRule(this.relatedRecordRule);
+        await this.refreshRelatedRuleMetadata();
         this.isDirty = this.isDirty || changed;
     }
 
@@ -1353,14 +1355,9 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         this.isDirty = this.isDirty || changed;
     }
 
-    async refreshRelatedRowsMetadata() {
-        for (const row of [...this.relatedRecordRows]) {
-            await this.refreshRelatedRuleMetadata(row.id);
-        }
-    }
-
     async refreshRelatedRuleMetadata(rowId) {
-        const row = this.findRelatedRuleRow(rowId);
+        const effectiveRowId = rowId || this.relatedRecordRule?.id;
+        const row = this.findRelatedRuleRow(effectiveRowId);
         if (!row) {
             return;
         }
@@ -1393,45 +1390,39 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             ]);
         }
 
-        this.relatedRecordRows = this.relatedRecordRows.map((candidate) => {
-            if (candidate.id !== rowId) {
-                return candidate;
-            }
+        const normalizedMappings = (row.createMappings || []).map((mapping) => ({
+            ...mapping,
+            fieldName: availableCreateFieldNames.includes(mapping.fieldName) ? mapping.fieldName : ''
+        }));
+        const hydratedMappings = row.createIfMissing
+            ? this.ensureRequiredCreateMappings(
+                normalizedMappings,
+                availableRequiredCreateFieldNames
+            )
+            : normalizedMappings;
 
-            const normalizedMappings = (candidate.createMappings || []).map((mapping) => ({
-                ...mapping,
-                fieldName: availableCreateFieldNames.includes(mapping.fieldName) ? mapping.fieldName : ''
-            }));
-            const hydratedMappings = candidate.createIfMissing
-                ? this.ensureRequiredCreateMappings(
-                    normalizedMappings,
-                    availableRequiredCreateFieldNames
-                )
-                : normalizedMappings;
-
-            return this.hydrateRelatedRuleRow({
-                ...candidate,
-                relatedObjectApiName,
-                relatedObjectSearchValue: relatedObjectApiName || candidate.relatedObjectSearchValue,
-                targetLookupField: availableLookupFieldNames.includes(candidate.targetLookupField)
-                    ? candidate.targetLookupField
-                    : '',
-                matchFieldName: availableMatchFieldNames.includes(candidate.matchFieldName)
-                    ? candidate.matchFieldName
-                    : '',
-                createRecordTypeDeveloperName: availableCreateRecordTypeDeveloperNames.includes(
-                    candidate.createRecordTypeDeveloperName
-                )
-                    ? candidate.createRecordTypeDeveloperName
-                    : '',
-                createMappings: hydratedMappings,
-                availableLookupFieldNames,
-                availableRelatedObjectApiNames,
-                availableMatchFieldNames,
-                availableCreateFieldNames,
-                availableRequiredCreateFieldNames,
-                availableCreateRecordTypeDeveloperNames
-            });
+        this.relatedRecordRule = this.hydrateRelatedRuleRow({
+            ...row,
+            relatedObjectApiName,
+            relatedObjectSearchValue: relatedObjectApiName || row.relatedObjectSearchValue,
+            targetLookupField: availableLookupFieldNames.includes(row.targetLookupField)
+                ? row.targetLookupField
+                : '',
+            matchFieldName: availableMatchFieldNames.includes(row.matchFieldName)
+                ? row.matchFieldName
+                : '',
+            createRecordTypeDeveloperName: availableCreateRecordTypeDeveloperNames.includes(
+                row.createRecordTypeDeveloperName
+            )
+                ? row.createRecordTypeDeveloperName
+                : '',
+            createMappings: hydratedMappings,
+            availableLookupFieldNames,
+            availableRelatedObjectApiNames,
+            availableMatchFieldNames,
+            availableCreateFieldNames,
+            availableRequiredCreateFieldNames,
+            availableCreateRecordTypeDeveloperNames
         });
     }
 
@@ -1475,20 +1466,20 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         this.outboundMappingRows = this.outboundMappingRows.map((row) =>
             this.hydrateMappingRow({ ...row, showSuggestions: false })
         );
-        this.relatedRecordRows = this.relatedRecordRows.map((row) =>
-            this.hydrateRelatedRuleRow({
-                ...row,
+        this.relatedRecordRule = this.relatedRecordRule
+            ? this.hydrateRelatedRuleRow({
+                ...this.relatedRecordRule,
                 showLookupFieldSuggestions: false,
                 showRelatedObjectSuggestions: false,
                 showMatchFieldSuggestions: false,
                 showSourceKeySuggestions: false,
-                createMappings: row.createMappings.map((mapping) => ({
+                createMappings: this.relatedRecordRule.createMappings.map((mapping) => ({
                     ...mapping,
                     showFieldSuggestions: false,
                     showSourceKeySuggestions: false
                 }))
             })
-        );
+            : null;
         this.showTriggerFieldSuggestions = false;
         this.showTriggerValueSuggestions = false;
     }
@@ -1590,7 +1581,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             isValid = isValid && !message;
         });
 
-        const relatedRowsById = new Map(this.relatedRecordRows.map((row) => [row.id, row]));
+        const relatedRow = this.relatedRecordRule;
         const relatedLookupInputs = this.template.querySelectorAll('lightning-input[data-role="related-lookup-field"]');
         const relatedObjectInputs = this.template.querySelectorAll('lightning-input[data-role="related-object"]');
         const relatedMatchInputs = this.template.querySelectorAll('lightning-input[data-role="related-match-field"]');
@@ -1601,13 +1592,12 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             this.template.querySelectorAll('lightning-combobox[data-role="related-create-record-type"]');
 
         relatedLookupInputs.forEach((input) => {
-            const row = relatedRowsById.get(input.dataset.id);
-            const hasAnyValue = this.relatedRowHasContent(row);
+            const hasAnyValue = this.relatedRowHasContent(relatedRow);
             let message = '';
-            if (hasAnyValue && !(row?.targetLookupField || '').trim()) {
+            if (hasAnyValue && !(relatedRow?.targetLookupField || '').trim()) {
                 message = 'Lookup field is required.';
-            } else if ((row?.targetLookupField || '').trim() &&
-                !(row?.availableLookupFieldNames || []).includes((row.targetLookupField || '').trim())) {
+            } else if ((relatedRow?.targetLookupField || '').trim() &&
+                !(relatedRow?.availableLookupFieldNames || []).includes((relatedRow.targetLookupField || '').trim())) {
                 message = 'Select a valid lookup field on the target object.';
             }
             input.setCustomValidity(message);
@@ -1616,14 +1606,13 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         });
 
         relatedObjectInputs.forEach((input) => {
-            const row = relatedRowsById.get(input.dataset.id);
-            const hasAnyValue = this.relatedRowHasContent(row);
+            const hasAnyValue = this.relatedRowHasContent(relatedRow);
             let message = '';
-            if (hasAnyValue && !(row?.relatedObjectApiName || '').trim()) {
+            if (hasAnyValue && !(relatedRow?.relatedObjectApiName || '').trim()) {
                 message = 'Related object is required.';
-            } else if ((row?.relatedObjectApiName || '').trim() &&
-                !(row?.availableRelatedObjectApiNames || []).includes((row.relatedObjectApiName || '').trim())) {
-                message = 'Select a valid related object for the chosen lookup field.';
+            } else if ((relatedRow?.relatedObjectApiName || '').trim() &&
+                !(relatedRow?.availableRelatedObjectApiNames || []).includes((relatedRow.relatedObjectApiName || '').trim())) {
+                message = 'Select a valid related object.';
             }
             input.setCustomValidity(message);
             input.reportValidity();
@@ -1631,13 +1620,12 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         });
 
         relatedMatchInputs.forEach((input) => {
-            const row = relatedRowsById.get(input.dataset.id);
-            const hasAnyValue = this.relatedRowHasContent(row);
+            const hasAnyValue = this.relatedRowHasContent(relatedRow);
             let message = '';
-            if (hasAnyValue && !(row?.matchFieldName || '').trim()) {
+            if (hasAnyValue && !(relatedRow?.matchFieldName || '').trim()) {
                 message = 'Match field is required.';
-            } else if ((row?.matchFieldName || '').trim() &&
-                !(row?.availableMatchFieldNames || []).includes((row.matchFieldName || '').trim())) {
+            } else if ((relatedRow?.matchFieldName || '').trim() &&
+                !(relatedRow?.availableMatchFieldNames || []).includes((relatedRow.matchFieldName || '').trim())) {
                 message = 'Select a valid related match field.';
             }
             input.setCustomValidity(message);
@@ -1646,20 +1634,18 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         });
 
         relatedSourceInputs.forEach((input) => {
-            const row = relatedRowsById.get(input.dataset.id);
-            const hasAnyValue = this.relatedRowHasContent(row);
-            const message = hasAnyValue && !(row?.sourceKey || '').trim() ? 'Source key is required.' : '';
+            const hasAnyValue = this.relatedRowHasContent(relatedRow);
+            const message = hasAnyValue && !(relatedRow?.sourceKey || '').trim() ? 'Source key is required.' : '';
             input.setCustomValidity(message);
             input.reportValidity();
             isValid = isValid && !message;
         });
 
         relatedCreateRecordTypeInputs.forEach((input) => {
-            const row = relatedRowsById.get(input.dataset.id);
             let message = '';
-            if ((row?.createRecordTypeDeveloperName || '').trim() &&
-                !((row?.availableCreateRecordTypeDeveloperNames || []).includes(
-                    (row.createRecordTypeDeveloperName || '').trim()
+            if ((relatedRow?.createRecordTypeDeveloperName || '').trim() &&
+                !((relatedRow?.availableCreateRecordTypeDeveloperNames || []).includes(
+                    (relatedRow.createRecordTypeDeveloperName || '').trim()
                 ))) {
                 message = 'Select a valid create record type.';
             }
@@ -1669,14 +1655,13 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         });
 
         relatedCreateFieldInputs.forEach((input) => {
-            const row = relatedRowsById.get(input.dataset.rowId);
-            const mapping = (row?.createMappings || []).find((candidate) => candidate.id === input.dataset.id);
+            const mapping = (relatedRow?.createMappings || []).find((candidate) => candidate.id === input.dataset.id);
             const hasAnyValue = !!((mapping?.sourceKey || '').trim() || (mapping?.fieldName || '').trim());
             let message = '';
             if (hasAnyValue && !(mapping?.fieldName || '').trim()) {
                 message = 'Field name is required.';
             } else if ((mapping?.fieldName || '').trim() &&
-                !(row?.availableCreateFieldNames || []).includes((mapping.fieldName || '').trim())) {
+                !(relatedRow?.availableCreateFieldNames || []).includes((mapping.fieldName || '').trim())) {
                 message = 'Select a valid create field.';
             }
             input.setCustomValidity(message);
@@ -1685,8 +1670,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         });
 
         relatedCreateSourceInputs.forEach((input) => {
-            const row = relatedRowsById.get(input.dataset.rowId);
-            const mapping = (row?.createMappings || []).find((candidate) => candidate.id === input.dataset.id);
+            const mapping = (relatedRow?.createMappings || []).find((candidate) => candidate.id === input.dataset.id);
             const hasAnyValue = !!((mapping?.sourceKey || '').trim() || (mapping?.fieldName || '').trim());
             const message = hasAnyValue && !(mapping?.sourceKey || '').trim() ? 'Source key is required.' : '';
             input.setCustomValidity(message);

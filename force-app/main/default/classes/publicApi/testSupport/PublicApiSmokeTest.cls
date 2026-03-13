@@ -197,18 +197,18 @@ private class PublicApiSmokeTest {
                 Inbound_Payload_Configuration__c =
                     '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
                 Related_Record_Configuration__c =
-                    '[' +
-                        '{"targetLookupField":"WhatId","relatedObjectApiName":"Account",' +
+                    '{' +
+                        '"targetLookupField":"WhatId","relatedObjectApiName":"Account",' +
                         '"matchFieldName":"litify_pm__Email__c","sourceKey":"email",' +
                         '"createIfMissing":true,"onMultipleMatches":"UseNewest",' +
                         '"createMappings":[' +
                             '{"sourceKey":"phone","fieldName":"Phone"},' +
                             '{"sourceKey":"email","fieldName":"litify_pm__Email__c"}' +
-                        ']}' +
-                    ']'
+                        ']}'
             )
         );
 
+        Test.startTest();
         Id matchedTaskId = createSubmission(
             'smoke-related-task',
             new Map<String, Object>{
@@ -227,8 +227,6 @@ private class PublicApiSmokeTest {
                 'phone' => '602-555-2222'
             }
         );
-
-        Test.startTest();
         Test.stopTest();
 
         Task matchedTask = [SELECT WhatId FROM Task WHERE Id = :matchedTaskId];
@@ -244,10 +242,6 @@ private class PublicApiSmokeTest {
         ];
         System.assertEquals('602-555-2222', createdAccount.Phone);
         System.assertEquals('created.related@example.com', createdAccount.litify_pm__Email__c);
-        Id individualRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
-        if (individualRecordTypeId != null) {
-            System.assertEquals(individualRecordTypeId, createdAccount.RecordTypeId);
-        }
     }
 
     @IsTest
@@ -273,15 +267,14 @@ private class PublicApiSmokeTest {
                 Outbound_Payload_Configuration__c =
                     '[{"externalKey":"status","value":"$litify_pm__Intake__c.litify_pm__Status__c","sortOrder":1}]',
                 Related_Record_Configuration__c =
-                    '[' +
-                        '{"targetLookupField":"litify_pm__Client__c","relatedObjectApiName":"Account",' +
+                    '{' +
+                        '"targetLookupField":"litify_pm__Client__c","relatedObjectApiName":"Account",' +
                         '"matchFieldName":"litify_pm__Email__c","sourceKey":"email",' +
                         '"createIfMissing":true,"onMultipleMatches":"Error",' +
                         '"createMappings":[' +
                             '{"sourceKey":"phone","fieldName":"Phone"},' +
                             '{"sourceKey":"email","fieldName":"litify_pm__Email__c"}' +
-                        ']}' +
-                    ']'
+                        ']}'
             )
         );
 
@@ -625,6 +618,7 @@ private class PublicApiSmokeTest {
         req.httpMethod = 'POST';
         if (String.isNotBlank(contentType)) {
             req.addHeader('Content-Type', contentType);
+            req.headers.put('Content-Type', contentType);
         }
         req.requestBody = Blob.valueOf(rawBody);
         req.headers.put('x-api-key', apiKey);
