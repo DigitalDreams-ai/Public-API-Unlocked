@@ -8,7 +8,7 @@ List<PublicApi_Integration_Config__c> existing = [
            Sync_Inbound_And_Outbound__c,
            Outbound_Trigger_Field_Name__c,
            Outbound_Trigger_Field_Values__c,
-           Outbound_Trigger_Enabled__c,
+           Outbound_Trigger_Enabled__c
     FROM PublicApi_Integration_Config__c
     WHERE Is_Active__c = true
     ORDER BY CreatedDate DESC
@@ -56,7 +56,7 @@ if (!existing.isEmpty()) {
         Sync_Inbound_And_Outbound__c = true,
         Outbound_Trigger_Field_Name__c = 'Status__c',
         Outbound_Trigger_Field_Values__c = 'Referred Out,Converted',
-        Outbound_Trigger_Enabled__c = true,
+        Outbound_Trigger_Enabled__c = true
     );
     System.debug('Public API Integration Config: Created active config with API Key = ' + defaultApiKey);
 }

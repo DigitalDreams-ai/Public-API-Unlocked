@@ -81,6 +81,8 @@ flows:
                 task: assign_publicApi_api_guest
             5.0:
                 task: set_publicApi_config_org_default
+            90:
+                task: load_managed_beta_sample_data
 
     config_qa:
         steps:
@@ -90,6 +92,8 @@ flows:
                 task: assign_publicApi_api_guest
             5.0:
                 task: set_publicApi_config_org_default
+            90:
+                task: load_managed_beta_sample_data
 
     config_managed:
         steps:
