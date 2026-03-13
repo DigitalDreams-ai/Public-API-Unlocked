@@ -182,6 +182,14 @@ public with sharing class PublicApiPayloadBuilderCtrl {
     }
 
     @AuraEnabled(cacheable=true)
+    public static List<String> getRequiredCreateFieldNames(String objectApiName) {
+        if (String.isBlank(objectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getRequiredCreateFieldNames(objectApiName.trim());
+    }
+
+    @AuraEnabled(cacheable=true)
     public static List<String> getRecordTypeDeveloperNames(String objectApiName) {
         if (String.isBlank(objectApiName)) {
             return new List<String>();

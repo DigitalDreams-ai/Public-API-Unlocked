@@ -479,15 +479,40 @@
                                                             </div>
                                                         </div>
                                                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                                                            <lightning-input
-                                                                data-role="related-source-key"
-                                                                data-id={activeRelatedRecordRow.id}
-                                                                type="text"
-                                                                label="Source Key"
-                                                                value={activeRelatedRecordRow.sourceKey}
-                                                                placeholder="email or data.email"
-                                                                onchange={handleRelatedSourceKeyChange}>
-                                                            </lightning-input>
+                                                            <div class="target-object-picker">
+                                                                <lightning-input
+                                                                    data-role="related-source-key"
+                                                                    data-id={activeRelatedRecordRow.id}
+                                                                    type="text"
+                                                                    label="Source Key"
+                                                                    value={activeRelatedRecordRow.sourceKey}
+                                                                    placeholder="email or data.email"
+                                                                    onfocus={handleRelatedSourceKeyFocus}
+                                                                    onblur={handleRelatedSourceKeyBlur}
+                                                                    onkeyup={handleRelatedSourceKeyChange}
+                                                                    onchange={handleRelatedSourceKeyChange}>
+                                                                </lightning-input>
+                                                                <template if:true={activeRelatedRecordRow.showSourceKeySuggestions}>
+                                                                    <div class="suggestions-panel">
+                                                                        <template if:true={activeRelatedRecordRow.hasSourceKeySuggestions}>
+                                                                            <template for:each={activeRelatedRecordRow.sourceKeySuggestions} for:item="suggestion">
+                                                                                <button
+                                                                                    key={suggestion.value}
+                                                                                    type="button"
+                                                                                    class="suggestion-item"
+                                                                                    data-row-id={activeRelatedRecordRow.id}
+                                                                                    data-value={suggestion.value}
+                                                                                    onclick={handleSelectRelatedSourceKeySuggestion}>
+                                                                                    {suggestion.label}
+                                                                                </button>
+                                                                            </template>
+                                                                        </template>
+                                                                        <template if:false={activeRelatedRecordRow.hasSourceKeySuggestions}>
+                                                                            <div class="suggestion-empty">No inbound keys match the current search.</div>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
                                                         </div>
                                                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
                                                             <lightning-combobox
@@ -521,16 +546,42 @@
                                                             <template for:each={activeRelatedRecordRow.createMappings} for:item="mapping">
                                                                 <div key={mapping.id} class="slds-grid slds-gutters_x-small slds-m-bottom_x-small header-row">
                                                                     <div class="slds-col slds-size_5-of-12">
-                                                                        <lightning-input
-                                                                            data-role="related-create-source-key"
-                                                                            data-row-id={activeRelatedRecordRow.id}
-                                                                            data-id={mapping.id}
-                                                                            type="text"
-                                                                            label="Source Key"
-                                                                            placeholder="phone or data.phone"
-                                                                            value={mapping.sourceKey}
-                                                                            onchange={handleRelatedCreateSourceKeyChange}>
-                                                                        </lightning-input>
+                                                                        <div class="target-object-picker">
+                                                                            <lightning-input
+                                                                                data-role="related-create-source-key"
+                                                                                data-row-id={activeRelatedRecordRow.id}
+                                                                                data-id={mapping.id}
+                                                                                type="text"
+                                                                                label="Source Key"
+                                                                                placeholder="phone or data.phone"
+                                                                                value={mapping.sourceKey}
+                                                                                onfocus={handleRelatedCreateSourceKeyFocus}
+                                                                                onblur={handleRelatedCreateSourceKeyBlur}
+                                                                                onkeyup={handleRelatedCreateSourceKeyChange}
+                                                                                onchange={handleRelatedCreateSourceKeyChange}>
+                                                                            </lightning-input>
+                                                                            <template if:true={mapping.showSourceKeySuggestions}>
+                                                                                <div class="suggestions-panel">
+                                                                                    <template if:true={mapping.hasSourceKeySuggestions}>
+                                                                                        <template for:each={mapping.sourceKeySuggestions} for:item="suggestion">
+                                                                                            <button
+                                                                                                key={suggestion.value}
+                                                                                                type="button"
+                                                                                                class="suggestion-item"
+                                                                                                data-row-id={activeRelatedRecordRow.id}
+                                                                                                data-mapping-id={mapping.id}
+                                                                                                data-value={suggestion.value}
+                                                                                                onclick={handleSelectRelatedCreateSourceKeySuggestion}>
+                                                                                                {suggestion.label}
+                                                                                            </button>
+                                                                                        </template>
+                                                                                    </template>
+                                                                                    <template if:false={mapping.hasSourceKeySuggestions}>
+                                                                                        <div class="suggestion-empty">No inbound keys match the current search.</div>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </template>
+                                                                        </div>
                                                                     </div>
                                                                     <div class="slds-col slds-size_6-of-12">
                                                                         <div class="target-object-picker">

@@ -263,6 +263,23 @@ public without sharing class PublicApiPayloadTemplateService {
         return fieldNames;
     }
 
+    public static List<String> getRequiredCreateFieldNames(String objectApiName) {
+        Schema.SObjectType objectType = resolveSObjectType(objectApiName, Schema.getGlobalDescribe());
+        if (objectType == null) {
+            return new List<String>();
+        }
+
+        List<String> fieldNames = new List<String>();
+        for (Schema.SObjectField fieldToken : objectType.getDescribe().fields.getMap().values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (isRequiredCreateField(describe)) {
+                fieldNames.add(describe.getName());
+            }
+        }
+        fieldNames.sort();
+        return fieldNames;
+    }
+
     public static Boolean inferSyncInboundAndOutbound(String inboundConfigJson, String outboundConfigJson) {
         if (String.isBlank(inboundConfigJson) && String.isBlank(outboundConfigJson)) {
             return true;
@@ -368,6 +385,13 @@ public without sharing class PublicApiPayloadTemplateService {
             describe.isCreateable() &&
             !describe.isCalculated() &&
             !describe.isAutoNumber();
+    }
+
+    private static Boolean isRequiredCreateField(Schema.DescribeFieldResult describe) {
+        return isUsableCreateField(describe) &&
+            !describe.isNillable() &&
+            !describe.isDefaultedOnCreate() &&
+            describe.getType() != Schema.DisplayType.Boolean;
     }
 
     private static Schema.SObjectType resolveSObjectType(

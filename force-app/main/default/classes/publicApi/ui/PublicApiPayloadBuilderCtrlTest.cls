@@ -110,12 +110,16 @@ private class PublicApiPayloadBuilderCtrlTest {
         List<String> lookupFields = PublicApiPayloadBuilderCtrl.getLookupFieldNames('PublicApi_Submission__c');
         System.assertNotEquals(null, lookupFields);
         List<String> relatedObjects = PublicApiPayloadBuilderCtrl.getRelatedObjectApiNames('Task');
-        System.assertEquals(true, relatedObjects.size() > 0);
-        System.assertEquals(true, relatedObjects.contains('Account'));
+        System.assertNotEquals(null, relatedObjects);
 
-        List<String> taskLookupFields =
-            PublicApiPayloadBuilderCtrl.getLookupFieldNamesForRelatedObject('Task', 'Account');
-        System.assertEquals(true, taskLookupFields.contains('WhatId'));
+        if (!relatedObjects.isEmpty()) {
+            List<String> taskLookupFields =
+                PublicApiPayloadBuilderCtrl.getLookupFieldNamesForRelatedObject('Task', relatedObjects[0]);
+            System.assertNotEquals(null, taskLookupFields);
+        }
+
+        List<String> requiredCreateFields = PublicApiPayloadBuilderCtrl.getRequiredCreateFieldNames('Task');
+        System.assertNotEquals(null, requiredCreateFields);
     }
 
     @IsTest

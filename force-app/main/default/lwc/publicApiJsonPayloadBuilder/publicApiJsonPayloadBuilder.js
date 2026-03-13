@@ -8,6 +8,7 @@ import getRelatedObjectApiNames from '@salesforce/apex/PublicApiPayloadBuilderCt
 import getLookupFieldNamesForRelatedObject from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getLookupFieldNamesForRelatedObject';
 import getMatchFieldNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getMatchFieldNames';
 import getCreateFieldNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getCreateFieldNames';
+import getRequiredCreateFieldNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getRequiredCreateFieldNames';
 import getRecordTypeDeveloperNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getRecordTypeDeveloperNames';
 import getTriggerFieldNames from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getTriggerFieldNames';
 import getTriggerFieldValues from '@salesforce/apex/PublicApiPayloadBuilderCtrl.getTriggerFieldValues';
@@ -286,6 +287,25 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         return this.filteredObjectSuggestions.length > 0;
     }
 
+    get inboundSourceKeyOptions() {
+        const seen = new Set();
+        const options = [];
+        (this.inboundMappingRows || []).forEach((row) => {
+            const externalKey = (row?.externalKey || '').trim();
+            if (!externalKey) {
+                return;
+            }
+            const normalizedKey = externalKey.toLowerCase();
+            if (seen.has(normalizedKey)) {
+                return;
+            }
+            seen.add(normalizedKey);
+            options.push(externalKey);
+        });
+        options.sort();
+        return options;
+    }
+
     connectedCallback() {
         this.loadConfiguration();
     }
@@ -536,6 +556,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         this.outboundMappingRows = this.syncDirections
             ? this.cloneRows(this.defaultInboundRows, 'outbound')
             : this.cloneRows(this.defaultOutboundRows, 'outbound');
+        this.relatedRecordRows = this.rehydrateRelatedRows(this.relatedRecordRows);
         this.errorMessage = '';
         this.isDirty = true;
     }
@@ -545,6 +566,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         if (this.syncDirections) {
             this.outboundMappingRows = [];
         }
+        this.relatedRecordRows = this.rehydrateRelatedRows(this.relatedRecordRows);
         this.errorMessage = '';
         this.isDirty = true;
     }
@@ -563,6 +585,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         if (this.syncDirections) {
             this.outboundMappingRows = this.cloneRows(this.inboundMappingRows, 'outbound');
         }
+        this.relatedRecordRows = this.rehydrateRelatedRows(this.relatedRecordRows);
         this.isDirty = true;
     }
 
@@ -776,14 +799,40 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
     handleRelatedSourceKeyChange(event) {
         this.updateRelatedRuleRow(event.target.dataset.id, {
-            sourceKey: event.target.value || ''
+            sourceKey: event.target.value || '',
+            showSourceKeySuggestions: true
         });
     }
 
-    handleRelatedCreateIfMissingChange(event) {
+    handleRelatedSourceKeyFocus(event) {
         this.updateRelatedRuleRow(event.target.dataset.id, {
-            createIfMissing: event.target.checked
+            showSourceKeySuggestions: true
         });
+    }
+
+    handleRelatedSourceKeyBlur(event) {
+        const rowId = event.target.dataset.id;
+        window.setTimeout(() => {
+            this.updateRelatedRuleRow(rowId, { showSourceKeySuggestions: false });
+        }, 150);
+    }
+
+    handleSelectRelatedSourceKeySuggestion(event) {
+        const rowId = event.currentTarget.dataset.rowId;
+        const value = event.currentTarget.dataset.value;
+        this.updateRelatedRuleRow(rowId, {
+            sourceKey: value,
+            showSourceKeySuggestions: false
+        });
+    }
+
+    async handleRelatedCreateIfMissingChange(event) {
+        const rowId = event.target.dataset.id;
+        const createIfMissing = event.target.checked;
+        this.updateRelatedRuleRow(rowId, { createIfMissing });
+        if (createIfMissing) {
+            await this.refreshRelatedRuleMetadata(rowId);
+        }
     }
 
     handleRelatedCreateRecordTypeChange(event) {
@@ -823,8 +872,34 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
     handleRelatedCreateSourceKeyChange(event) {
         this.updateRelatedCreateMapping(event.target.dataset.rowId, event.target.dataset.id, {
-            sourceKey: event.target.value || ''
+            sourceKey: event.target.value || '',
+            showSourceKeySuggestions: true
         });
+    }
+
+    handleRelatedCreateSourceKeyFocus(event) {
+        this.updateRelatedCreateMapping(event.target.dataset.rowId, event.target.dataset.id, {
+            showSourceKeySuggestions: true
+        });
+    }
+
+    handleRelatedCreateSourceKeyBlur(event) {
+        const rowId = event.target.dataset.rowId;
+        const mappingId = event.target.dataset.id;
+        window.setTimeout(() => {
+            this.updateRelatedCreateMapping(rowId, mappingId, { showSourceKeySuggestions: false });
+        }, 150);
+    }
+
+    handleSelectRelatedCreateSourceKeySuggestion(event) {
+        this.updateRelatedCreateMapping(
+            event.currentTarget.dataset.rowId,
+            event.currentTarget.dataset.mappingId,
+            {
+                sourceKey: event.currentTarget.dataset.value,
+                showSourceKeySuggestions: false
+            }
+        );
     }
 
     handleRelatedCreateFieldInput(event) {
@@ -975,6 +1050,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                 this.outboundMappingRows = this.cloneRows(normalizedRows, 'outbound');
             }
         }
+        this.relatedRecordRows = this.rehydrateRelatedRows(this.relatedRecordRows);
         this.isDirty = true;
     }
 
@@ -1062,10 +1138,12 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             availableRelatedObjectApiNames: rule.availableRelatedObjectApiNames || [],
             availableMatchFieldNames: rule.availableMatchFieldNames || [],
             availableCreateFieldNames: rule.availableCreateFieldNames || [],
+            availableRequiredCreateFieldNames: rule.availableRequiredCreateFieldNames || [],
             availableCreateRecordTypeDeveloperNames: rule.availableCreateRecordTypeDeveloperNames || [],
             showLookupFieldSuggestions: false,
             showRelatedObjectSuggestions: false,
-            showMatchFieldSuggestions: false
+            showMatchFieldSuggestions: false,
+            showSourceKeySuggestions: false
         });
     }
 
@@ -1075,7 +1153,8 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             id: mapping.id || `related_create_${relatedCreateMappingCounter}`,
             sourceKey: mapping.sourceKey || '',
             fieldName: mapping.fieldName || '',
-            showFieldSuggestions: false
+            showFieldSuggestions: false,
+            showSourceKeySuggestions: false
         };
     }
 
@@ -1092,6 +1171,10 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             row.availableMatchFieldNames || [],
             row.matchFieldName
         );
+        const sourceKeySuggestions = this.getFilteredSuggestions(
+            this.inboundSourceKeyOptions,
+            row.sourceKey
+        );
 
         return {
             ...row,
@@ -1101,6 +1184,8 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             hasRelatedObjectSuggestions: relatedObjectSuggestions.length > 0,
             matchFieldSuggestions,
             hasMatchFieldSuggestions: matchFieldSuggestions.length > 0,
+            sourceKeySuggestions,
+            hasSourceKeySuggestions: sourceKeySuggestions.length > 0,
             createRecordTypeOptions: [
                 { label: 'Use default behavior', value: '' },
                 ...((row.availableCreateRecordTypeDeveloperNames || []).map((value) => ({
@@ -1120,10 +1205,16 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             availableCreateFieldNames || [],
             mapping.fieldName
         );
+        const sourceKeySuggestions = this.getFilteredSuggestions(
+            this.inboundSourceKeyOptions,
+            mapping.sourceKey
+        );
         return {
             ...mapping,
             fieldSuggestions,
-            hasFieldSuggestions: fieldSuggestions.length > 0
+            hasFieldSuggestions: fieldSuggestions.length > 0,
+            sourceKeySuggestions,
+            hasSourceKeySuggestions: sourceKeySuggestions.length > 0
         };
     }
 
@@ -1246,6 +1337,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             this.updateRelatedRuleRow(rowId, {
                 relatedObjectApiName: selectedValue,
                 relatedObjectSearchValue: selectedValue,
+                targetLookupField: '',
                 matchFieldName: '',
                 createMappings: [],
                 createRecordTypeDeveloperName: '',
@@ -1279,6 +1371,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         );
         let availableMatchFieldNames = [];
         let availableCreateFieldNames = [];
+        let availableRequiredCreateFieldNames = [];
         let availableCreateRecordTypeDeveloperNames = [];
 
         const relatedObjectApiName = availableRelatedObjectApiNames.includes(row.relatedObjectApiName)
@@ -1289,11 +1382,13 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                 availableLookupFieldNames,
                 availableMatchFieldNames,
                 availableCreateFieldNames,
+                availableRequiredCreateFieldNames,
                 availableCreateRecordTypeDeveloperNames
             ] = await Promise.all([
                 this.fetchLookupFieldNamesForRelatedObject(this.targetObjectApiName, relatedObjectApiName),
                 this.fetchMatchFieldNames(relatedObjectApiName),
                 this.fetchCreateFieldNames(relatedObjectApiName),
+                this.fetchRequiredCreateFieldNames(relatedObjectApiName),
                 this.fetchRecordTypeDeveloperNames(relatedObjectApiName)
             ]);
         }
@@ -1307,6 +1402,12 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                 ...mapping,
                 fieldName: availableCreateFieldNames.includes(mapping.fieldName) ? mapping.fieldName : ''
             }));
+            const hydratedMappings = candidate.createIfMissing
+                ? this.ensureRequiredCreateMappings(
+                    normalizedMappings,
+                    availableRequiredCreateFieldNames
+                )
+                : normalizedMappings;
 
             return this.hydrateRelatedRuleRow({
                 ...candidate,
@@ -1323,11 +1424,12 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                 )
                     ? candidate.createRecordTypeDeveloperName
                     : '',
-                createMappings: normalizedMappings,
+                createMappings: hydratedMappings,
                 availableLookupFieldNames,
                 availableRelatedObjectApiNames,
                 availableMatchFieldNames,
                 availableCreateFieldNames,
+                availableRequiredCreateFieldNames,
                 availableCreateRecordTypeDeveloperNames
             });
         });
@@ -1339,6 +1441,31 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             .filter((value) => !normalizedSearch || value.toLowerCase().includes(normalizedSearch))
             .slice(0, SUGGESTION_LIMIT)
             .map((value) => ({ label: value, value }));
+    }
+
+    ensureRequiredCreateMappings(existingMappings, requiredFieldNames) {
+        const hydratedMappings = [...(existingMappings || [])];
+        const existingFieldNames = new Set(
+            hydratedMappings
+                .map((mapping) => (mapping.fieldName || '').trim().toLowerCase())
+                .filter((value) => value)
+        );
+
+        (requiredFieldNames || []).forEach((fieldName) => {
+            const normalizedFieldName = (fieldName || '').trim().toLowerCase();
+            if (!normalizedFieldName || existingFieldNames.has(normalizedFieldName)) {
+                return;
+            }
+            hydratedMappings.push(
+                this.createRelatedCreateMappingRow({
+                    fieldName,
+                    sourceKey: ''
+                })
+            );
+            existingFieldNames.add(normalizedFieldName);
+        });
+
+        return hydratedMappings;
     }
 
     clearSuggestionState() {
@@ -1354,9 +1481,11 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                 showLookupFieldSuggestions: false,
                 showRelatedObjectSuggestions: false,
                 showMatchFieldSuggestions: false,
+                showSourceKeySuggestions: false,
                 createMappings: row.createMappings.map((mapping) => ({
                     ...mapping,
-                    showFieldSuggestions: false
+                    showFieldSuggestions: false,
+                    showSourceKeySuggestions: false
                 }))
             })
         );
@@ -1846,6 +1975,15 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     async fetchCreateFieldNames(objectApiName) {
         try {
             return await getCreateFieldNames({ objectApiName });
+        } catch (error) {
+            this.errorMessage = this.extractErrorMessage(error);
+            return [];
+        }
+    }
+
+    async fetchRequiredCreateFieldNames(objectApiName) {
+        try {
+            return await getRequiredCreateFieldNames({ objectApiName });
         } catch (error) {
             this.errorMessage = this.extractErrorMessage(error);
             return [];

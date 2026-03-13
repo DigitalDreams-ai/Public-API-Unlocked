@@ -40,6 +40,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>PublicApi_Integration_Config__c.Referred_By_Party_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>PublicApi_Integration_Config__c.Inbound_Payload_Configuration__c</field>
         <readable>true</readable>
     </fieldPermissions>
