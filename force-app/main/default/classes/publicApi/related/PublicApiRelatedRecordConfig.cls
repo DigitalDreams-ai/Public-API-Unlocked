@@ -5,6 +5,7 @@ public class PublicApiRelatedRecordConfig {
         @AuraEnabled public String matchFieldName;
         @AuraEnabled public String sourceKey;
         @AuraEnabled public Boolean createIfMissing;
+        @AuraEnabled public String createRecordTypeDeveloperName;
         @AuraEnabled public String onMultipleMatches;
         @AuraEnabled public List<CreateFieldMapping> createMappings;
     }
@@ -73,6 +74,7 @@ public class PublicApiRelatedRecordConfig {
         rule.matchFieldName = normalizeString(entry.get('matchFieldName'));
         rule.sourceKey = normalizeString(entry.get('sourceKey'));
         rule.createIfMissing = parseBoolean(entry.get('createIfMissing'));
+        rule.createRecordTypeDeveloperName = normalizeString(entry.get('createRecordTypeDeveloperName'));
         rule.onMultipleMatches = normalizeString(entry.get('onMultipleMatches'));
         rule.createMappings = parseCreateMappings(entry.get('createMappings'));
 
@@ -80,6 +82,7 @@ public class PublicApiRelatedRecordConfig {
             String.isBlank(rule.relatedObjectApiName) &&
             String.isBlank(rule.matchFieldName) &&
             String.isBlank(rule.sourceKey) &&
+            String.isBlank(rule.createRecordTypeDeveloperName) &&
             (rule.createMappings == null || rule.createMappings.isEmpty())) {
             return null;
         }

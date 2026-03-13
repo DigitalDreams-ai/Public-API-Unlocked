@@ -33,6 +33,14 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertNotEquals(null, initialSettings);
         System.assertNotEquals(null, initialSettings.defaultInboundJson);
         System.assertNotEquals(null, initialSettings.defaultOutboundJson);
+        System.assertNotEquals(null, initialSettings.availableTargetRecordTypeDeveloperNames);
+
+        String targetRecordTypeDeveloperName = selectPreferredRecordTypeDeveloperName('PublicApi_Submission__c');
+        String relatedRecordTypeDeveloperName =
+            selectPreferredRecordTypeDeveloperName('PublicApi_Integration_Config__c');
+        String relatedRecordTypeSegment = String.isBlank(relatedRecordTypeDeveloperName)
+            ? ''
+            : '"createRecordTypeDeveloperName":"' + relatedRecordTypeDeveloperName + '",';
 
         String inboundJson =
             '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
@@ -42,6 +50,7 @@ private class PublicApiPayloadBuilderCtrlTest {
             '[' +
                 '{"targetLookupField":"PublicApi_Integration_Config__c","relatedObjectApiName":"PublicApi_Integration_Config__c",' +
                 '"matchFieldName":"API_Key__c","sourceKey":"configKey","createIfMissing":true,"onMultipleMatches":"Error",' +
+                relatedRecordTypeSegment +
                 '"createMappings":[{"sourceKey":"configKey","fieldName":"API_Key__c"}]}' +
             ']';
 
@@ -49,6 +58,7 @@ private class PublicApiPayloadBuilderCtrlTest {
             config.Id,
             false,
             'PublicApi_Submission__c',
+            targetRecordTypeDeveloperName,
             relatedRecordJson,
             true,
             triggerFieldName,
@@ -65,6 +75,7 @@ private class PublicApiPayloadBuilderCtrlTest {
                    Outbound_Trigger_Field_Values__c,
                    Related_Record_Configuration__c,
                    Target_Object_API_Name__c,
+                   Target_Record_Type_Developer_Name__c,
                    Sync_Inbound_And_Outbound__c
             FROM PublicApi_Integration_Config__c
             WHERE Id = :config.Id
@@ -76,6 +87,7 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertEquals(triggerFieldValues, updated.Outbound_Trigger_Field_Values__c);
         System.assertEquals(relatedRecordJson, updated.Related_Record_Configuration__c);
         System.assertEquals('PublicApi_Submission__c', updated.Target_Object_API_Name__c);
+        System.assertEquals(targetRecordTypeDeveloperName, updated.Target_Record_Type_Developer_Name__c);
         System.assertEquals(false, updated.Sync_Inbound_And_Outbound__c);
     }
 
@@ -97,13 +109,69 @@ private class PublicApiPayloadBuilderCtrlTest {
 
         List<String> lookupFields = PublicApiPayloadBuilderCtrl.getLookupFieldNames('PublicApi_Submission__c');
         System.assertNotEquals(null, lookupFields);
-        if (!lookupFields.isEmpty()) {
-            List<String> lookupTargetObjects = PublicApiPayloadBuilderCtrl.getLookupTargetObjectApiNames(
-                'PublicApi_Submission__c',
-                lookupFields[0]
-            );
-            System.assertEquals(true, lookupTargetObjects.size() > 0);
+        List<String> relatedObjects = PublicApiPayloadBuilderCtrl.getRelatedObjectApiNames('Task');
+        System.assertNotEquals(null, relatedObjects);
+
+        if (!relatedObjects.isEmpty()) {
+            List<String> taskLookupFields =
+                PublicApiPayloadBuilderCtrl.getLookupFieldNamesForRelatedObject('Task', relatedObjects[0]);
+            System.assertNotEquals(null, taskLookupFields);
         }
+
+        List<String> requiredCreateFields = PublicApiPayloadBuilderCtrl.getRequiredCreateFieldNames('Task');
+        System.assertNotEquals(null, requiredCreateFields);
+    }
+
+    @IsTest
+    static void testGetRecordTypeMetadata() {
+        List<String> recordTypeDeveloperNames =
+            PublicApiPayloadBuilderCtrl.getRecordTypeDeveloperNames('Account');
+        System.assertNotEquals(null, recordTypeDeveloperNames);
+        System.assertEquals(true, recordTypeDeveloperNames.size() > 0);
+    }
+
+    @IsTest
+    static void testPayloadSettingsRoundTripPersistsRelatedCreateRecordType() {
+        String relatedRecordTypeDeveloperName = selectPreferredRecordTypeDeveloperName('Account');
+        if (String.isBlank(relatedRecordTypeDeveloperName)) {
+            System.assertEquals(null, relatedRecordTypeDeveloperName);
+            return;
+        }
+
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'payload-builder-related-record-type-key'
+        );
+        insert config;
+
+        String triggerFieldName = selectPreferredTriggerFieldName('Task');
+        String triggerFieldValues = selectValidTriggerValues('Task', triggerFieldName);
+
+        PublicApiPayloadBuilderCtrl.savePayloadSettings(
+            config.Id,
+            true,
+            'Task',
+            null,
+            '[' +
+                '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '"sourceKey":"accountName","createIfMissing":true,"createRecordTypeDeveloperName":"' +
+                relatedRecordTypeDeveloperName + '","onMultipleMatches":"Error"}' +
+            ']',
+            true,
+            triggerFieldName,
+            triggerFieldValues,
+            '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
+            '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]'
+        );
+
+        PublicApi_Integration_Config__c updated = [
+            SELECT Related_Record_Configuration__c
+            FROM PublicApi_Integration_Config__c
+            WHERE Id = :config.Id
+        ];
+        System.assert(updated.Related_Record_Configuration__c.contains(
+            '"createRecordTypeDeveloperName":"' + relatedRecordTypeDeveloperName + '"'
+        ));
     }
 
     private static String selectPreferredTriggerFieldName(String objectApiName) {
@@ -207,6 +275,7 @@ private class PublicApiPayloadBuilderCtrlTest {
                 true,
                 'PublicApi_Submission__c',
                 null,
+                null,
                 true,
                 'Status__c',
                 'Converted',
@@ -240,6 +309,7 @@ private class PublicApiPayloadBuilderCtrlTest {
                 true,
                 'PublicApi_Submission__c',
                 null,
+                null,
                 true,
                 constrainedTriggerFieldName,
                 'maybe',
@@ -265,6 +335,7 @@ private class PublicApiPayloadBuilderCtrlTest {
                 config.Id,
                 true,
                 'PublicApi_Submission__c',
+                null,
                 '[' +
                     '{"targetLookupField":"Status__c","relatedObjectApiName":"Account","matchFieldName":"Name",' +
                     '"sourceKey":"accountName"}' +
@@ -279,6 +350,47 @@ private class PublicApiPayloadBuilderCtrlTest {
         } catch (AuraHandledException e) {
             System.assert(e.getMessage().contains('lookup or master-detail'));
         }
+    }
+
+    @IsTest
+    static void testSavePayloadSettingsRejectsInvalidTargetRecordType() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'invalid-target-record-type-key'
+        );
+        insert config;
+
+        try {
+            PublicApiPayloadBuilderCtrl.savePayloadSettings(
+                config.Id,
+                true,
+                'Account',
+                'DoesNotExist',
+                null,
+                true,
+                null,
+                null,
+                '[{"externalKey":"name","value":"$Account.Name","sortOrder":1}]',
+                '[{"externalKey":"name","value":"$Account.Name","sortOrder":1}]'
+            );
+            System.assert(false, 'Expected AuraHandledException for invalid target record type.');
+        } catch (AuraHandledException e) {
+            System.assert(e.getMessage().contains('Select a valid target record type'));
+        }
+    }
+
+    private static String selectPreferredRecordTypeDeveloperName(String objectApiName) {
+        List<String> developerNames = PublicApiPayloadBuilderCtrl.getRecordTypeDeveloperNames(objectApiName);
+        if (developerNames.isEmpty()) {
+            return null;
+        }
+        if (developerNames.contains('Business')) {
+            return 'Business';
+        }
+        if (developerNames.contains('Individual')) {
+            return 'Individual';
+        }
+        return developerNames[0];
     }
 
     @IsTest

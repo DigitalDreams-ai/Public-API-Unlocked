@@ -311,10 +311,12 @@ private class PublicApiIntakeApiTest {
 
     @IsTest
     static void testCreateSubmissionSupportsInboundTargetObjectWithoutStatusField() {
+        String configuredRecordTypeDeveloperName = getConfiguredAccountRecordTypeDeveloperName();
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-8',
             Target_Object_API_Name__c = 'Account',
+            Target_Record_Type_Developer_Name__c = configuredRecordTypeDeveloperName,
             Inbound_Payload_Configuration__c =
                 '[{"externalKey":"name","value":"$Account.Name","sortOrder":1}]'
         );
@@ -339,7 +341,9 @@ private class PublicApiIntakeApiTest {
         Id recordId = (Id) response.get('recordId');
         Account created = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :recordId];
         System.assertEquals('Acme Public API', created.Name);
-        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        Id expectedRecordTypeId = String.isBlank(configuredRecordTypeDeveloperName)
+            ? PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual')
+            : PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, configuredRecordTypeDeveloperName);
         if (expectedRecordTypeId != null) {
             System.assertEquals(expectedRecordTypeId, created.RecordTypeId);
         }
@@ -463,6 +467,14 @@ private class PublicApiIntakeApiTest {
                 describe.getName().toLowerCase().contains('last')) {
                 return describe.getName();
             }
+        }
+        return null;
+    }
+
+    private static String getConfiguredAccountRecordTypeDeveloperName() {
+        Id businessRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Business');
+        if (businessRecordTypeId != null) {
+            return 'Business';
         }
         return null;
     }

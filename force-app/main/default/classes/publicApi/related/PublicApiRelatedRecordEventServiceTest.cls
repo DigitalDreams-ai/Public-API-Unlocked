@@ -2,6 +2,10 @@
 private class PublicApiRelatedRecordEventServiceTest {
     @IsTest
     static void testPublishAndHandleDeferredAccountRuleForTaskTarget() {
+        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Business');
+        String configuredRecordTypeSegment = expectedRecordTypeId == null
+            ? ''
+            : '"createRecordTypeDeveloperName":"Business",';
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'event-test-key-1',
@@ -14,6 +18,7 @@ private class PublicApiRelatedRecordEventServiceTest {
                 '[' +
                     '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
                     '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error",' +
+                    configuredRecordTypeSegment +
                     '"createMappings":[{"sourceKey":"phone","fieldName":"Phone"}]}' +
                 ']'
         );
@@ -40,7 +45,9 @@ private class PublicApiRelatedRecordEventServiceTest {
         Account related = [SELECT Id, Name, Phone, RecordTypeId FROM Account WHERE Id = :refreshed.WhatId];
         System.assertEquals('Async Account', related.Name);
         System.assertEquals('555-0101', related.Phone);
-        Id expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        if (expectedRecordTypeId == null) {
+            expectedRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
+        }
         if (expectedRecordTypeId != null) {
             System.assertEquals(expectedRecordTypeId, related.RecordTypeId);
         }

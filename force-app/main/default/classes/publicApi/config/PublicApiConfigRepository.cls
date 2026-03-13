@@ -29,6 +29,7 @@ public without sharing class PublicApiConfigRepository {
                    Outbound_Payload_Configuration__c,
                    Related_Record_Configuration__c,
                    Target_Object_API_Name__c,
+                   Target_Record_Type_Developer_Name__c,
                    Sync_Inbound_And_Outbound__c
             FROM PublicApi_Integration_Config__c
             WHERE Is_Active__c = true
@@ -67,6 +68,7 @@ public without sharing class PublicApiConfigRepository {
                    Outbound_Payload_Configuration__c,
                    Related_Record_Configuration__c,
                    Target_Object_API_Name__c,
+                   Target_Record_Type_Developer_Name__c,
                    Sync_Inbound_And_Outbound__c
             FROM PublicApi_Integration_Config__c
             WHERE Id = :configId
@@ -109,6 +111,7 @@ public without sharing class PublicApiConfigRepository {
                    Outbound_Payload_Configuration__c,
                    Related_Record_Configuration__c,
                    Target_Object_API_Name__c,
+                   Target_Record_Type_Developer_Name__c,
                    Sync_Inbound_And_Outbound__c
             FROM PublicApi_Integration_Config__c
             WHERE Id IN :configIds
@@ -148,6 +151,7 @@ public without sharing class PublicApiConfigRepository {
                    Outbound_Payload_Configuration__c,
                    Related_Record_Configuration__c,
                    Target_Object_API_Name__c,
+                   Target_Record_Type_Developer_Name__c,
                    Sync_Inbound_And_Outbound__c
             FROM PublicApi_Integration_Config__c
             WHERE Is_Active__c = true

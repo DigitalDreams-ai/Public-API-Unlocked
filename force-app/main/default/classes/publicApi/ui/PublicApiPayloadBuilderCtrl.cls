@@ -4,6 +4,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         @AuraEnabled public String inboundConfigurationJson;
         @AuraEnabled public String outboundConfigurationJson;
         @AuraEnabled public String relatedRecordConfigurationJson;
+        @AuraEnabled public String targetRecordTypeDeveloperName;
         @AuraEnabled public Boolean outboundTriggerEnabled;
         @AuraEnabled public String outboundTriggerFieldName;
         @AuraEnabled public String outboundTriggerFieldValues;
@@ -11,6 +12,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         @AuraEnabled public String defaultOutboundJson;
         @AuraEnabled public String targetObjectApiName;
         @AuraEnabled public List<String> availableObjectApiNames;
+        @AuraEnabled public List<String> availableTargetRecordTypeDeveloperNames;
         @AuraEnabled public List<String> availableInboundFieldReferences;
         @AuraEnabled public List<String> availableOutboundFieldReferences;
         @AuraEnabled public List<String> availableLookupFieldNames;
@@ -62,9 +64,12 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         if (String.isBlank(settings.targetObjectApiName)) {
             settings.targetObjectApiName = PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME;
         }
+        settings.targetRecordTypeDeveloperName = normalizeBlank(record.Target_Record_Type_Developer_Name__c);
         settings.defaultInboundJson = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson();
         settings.defaultOutboundJson = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson();
         settings.availableObjectApiNames = PublicApiPayloadTemplateService.getAvailableObjectApiNames();
+        settings.availableTargetRecordTypeDeveloperNames =
+            PublicApiPayloadTemplateService.getAvailableRecordTypeDeveloperNames(settings.targetObjectApiName);
         settings.availableInboundFieldReferences = PublicApiPayloadTemplateService.getAvailableFieldReferences(
             settings.targetObjectApiName,
             true
@@ -128,6 +133,14 @@ public with sharing class PublicApiPayloadBuilderCtrl {
     }
 
     @AuraEnabled(cacheable=true)
+    public static List<String> getRelatedObjectApiNames(String objectApiName) {
+        if (String.isBlank(objectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableRelatedObjectApiNames(objectApiName.trim());
+    }
+
+    @AuraEnabled(cacheable=true)
     public static List<String> getLookupTargetObjectApiNames(String objectApiName, String lookupFieldName) {
         if (String.isBlank(objectApiName) || String.isBlank(lookupFieldName)) {
             return new List<String>();
@@ -135,6 +148,20 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         return PublicApiPayloadTemplateService.getAvailableLookupTargetObjectApiNames(
             objectApiName.trim(),
             lookupFieldName.trim()
+        );
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<String> getLookupFieldNamesForRelatedObject(
+        String objectApiName,
+        String relatedObjectApiName
+    ) {
+        if (String.isBlank(objectApiName) || String.isBlank(relatedObjectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableLookupFieldNamesForRelatedObject(
+            objectApiName.trim(),
+            relatedObjectApiName.trim()
         );
     }
 
@@ -152,6 +179,22 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             return new List<String>();
         }
         return PublicApiPayloadTemplateService.getAvailableCreateFieldNames(objectApiName.trim());
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<String> getRequiredCreateFieldNames(String objectApiName) {
+        if (String.isBlank(objectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getRequiredCreateFieldNames(objectApiName.trim());
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<String> getRecordTypeDeveloperNames(String objectApiName) {
+        if (String.isBlank(objectApiName)) {
+            return new List<String>();
+        }
+        return PublicApiPayloadTemplateService.getAvailableRecordTypeDeveloperNames(objectApiName.trim());
     }
 
     @AuraEnabled(cacheable=true)
@@ -175,6 +218,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         Id recordId,
         Boolean syncInboundAndOutbound,
         String targetObjectApiName,
+        String targetRecordTypeDeveloperName,
         String relatedRecordConfigurationJson,
         Boolean outboundTriggerEnabled,
         String outboundTriggerFieldName,
@@ -190,10 +234,12 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             targetObjectApiName,
             'Target object API name is required.'
         );
+        String normalizedTargetRecordTypeDeveloperName = normalizeBlank(targetRecordTypeDeveloperName);
         String normalizedTriggerFieldName = normalizeBlank(outboundTriggerFieldName);
         validateInboundMappingConfigurationJson(inboundConfigJson, normalizedTargetObjectApiName);
         validateOutboundMappingConfigurationJson(outboundConfigJson, normalizedTargetObjectApiName);
         validateRelatedRecordConfigurationJson(relatedRecordConfigurationJson, normalizedTargetObjectApiName);
+        validateRecordTypeConfiguration(normalizedTargetObjectApiName, normalizedTargetRecordTypeDeveloperName);
         validateTriggerFieldConfiguration(
             normalizedTargetObjectApiName,
             normalizedTriggerFieldName,
@@ -203,6 +249,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         update new PublicApi_Integration_Config__c(
             Id = recordId,
             Target_Object_API_Name__c = normalizedTargetObjectApiName,
+            Target_Record_Type_Developer_Name__c = normalizedTargetRecordTypeDeveloperName,
             Sync_Inbound_And_Outbound__c = syncInboundAndOutbound,
             Outbound_Trigger_Enabled__c = outboundTriggerEnabled,
             Outbound_Trigger_Field_Name__c = normalizedTriggerFieldName,
@@ -381,6 +428,21 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             if (!validValues.contains(configuredValue)) {
                 throwAuraException('Select valid outbound trigger values for ' + fieldName + '.');
             }
+        }
+    }
+
+    private static void validateRecordTypeConfiguration(
+        String objectApiName,
+        String configuredDeveloperName
+    ) {
+        if (String.isBlank(configuredDeveloperName)) {
+            return;
+        }
+
+        List<String> availableDeveloperNames =
+            PublicApiPayloadTemplateService.getAvailableRecordTypeDeveloperNames(objectApiName);
+        if (!availableDeveloperNames.contains(configuredDeveloperName)) {
+            throwAuraException('Select a valid target record type for the selected object.');
         }
     }
 

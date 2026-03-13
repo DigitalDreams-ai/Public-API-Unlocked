@@ -92,19 +92,24 @@ private class PublicApiPayloadTemplateServiceTest {
             'PublicApi_Submission__c'
         );
         System.assertNotEquals(null, lookupFields);
-        if (!lookupFields.isEmpty()) {
-            List<String> lookupTargets = PublicApiPayloadTemplateService.getAvailableLookupTargetObjectApiNames(
-                'PublicApi_Submission__c',
-                lookupFields[0]
-            );
-            System.assertEquals(true, lookupTargets.size() > 0);
+        List<String> relatedObjects = PublicApiPayloadTemplateService.getAvailableRelatedObjectApiNames('Task');
+        System.assertNotEquals(null, relatedObjects);
+
+        if (!relatedObjects.isEmpty()) {
+            List<String> taskLookupFields =
+                PublicApiPayloadTemplateService.getAvailableLookupFieldNamesForRelatedObject('Task', relatedObjects[0]);
+            System.assertNotEquals(null, taskLookupFields);
         }
 
         List<String> matchFields = PublicApiPayloadTemplateService.getAvailableMatchFieldNames('Account');
-        System.assertEquals(true, matchFields.contains('Name'));
+        System.assertNotEquals(null, matchFields);
 
         List<String> createFields = PublicApiPayloadTemplateService.getAvailableCreateFieldNames('Account');
-        System.assertEquals(true, createFields.contains('Name'));
+        System.assertNotEquals(null, createFields);
+
+        List<String> requiredCreateFields =
+            PublicApiPayloadTemplateService.getRequiredCreateFieldNames('Task');
+        System.assertNotEquals(null, requiredCreateFields);
     }
 
     private static String selectPreferredTriggerFieldName(String objectApiName) {

@@ -15,70 +15,80 @@
             </template>
 
             <template if:false={isLoading}>
-                <div class="slds-box slds-theme_default builder-section slds-m-bottom_medium">
-                    <div class="section-heading">Configuration</div>
-                    <div class="slds-grid slds-gutters slds-wrap">
-                        <div class="slds-col slds-size_1-of-1">
-                            <div class="target-object-picker">
-                                <lightning-input
-                                    type="text"
-                                    label="Target Object"
-                                    value={targetObjectSearchValue}
-                                    placeholder="Start typing an object API name"
-                                    onfocus={handleTargetObjectFocus}
-                                    onblur={handleTargetObjectBlur}
-                                    onkeyup={handleTargetObjectInput}
-                                    onchange={handleTargetObjectInput}>
-                                </lightning-input>
-                                <template if:true={showObjectSuggestions}>
-                                    <div class="suggestions-panel">
-                                        <template if:true={hasObjectSuggestions}>
-                                            <template for:each={filteredObjectSuggestions} for:item="suggestion">
-                                                <button
-                                                    key={suggestion.value}
-                                                    type="button"
-                                                    class="suggestion-item"
-                                                    data-value={suggestion.value}
-                                                    onclick={handleSelectTargetObject}>
-                                                    {suggestion.label}
-                                                </button>
-                                            </template>
-                                        </template>
-                                        <template if:false={hasObjectSuggestions}>
-                                            <div class="suggestion-empty">
-                                                No supported target objects match the current search.
+                <lightning-tabset variant="scoped">
+                    <lightning-tab label="Payload">
+                        <div class="tab-shell">
+                        <div class="slds-box slds-theme_default builder-section builder-card builder-card--intro">
+                            <div class="section-heading">Configuration</div>
+                            <div class="slds-grid slds-gutters slds-wrap">
+                                <div class="slds-col slds-size_1-of-1">
+                                    <div class="target-object-picker">
+                                        <lightning-input
+                                            type="text"
+                                            label="Target Object"
+                                            value={targetObjectSearchValue}
+                                            placeholder="Start typing an object API name"
+                                            onfocus={handleTargetObjectFocus}
+                                            onblur={handleTargetObjectBlur}
+                                            onkeyup={handleTargetObjectInput}
+                                            onchange={handleTargetObjectInput}>
+                                        </lightning-input>
+                                        <template if:true={showObjectSuggestions}>
+                                            <div class="suggestions-panel">
+                                                <template if:true={hasObjectSuggestions}>
+                                                    <template for:each={filteredObjectSuggestions} for:item="suggestion">
+                                                        <button
+                                                            key={suggestion.value}
+                                                            type="button"
+                                                            class="suggestion-item"
+                                                            data-value={suggestion.value}
+                                                            onclick={handleSelectTargetObject}>
+                                                            {suggestion.label}
+                                                        </button>
+                                                    </template>
+                                                </template>
+                                                <template if:false={hasObjectSuggestions}>
+                                                    <div class="suggestion-empty">
+                                                        No supported target objects match the current search.
+                                                    </div>
+                                                </template>
                                             </div>
                                         </template>
                                     </div>
-                                </template>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                                    <lightning-input
+                                        type="checkbox"
+                                        label="Inbound and Outbound are the same"
+                                        checked={syncDirections}
+                                        onchange={handleSyncDirectionsChange}>
+                                    </lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                                    <lightning-combobox
+                                        data-role="target-record-type"
+                                        label="Target Record Type"
+                                        value={targetRecordTypeDeveloperName}
+                                        options={targetRecordTypeOptions}
+                                        onchange={handleTargetRecordTypeChange}>
+                                    </lightning-combobox>
+                                </div>
+                            </div>
+                            <div class="builder-help slds-m-top_small">
+                                <div class="builder-help-title">How this works</div>
+                                <div class="slds-text-body_small">{payloadHelpText}</div>
                             </div>
                         </div>
-                        <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
-                            <lightning-input
-                                type="checkbox"
-                                label="Inbound and Outbound are the same"
-                                checked={syncDirections}
-                                onchange={handleSyncDirectionsChange}>
-                            </lightning-input>
-                        </div>
-                    </div>
-                    <div class="builder-help slds-m-top_small">
-                        <div class="builder-help-title">How this works</div>
-                        <div class="slds-text-body_small">{payloadHelpText}</div>
-                    </div>
-                </div>
 
-                <lightning-tabset variant="scoped">
-                    <lightning-tab label="Payload">
-                        <div class="slds-grid slds-gutters">
-                            <div class="slds-col slds-size_7-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                        <div class="tab-workspace">
+                            <div class="workspace-main">
+                                <div class="builder-card workspace-card">
+                                <div class="workspace-card-header">
                                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
                                         <div>
                                             <h3 class="slds-text-heading_small">Payload Mappings</h3>
                                             <p class="slds-text-body_small slds-text-color_weak">
-                                                The builder controls inbound and outbound payloads. Use object field references like
-                                                <code>{valuePlaceholder}</code>.
+                                                The builder controls inbound and outbound payloads. Use object field references like <code>{valuePlaceholder}</code>.
                                             </p>
                                         </div>
                                         <div>
@@ -90,7 +100,7 @@
                                     </div>
                                 </div>
 
-                                <div class="slds-m-top_small">
+                                <div>
                                     <lightning-tabset variant="scoped">
                                         <lightning-tab label="Inbound" value="inbound" onactive={handlePayloadTabActive}>
                                                 <div class="slds-box slds-theme_default builder-section">
@@ -290,197 +300,250 @@
                                         </lightning-tab>
                                     </lightning-tabset>
                                 </div>
+                                </div>
                             </div>
 
-                            <div class="slds-col slds-size_5-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                            <div class="workspace-preview">
+                                <div class="builder-card preview-card">
+                                <div class="workspace-card-header">
                                     <h3 class="slds-text-heading_small">{payloadPreviewTitle}</h3>
                                 </div>
-                                <div class="preview-panel slds-p-top_x-small">
+                                <div class="preview-card-body">
                                     <c-public-api-pretty-json json-string={mappingPreviewJson}></c-public-api-pretty-json>
+                                </div>
                                 </div>
                             </div>
                         </div>
+                        </div>
                     </lightning-tab>
                     <lightning-tab label="Related Records">
-                        <div class="slds-grid slds-gutters">
-                            <div class="slds-col slds-size_7-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                        <div class="tab-shell">
+                        <div class="builder-card builder-card--intro">
+                            <div class="section-heading">Related Record Resolution</div>
+                            <div class="slds-text-body_small slds-text-color_weak">
+                                Link or create one parent record in a consistent, rule-based way before the target record is finalized.
+                            </div>
+                        </div>
+                        <div class="tab-workspace">
+                            <div class="workspace-main">
+                                <div class="builder-card workspace-card">
+                                <div class="workspace-card-header">
                                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
                                         <div>
                                             <h3 class="slds-text-heading_small">Related Record Resolution</h3>
                                             <p class="slds-text-body_small slds-text-color_weak">
-                                                Resolve parent lookups declaratively before the target record is inserted.
+                                                Resolve one parent lookup declaratively before the target record is inserted.
                                             </p>
                                         </div>
-                                        <lightning-button-icon
-                                            icon-name="utility:add"
-                                            alternative-text="Add related record rule"
-                                            title="Add related record rule"
-                                            onclick={handleAddRelatedRule}>
-                                        </lightning-button-icon>
                                     </div>
                                 </div>
 
-                                <div class="slds-m-top_small related-rule-grid">
-                                    <template if:true={hasRelatedRecordRows}>
-                                        <template for:each={relatedRecordRows} for:item="row">
-                                            <div key={row.id} class="slds-box slds-theme_default builder-section related-rule-card">
+                                <div class="editor-stack related-rule-grid">
+                                    <template if:true={activeRelatedRecordRow}>
+                                            <div key={activeRelatedRecordRow.id} class="slds-box slds-theme_default builder-section related-rule-card">
                                                 <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
                                                     <div class="section-heading">Related Record Rule</div>
-                                                    <lightning-button-icon
-                                                        icon-name="utility:delete"
-                                                        alternative-text="Remove related record rule"
-                                                        title="Remove related record rule"
-                                                        data-id={row.id}
-                                                        onclick={handleRemoveRelatedRule}>
-                                                    </lightning-button-icon>
+                                                    <lightning-button
+                                                        label="Reset"
+                                                        onclick={handleResetRelatedRule}>
+                                                    </lightning-button>
                                                 </div>
-                                                <div class="slds-grid slds-gutters slds-wrap">
-                                                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                                                        <div class="target-object-picker">
-                                                            <lightning-input
-                                                                data-role="related-lookup-field"
-                                                                data-id={row.id}
-                                                                type="text"
-                                                                label="Target Lookup Field"
-                                                                value={row.targetLookupField}
-                                                                placeholder="Start typing a lookup field"
-                                                                onfocus={handleRelatedLookupFieldFocus}
-                                                                onblur={handleRelatedLookupFieldBlur}
-                                                                onkeyup={handleRelatedLookupFieldInput}
-                                                                onchange={handleRelatedLookupFieldInput}>
-                                                            </lightning-input>
-                                                            <template if:true={row.showLookupFieldSuggestions}>
-                                                                <div class="suggestions-panel">
-                                                                    <template if:true={row.hasLookupFieldSuggestions}>
-                                                                        <template for:each={row.lookupFieldSuggestions} for:item="suggestion">
-                                                                            <button
-                                                                                key={suggestion.value}
-                                                                                type="button"
-                                                                                class="suggestion-item"
-                                                                                data-row-id={row.id}
-                                                                                data-value={suggestion.value}
-                                                                                onclick={handleSelectRelatedLookupFieldSuggestion}>
-                                                                                {suggestion.label}
-                                                                            </button>
+                                                <div class="related-rule-section related-rule-config-section">
+                                                    <div class="related-rule-section-title">Configuration</div>
+                                                    <div class="related-rule-section-help slds-text-body_small slds-text-color_weak">
+                                                        Choose the target related object first. It drives the available lookup fields, record types, and match fields.
+                                                    </div>
+                                                    <div class="slds-grid slds-gutters slds-wrap slds-m-top_small">
+                                                        <div class="slds-col slds-size_1-of-1">
+                                                            <div class="target-object-picker">
+                                                                <lightning-input
+                                                                    data-role="related-object"
+                                                                    data-id={activeRelatedRecordRow.id}
+                                                                    type="text"
+                                                                    label="Target Related Object"
+                                                                    value={activeRelatedRecordRow.relatedObjectSearchValue}
+                                                                    placeholder="Start typing a related object API name"
+                                                                    onfocus={handleRelatedObjectFocus}
+                                                                    onblur={handleRelatedObjectBlur}
+                                                                    onkeyup={handleRelatedObjectInput}
+                                                                    onchange={handleRelatedObjectInput}>
+                                                                </lightning-input>
+                                                                <template if:true={activeRelatedRecordRow.showRelatedObjectSuggestions}>
+                                                                    <div class="suggestions-panel">
+                                                                        <template if:true={activeRelatedRecordRow.hasRelatedObjectSuggestions}>
+                                                                            <template for:each={activeRelatedRecordRow.relatedObjectSuggestions} for:item="suggestion">
+                                                                                <button
+                                                                                    key={suggestion.value}
+                                                                                    type="button"
+                                                                                    class="suggestion-item"
+                                                                                    data-row-id={activeRelatedRecordRow.id}
+                                                                                    data-value={suggestion.value}
+                                                                                    onclick={handleSelectRelatedObjectSuggestion}>
+                                                                                    {suggestion.label}
+                                                                                </button>
+                                                                            </template>
                                                                         </template>
-                                                                    </template>
-                                                                    <template if:false={row.hasLookupFieldSuggestions}>
-                                                                        <div class="suggestion-empty">No supported lookup fields match the current search.</div>
-                                                                    </template>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </div>
-                                                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                                                        <div class="target-object-picker">
-                                                            <lightning-input
-                                                                data-role="related-object"
-                                                                data-id={row.id}
-                                                                type="text"
-                                                                label="Related Object"
-                                                                value={row.relatedObjectSearchValue}
-                                                                placeholder="Start typing a related object"
-                                                                onfocus={handleRelatedObjectFocus}
-                                                                onblur={handleRelatedObjectBlur}
-                                                                onkeyup={handleRelatedObjectInput}
-                                                                onchange={handleRelatedObjectInput}>
-                                                            </lightning-input>
-                                                            <template if:true={row.showRelatedObjectSuggestions}>
-                                                                <div class="suggestions-panel">
-                                                                    <template if:true={row.hasRelatedObjectSuggestions}>
-                                                                        <template for:each={row.relatedObjectSuggestions} for:item="suggestion">
-                                                                            <button
-                                                                                key={suggestion.value}
-                                                                                type="button"
-                                                                                class="suggestion-item"
-                                                                                data-row-id={row.id}
-                                                                                data-value={suggestion.value}
-                                                                                onclick={handleSelectRelatedObjectSuggestion}>
-                                                                                {suggestion.label}
-                                                                            </button>
+                                                                        <template if:false={activeRelatedRecordRow.hasRelatedObjectSuggestions}>
+                                                                            <div class="suggestion-empty">No related objects match the current search for the selected target object.</div>
                                                                         </template>
-                                                                    </template>
-                                                                    <template if:false={row.hasRelatedObjectSuggestions}>
-                                                                        <div class="suggestion-empty">No related objects are available for the selected lookup field.</div>
-                                                                    </template>
-                                                                </div>
-                                                            </template>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                                                        <div class="target-object-picker">
+                                                        <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
                                                             <lightning-input
-                                                                data-role="related-match-field"
-                                                                data-id={row.id}
-                                                                type="text"
-                                                                label="Match Field Name"
-                                                                value={row.matchFieldName}
-                                                                placeholder="Start typing a related field"
-                                                                onfocus={handleRelatedMatchFieldFocus}
-                                                                onblur={handleRelatedMatchFieldBlur}
-                                                                onkeyup={handleRelatedMatchFieldInput}
-                                                                onchange={handleRelatedMatchFieldInput}>
+                                                                type="checkbox"
+                                                                data-id={activeRelatedRecordRow.id}
+                                                                label="Create if missing"
+                                                                checked={activeRelatedRecordRow.createIfMissing}
+                                                                onchange={handleRelatedCreateIfMissingChange}>
                                                             </lightning-input>
-                                                            <template if:true={row.showMatchFieldSuggestions}>
-                                                                <div class="suggestions-panel">
-                                                                    <template if:true={row.hasMatchFieldSuggestions}>
-                                                                        <template for:each={row.matchFieldSuggestions} for:item="suggestion">
-                                                                            <button
-                                                                                key={suggestion.value}
-                                                                                type="button"
-                                                                                class="suggestion-item"
-                                                                                data-row-id={row.id}
-                                                                                data-value={suggestion.value}
-                                                                                onclick={handleSelectRelatedMatchFieldSuggestion}>
-                                                                                {suggestion.label}
-                                                                            </button>
-                                                                        </template>
-                                                                    </template>
-                                                                    <template if:false={row.hasMatchFieldSuggestions}>
-                                                                        <div class="suggestion-empty">No queryable match fields are available for the selected related object.</div>
-                                                                    </template>
-                                                                </div>
-                                                            </template>
                                                         </div>
-                                                    </div>
-                                                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                                                        <lightning-input
-                                                            data-role="related-source-key"
-                                                            data-id={row.id}
-                                                            type="text"
-                                                            label="Source Key"
-                                                            value={row.sourceKey}
-                                                            placeholder="email or data.email"
-                                                            onchange={handleRelatedSourceKeyChange}>
-                                                        </lightning-input>
-                                                    </div>
-                                                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                                                        <lightning-input
-                                                            type="checkbox"
-                                                            data-id={row.id}
-                                                            label="Create if missing"
-                                                            checked={row.createIfMissing}
-                                                            onchange={handleRelatedCreateIfMissingChange}>
-                                                        </lightning-input>
-                                                    </div>
-                                                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
-                                                        <lightning-combobox
-                                                            data-id={row.id}
-                                                            label="If Multiple Matches"
-                                                            value={row.onMultipleMatches}
-                                                            options={multiMatchPolicyOptions}
-                                                            onchange={handleRelatedMultiMatchPolicyChange}>
-                                                        </lightning-combobox>
+                                                        <template if:true={activeRelatedRecordRow.createIfMissing}>
+                                                            <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                                                                <lightning-combobox
+                                                                    data-role="related-create-record-type"
+                                                                    data-id={activeRelatedRecordRow.id}
+                                                                    label="Create Record Type"
+                                                                    value={activeRelatedRecordRow.createRecordTypeDeveloperName}
+                                                                    options={activeRelatedRecordRow.createRecordTypeOptions}
+                                                                    onchange={handleRelatedCreateRecordTypeChange}>
+                                                                </lightning-combobox>
+                                                            </div>
+                                                        </template>
                                                     </div>
                                                 </div>
-                                                <template if:true={row.createIfMissing}>
-                                                    <div class="slds-m-top_medium slds-border_top slds-p-top_medium">
+                                                <div class="related-rule-section">
+                                                    <div class="related-rule-section-title">Match</div>
+                                                    <div class="related-rule-section-help slds-text-body_small slds-text-color_weak">
+                                                        Identify the related record to link before the target record is inserted.
+                                                    </div>
+                                                    <div class="slds-grid slds-gutters slds-wrap slds-m-top_small">
+                                                        <div class="slds-col slds-size_1-of-1">
+                                                            <div class="target-object-picker">
+                                                                <lightning-input
+                                                                    data-role="related-lookup-field"
+                                                                    data-id={activeRelatedRecordRow.id}
+                                                                    type="text"
+                                                                    label="Target Lookup Field"
+                                                                    value={activeRelatedRecordRow.targetLookupField}
+                                                                    placeholder="Start typing a lookup field"
+                                                                    onfocus={handleRelatedLookupFieldFocus}
+                                                                    onblur={handleRelatedLookupFieldBlur}
+                                                                    onkeyup={handleRelatedLookupFieldInput}
+                                                                    onchange={handleRelatedLookupFieldInput}>
+                                                                </lightning-input>
+                                                                <template if:true={activeRelatedRecordRow.showLookupFieldSuggestions}>
+                                                                    <div class="suggestions-panel">
+                                                                        <template if:true={activeRelatedRecordRow.hasLookupFieldSuggestions}>
+                                                                            <template for:each={activeRelatedRecordRow.lookupFieldSuggestions} for:item="suggestion">
+                                                                                <button
+                                                                                    key={suggestion.value}
+                                                                                    type="button"
+                                                                                    class="suggestion-item"
+                                                                                    data-row-id={activeRelatedRecordRow.id}
+                                                                                    data-value={suggestion.value}
+                                                                                    onclick={handleSelectRelatedLookupFieldSuggestion}>
+                                                                                    {suggestion.label}
+                                                                                </button>
+                                                                            </template>
+                                                                        </template>
+                                                                        <template if:false={activeRelatedRecordRow.hasLookupFieldSuggestions}>
+                                                                            <div class="suggestion-empty">Select a target related object first, then choose a lookup field that can point to it.</div>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                                            <div class="target-object-picker">
+                                                                <lightning-input
+                                                                    data-role="related-match-field"
+                                                                    data-id={activeRelatedRecordRow.id}
+                                                                    type="text"
+                                                                    label="Match Field Name"
+                                                                    value={activeRelatedRecordRow.matchFieldName}
+                                                                    placeholder="Start typing a related field"
+                                                                    onfocus={handleRelatedMatchFieldFocus}
+                                                                    onblur={handleRelatedMatchFieldBlur}
+                                                                    onkeyup={handleRelatedMatchFieldInput}
+                                                                    onchange={handleRelatedMatchFieldInput}>
+                                                                </lightning-input>
+                                                                <template if:true={activeRelatedRecordRow.showMatchFieldSuggestions}>
+                                                                    <div class="suggestions-panel">
+                                                                        <template if:true={activeRelatedRecordRow.hasMatchFieldSuggestions}>
+                                                                            <template for:each={activeRelatedRecordRow.matchFieldSuggestions} for:item="suggestion">
+                                                                                <button
+                                                                                    key={suggestion.value}
+                                                                                    type="button"
+                                                                                    class="suggestion-item"
+                                                                                    data-row-id={activeRelatedRecordRow.id}
+                                                                                    data-value={suggestion.value}
+                                                                                    onclick={handleSelectRelatedMatchFieldSuggestion}>
+                                                                                    {suggestion.label}
+                                                                                </button>
+                                                                            </template>
+                                                                        </template>
+                                                                        <template if:false={activeRelatedRecordRow.hasMatchFieldSuggestions}>
+                                                                            <div class="suggestion-empty">No queryable match fields are available for the selected related object.</div>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                                            <div class="target-object-picker">
+                                                                <lightning-input
+                                                                    data-role="related-source-key"
+                                                                    data-id={activeRelatedRecordRow.id}
+                                                                    type="text"
+                                                                    label="Source Key"
+                                                                    value={activeRelatedRecordRow.sourceKey}
+                                                                    placeholder="email or data.email"
+                                                                    onfocus={handleRelatedSourceKeyFocus}
+                                                                    onblur={handleRelatedSourceKeyBlur}
+                                                                    onkeyup={handleRelatedSourceKeyChange}
+                                                                    onchange={handleRelatedSourceKeyChange}>
+                                                                </lightning-input>
+                                                                <template if:true={activeRelatedRecordRow.showSourceKeySuggestions}>
+                                                                    <div class="suggestions-panel">
+                                                                        <template if:true={activeRelatedRecordRow.hasSourceKeySuggestions}>
+                                                                            <template for:each={activeRelatedRecordRow.sourceKeySuggestions} for:item="suggestion">
+                                                                                <button
+                                                                                    key={suggestion.value}
+                                                                                    type="button"
+                                                                                    class="suggestion-item"
+                                                                                    data-row-id={activeRelatedRecordRow.id}
+                                                                                    data-value={suggestion.value}
+                                                                                    onclick={handleSelectRelatedSourceKeySuggestion}>
+                                                                                    {suggestion.label}
+                                                                                </button>
+                                                                            </template>
+                                                                        </template>
+                                                                        <template if:false={activeRelatedRecordRow.hasSourceKeySuggestions}>
+                                                                            <div class="suggestion-empty">No inbound keys match the current search.</div>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+                                                            <lightning-combobox
+                                                                data-id={activeRelatedRecordRow.id}
+                                                                label="If Multiple Matches"
+                                                                value={activeRelatedRecordRow.onMultipleMatches}
+                                                                options={multiMatchPolicyOptions}
+                                                                onchange={handleRelatedMultiMatchPolicyChange}>
+                                                            </lightning-combobox>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <template if:true={activeRelatedRecordRow.createIfMissing}>
+                                                    <div class="related-rule-section slds-m-top_medium">
                                                         <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
                                                             <div>
-                                                                <div class="section-heading">Create Mappings</div>
-                                                                <div class="slds-text-body_small slds-text-color_weak">
+                                                                <div class="related-rule-section-title">Create Mappings</div>
+                                                                <div class="related-rule-section-help slds-text-body_small slds-text-color_weak">
                                                                     These fields are populated only when a new related record is created.
                                                                 </div>
                                                             </div>
@@ -488,30 +551,56 @@
                                                                 icon-name="utility:add"
                                                                 alternative-text="Add create mapping"
                                                                 title="Add create mapping"
-                                                                data-id={row.id}
+                                                                data-id={activeRelatedRecordRow.id}
                                                                 onclick={handleAddRelatedCreateMapping}>
                                                             </lightning-button-icon>
                                                         </div>
-                                                        <template if:true={row.hasCreateMappings}>
-                                                            <template for:each={row.createMappings} for:item="mapping">
+                                                        <template if:true={activeRelatedRecordRow.hasCreateMappings}>
+                                                            <template for:each={activeRelatedRecordRow.createMappings} for:item="mapping">
                                                                 <div key={mapping.id} class="slds-grid slds-gutters_x-small slds-m-bottom_x-small header-row">
                                                                     <div class="slds-col slds-size_5-of-12">
-                                                                        <lightning-input
-                                                                            data-role="related-create-source-key"
-                                                                            data-row-id={row.id}
-                                                                            data-id={mapping.id}
-                                                                            type="text"
-                                                                            label="Source Key"
-                                                                            placeholder="phone or data.phone"
-                                                                            value={mapping.sourceKey}
-                                                                            onchange={handleRelatedCreateSourceKeyChange}>
-                                                                        </lightning-input>
+                                                                        <div class="target-object-picker">
+                                                                            <lightning-input
+                                                                                data-role="related-create-source-key"
+                                                                                data-row-id={activeRelatedRecordRow.id}
+                                                                                data-id={mapping.id}
+                                                                                type="text"
+                                                                                label="Source Key"
+                                                                                placeholder="phone or data.phone"
+                                                                                value={mapping.sourceKey}
+                                                                                onfocus={handleRelatedCreateSourceKeyFocus}
+                                                                                onblur={handleRelatedCreateSourceKeyBlur}
+                                                                                onkeyup={handleRelatedCreateSourceKeyChange}
+                                                                                onchange={handleRelatedCreateSourceKeyChange}>
+                                                                            </lightning-input>
+                                                                            <template if:true={mapping.showSourceKeySuggestions}>
+                                                                                <div class="suggestions-panel">
+                                                                                    <template if:true={mapping.hasSourceKeySuggestions}>
+                                                                                        <template for:each={mapping.sourceKeySuggestions} for:item="suggestion">
+                                                                                            <button
+                                                                                                key={suggestion.value}
+                                                                                                type="button"
+                                                                                                class="suggestion-item"
+                                                                                                data-row-id={activeRelatedRecordRow.id}
+                                                                                                data-mapping-id={mapping.id}
+                                                                                                data-value={suggestion.value}
+                                                                                                onclick={handleSelectRelatedCreateSourceKeySuggestion}>
+                                                                                                {suggestion.label}
+                                                                                            </button>
+                                                                                        </template>
+                                                                                    </template>
+                                                                                    <template if:false={mapping.hasSourceKeySuggestions}>
+                                                                                        <div class="suggestion-empty">No inbound keys match the current search.</div>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </template>
+                                                                        </div>
                                                                     </div>
                                                                     <div class="slds-col slds-size_6-of-12">
                                                                         <div class="target-object-picker">
                                                                             <lightning-input
                                                                                 data-role="related-create-field"
-                                                                                data-row-id={row.id}
+                                                                                data-row-id={activeRelatedRecordRow.id}
                                                                                 data-id={mapping.id}
                                                                                 type="text"
                                                                                 label="Field Name"
@@ -530,7 +619,7 @@
                                                                                                 key={suggestion.value}
                                                                                                 type="button"
                                                                                                 class="suggestion-item"
-                                                                                                data-row-id={row.id}
+                                                                                                data-row-id={activeRelatedRecordRow.id}
                                                                                                 data-mapping-id={mapping.id}
                                                                                                 data-value={suggestion.value}
                                                                                                 onclick={handleSelectRelatedCreateFieldSuggestion}>
@@ -550,7 +639,7 @@
                                                                             icon-name="utility:delete"
                                                                             alternative-text="Remove create mapping"
                                                                             title="Remove create mapping"
-                                                                            data-row-id={row.id}
+                                                                            data-row-id={activeRelatedRecordRow.id}
                                                                             data-id={mapping.id}
                                                                             onclick={handleRemoveRelatedCreateMapping}>
                                                                         </lightning-button-icon>
@@ -558,7 +647,7 @@
                                                                 </div>
                                                             </template>
                                                         </template>
-                                                        <template if:false={row.hasCreateMappings}>
+                                                        <template if:false={activeRelatedRecordRow.hasCreateMappings}>
                                                             <div class="builder-empty-state">
                                                                 No create mappings configured.
                                                             </div>
@@ -566,30 +655,38 @@
                                                     </div>
                                                 </template>
                                             </div>
-                                        </template>
                                     </template>
-                                    <template if:false={hasRelatedRecordRows}>
-                                        <div class="builder-empty-state">No related record rules configured.</div>
-                                    </template>
+                                </div>
                                 </div>
                             </div>
-                            <div class="slds-col slds-size_5-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                            <div class="workspace-preview">
+                                <div class="builder-card preview-card">
+                                <div class="workspace-card-header">
                                     <h3 class="slds-text-heading_small">Related Records Preview</h3>
                                 </div>
-                                <div class="preview-panel slds-p-top_x-small">
+                                <div class="preview-card-body">
                                     <c-public-api-pretty-json json-string={relatedRecordsPreviewJson}></c-public-api-pretty-json>
+                                </div>
                                 </div>
                             </div>
                         </div>
+                        </div>
                     </lightning-tab>
                     <lightning-tab label="Triggers">
-                        <div class="slds-grid slds-gutters">
-                            <div class="slds-col slds-size_7-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                        <div class="tab-shell">
+                        <div class="builder-card builder-card--intro">
+                            <div class="section-heading">Trigger Configuration</div>
+                            <div class="slds-text-body_small slds-text-color_weak">
+                                Define the field and values that should enqueue outbound delivery for the selected target object.
+                            </div>
+                        </div>
+                        <div class="tab-workspace">
+                            <div class="workspace-main">
+                                <div class="builder-card workspace-card">
+                                <div class="workspace-card-header">
                                     <h3 class="slds-text-heading_small">Outbound Trigger Settings</h3>
                                 </div>
-                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                <div class="slds-box slds-theme_default builder-section">
                                     <div class="slds-grid slds-gutters slds-wrap">
                                         <div class="slds-col slds-size_1-of-1">
                                             <lightning-input
@@ -669,21 +766,33 @@
                                         </div>
                                     </div>
                                 </div>
+                                </div>
                             </div>
-                            <div class="slds-col slds-size_5-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                            <div class="workspace-preview">
+                                <div class="builder-card preview-card">
+                                <div class="workspace-card-header">
                                     <h3 class="slds-text-heading_small">Triggers Preview</h3>
                                 </div>
-                                <div class="preview-panel slds-p-top_x-small">
+                                <div class="preview-card-body">
                                     <c-public-api-pretty-json json-string={triggersPreviewJson}></c-public-api-pretty-json>
+                                </div>
                                 </div>
                             </div>
                         </div>
+                        </div>
                     </lightning-tab>
                     <lightning-tab label="Headers">
-                        <div class="slds-grid slds-gutters">
-                            <div class="slds-col slds-size_7-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                        <div class="tab-shell">
+                        <div class="builder-card builder-card--intro">
+                            <div class="section-heading">Header Configuration</div>
+                            <div class="slds-text-body_small slds-text-color_weak">
+                                Configure provisioning, auth, and any additional outbound headers in one place.
+                            </div>
+                        </div>
+                        <div class="tab-workspace">
+                            <div class="workspace-main">
+                                <div class="builder-card workspace-card">
+                                <div class="workspace-card-header">
                                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
                                         <div>
                                             <h3 class="slds-text-heading_small">Headers</h3>
@@ -694,7 +803,8 @@
                                     </div>
                                 </div>
 
-                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                <div class="editor-stack">
+                                <div class="slds-box slds-theme_default builder-section">
                                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
                                         <div>
                                             <div class="section-heading">Webhook Domain Provisioning</div>
@@ -730,7 +840,7 @@
                                     </div>
                                 </div>
 
-                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                <div class="slds-box slds-theme_default builder-section">
                                     <div class="section-heading">Authentication</div>
                                     <div class="slds-grid slds-gutters slds-wrap">
                                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
@@ -756,7 +866,7 @@
                                     </div>
                                 </div>
 
-                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                <div class="slds-box slds-theme_default builder-section">
                                     <div class="section-heading">{primaryHeaderSectionTitle}</div>
                                     <template if:true={showPrimaryHeaderSection}>
                                         <div class="slds-grid slds-gutters slds-wrap">
@@ -799,7 +909,7 @@
                                     </template>
                                 </div>
 
-                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                <div class="slds-box slds-theme_default builder-section">
                                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
                                         <div>
                                             <div class="section-heading">Additional Headers</div>
@@ -861,16 +971,21 @@
                                         </template>
                                     </div>
                                 </div>
+                                </div>
+                                </div>
                             </div>
 
-                            <div class="slds-col slds-size_5-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                            <div class="workspace-preview">
+                                <div class="builder-card preview-card">
+                                <div class="workspace-card-header">
                                     <h3 class="slds-text-heading_small">Headers Preview</h3>
                                 </div>
-                                <div class="preview-panel slds-p-top_x-small">
+                                <div class="preview-card-body">
                                     <c-public-api-pretty-json json-string={headersPreviewJson}></c-public-api-pretty-json>
                                 </div>
+                                </div>
                             </div>
+                        </div>
                         </div>
                     </lightning-tab>
                 </lightning-tabset>
