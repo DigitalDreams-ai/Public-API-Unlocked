@@ -60,14 +60,14 @@
         <headerColor>#0070D2</headerColor>
         <shouldOverrideOrgTheme>false</shouldOverrideOrgTheme>
     </brand>
-    <description>This Lightning App provides a streamlined interface to access and manage core functionality of the PublicApi-Unlocked package.</description>
+    <description>This Lightning App provides a streamlined interface to access and manage core functionality of the Public-API-Unlocked package.</description>
     <formFactors>Small</formFactors>
     <formFactors>Large</formFactors>
     <isNavAutoTempTabsDisabled>false</isNavAutoTempTabsDisabled>
     <isNavPersonalizationDisabled>true</isNavPersonalizationDisabled>
     <isNavTabPersistenceDisabled>false</isNavTabPersistenceDisabled>
     <isOmniPinnedViewEnabled>false</isOmniPinnedViewEnabled>
-    <label>PublicApi-Unlocked</label>
+    <label>Public-API-Unlocked</label>
     <navType>Standard</navType>
     <tabs>standard-home</tabs>
     <tabs>PublicApi_Submission__c</tabs>
@@ -75,3 +75,4 @@
     <uiType>Lightning</uiType>
     <utilityBar>PublicApiUnlockedUtilityBar</utilityBar>
 </CustomApplication>
+

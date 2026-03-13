@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSetGroup xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>This permission set provides standard user-level access to all basic functionality within the PublicApi-Unlocked package.</description>
+    <description>This permission set provides standard user-level access to all basic functionality within the Public-API-Unlocked package.</description>
     <hasActivationRequired>false</hasActivationRequired>
-    <label>PublicApi-Unlocked User</label>
+    <label>Public-API-Unlocked User</label>
     <permissionSets>PublicApiUnlockedApp</permissionSets>
     <status>Updated</status>
 </PermissionSetGroup>
+

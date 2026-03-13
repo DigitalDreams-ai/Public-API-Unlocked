@@ -8,7 +8,7 @@
         <name>backgroundComponents</name>
         <type>Background</type>
     </flexiPageRegions>
-    <masterLabel>PublicApi-Unlocked UtilityBar</masterLabel>
+    <masterLabel>Public-API-Unlocked UtilityBar</masterLabel>
     <template>
         <name>one:utilityBarTemplateDesktop</name>
         <properties>
@@ -18,3 +18,4 @@
     </template>
     <type>UtilityBar</type>
 </FlexiPage>
+

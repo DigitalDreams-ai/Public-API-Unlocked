@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Dependency hygiene gate for PublicApi-Unlocked.
+Dependency hygiene gate for Public-API-Unlocked.
 
 Fails CI when:
 1) `Shulman-Core` is reintroduced in `cumulusci.yml`.
@@ -69,3 +69,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

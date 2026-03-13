@@ -3,10 +3,10 @@
         {
             "path": "force-app",
             "default": true,
-            "package": "PublicApi-Unlocked",
+            "package": "Public-API-Unlocked",
             "versionName": "ver 1.0",
             "versionNumber": "1.0.0.NEXT",
-            "versionDescription": "Initial version of the PublicApi-Unlocked Package"
+            "versionDescription": "Initial version of the Public-API-Unlocked Package"
         },
         {
             "path": "unpackaged"

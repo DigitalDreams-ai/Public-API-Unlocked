@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSetGroup xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>This permission set grants full administrative access to all configuration and management capabilities within the PublicApi-Unlocked package.</description>
+    <description>This permission set grants full administrative access to all configuration and management capabilities within the Public-API-Unlocked package.</description>
     <hasActivationRequired>false</hasActivationRequired>
-    <label>PublicApi-Unlocked Admin</label>
+    <label>Public-API-Unlocked Admin</label>
     <permissionSets>PublicApiUnlockedAdmin_App</permissionSets>
     <permissionSets>PublicApiUnlockedApp</permissionSets>
     <status>Updated</status>
 </PermissionSetGroup>
+
