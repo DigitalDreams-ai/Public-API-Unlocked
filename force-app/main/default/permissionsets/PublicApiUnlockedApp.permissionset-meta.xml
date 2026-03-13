@@ -4,7 +4,8 @@
         <application>PublicApiUnlocked</application>
         <visible>true</visible>
     </applicationVisibilities>
-    <description>This permission set provides access to the &quot;PublicApi-Unlocked&quot; Lightning App</description>
+    <description>This permission set provides access to the &quot;Public-API-Unlocked&quot; Lightning App</description>
     <hasActivationRequired>false</hasActivationRequired>
-    <label>PublicApi-Unlocked App</label>
+    <label>Public-API-Unlocked App</label>
 </PermissionSet>
+

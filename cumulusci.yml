@@ -1,9 +1,9 @@
 minimum_cumulusci_version: "3.78.0"
 project:
-    name: PublicApi-Unlocked
+    name: Public-API-Unlocked
     package:
         name: PublicApiUnlocked
-        name_managed: PublicApi-Unlocked
+        name_managed: Public-API-Unlocked
         api_version: "61.0"
     #     - version_id: 04t8b000001ZxNVAA0 # FlowActionsBasePack Version: 3.18
     #     - version_id: 04t5G000004fz7mQAA # FlowScreenComponentsBasePack Version: 3.3.4
@@ -26,14 +26,14 @@ tasks:
 
     robot:
         options:
-            suites: robot/PublicApi-Unlocked/tests
+            suites: robot/Public-API-Unlocked/tests
             options:
-                outputdir: robot/PublicApi-Unlocked/results
+                outputdir: robot/Public-API-Unlocked/results
 
     robot_testdoc:
         options:
-            path: robot/PublicApi-Unlocked/tests
-            output: robot/PublicApi-Unlocked/doc/PublicApi-Unlocked_tests.html
+            path: robot/Public-API-Unlocked/tests
+            output: robot/Public-API-Unlocked/doc/Public-API-Unlocked_tests.html
 
     run_tests:
         options:
@@ -95,3 +95,4 @@ flows:
         steps:
             90:
                 task: load_managed_beta_sample_data
+

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Dispatch GitHub Actions workflows
-REPO="DigitalDreams-ai/PublicApiUnlocked"
+REPO="DigitalDreams-ai/Public-API-Unlocked"
 
 # Get current branch
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -92,3 +92,4 @@ else
     echo "Failed to dispatch workflow."
     exit 1
 fi
+
