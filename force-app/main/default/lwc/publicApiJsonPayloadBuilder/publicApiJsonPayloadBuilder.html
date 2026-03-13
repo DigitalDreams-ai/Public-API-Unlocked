@@ -17,7 +17,8 @@
             <template if:false={isLoading}>
                 <lightning-tabset variant="scoped">
                     <lightning-tab label="Payload">
-                        <div class="slds-box slds-theme_default builder-section slds-m-bottom_medium">
+                        <div class="tab-shell">
+                        <div class="slds-box slds-theme_default builder-section builder-card builder-card--intro">
                             <div class="section-heading">Configuration</div>
                             <div class="slds-grid slds-gutters slds-wrap">
                                 <div class="slds-col slds-size_1-of-1">
@@ -79,15 +80,15 @@
                             </div>
                         </div>
 
-                        <div class="slds-grid slds-gutters">
-                            <div class="slds-col slds-size_7-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                        <div class="tab-workspace">
+                            <div class="workspace-main">
+                                <div class="builder-card workspace-card">
+                                <div class="workspace-card-header">
                                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
                                         <div>
                                             <h3 class="slds-text-heading_small">Payload Mappings</h3>
                                             <p class="slds-text-body_small slds-text-color_weak">
-                                                The builder controls inbound and outbound payloads. Use object field references like
-                                                <code>{valuePlaceholder}</code>.
+                                                The builder controls inbound and outbound payloads. Use object field references like <code>{valuePlaceholder}</code>.
                                             </p>
                                         </div>
                                         <div>
@@ -99,7 +100,7 @@
                                     </div>
                                 </div>
 
-                                <div class="slds-m-top_small">
+                                <div>
                                     <lightning-tabset variant="scoped">
                                         <lightning-tab label="Inbound" value="inbound" onactive={handlePayloadTabActive}>
                                                 <div class="slds-box slds-theme_default builder-section">
@@ -299,22 +300,34 @@
                                         </lightning-tab>
                                     </lightning-tabset>
                                 </div>
+                                </div>
                             </div>
 
-                            <div class="slds-col slds-size_5-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                            <div class="workspace-preview">
+                                <div class="builder-card preview-card">
+                                <div class="workspace-card-header">
                                     <h3 class="slds-text-heading_small">{payloadPreviewTitle}</h3>
                                 </div>
-                                <div class="preview-panel slds-p-top_x-small">
+                                <div class="preview-card-body">
                                     <c-public-api-pretty-json json-string={mappingPreviewJson}></c-public-api-pretty-json>
+                                </div>
                                 </div>
                             </div>
                         </div>
+                        </div>
                     </lightning-tab>
                     <lightning-tab label="Related Records">
-                        <div class="slds-grid slds-gutters">
-                            <div class="slds-col slds-size_7-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                        <div class="tab-shell">
+                        <div class="builder-card builder-card--intro">
+                            <div class="section-heading">Related Record Resolution</div>
+                            <div class="slds-text-body_small slds-text-color_weak">
+                                Link or create one parent record in a consistent, rule-based way before the target record is finalized.
+                            </div>
+                        </div>
+                        <div class="tab-workspace">
+                            <div class="workspace-main">
+                                <div class="builder-card workspace-card">
+                                <div class="workspace-card-header">
                                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
                                         <div>
                                             <h3 class="slds-text-heading_small">Related Record Resolution</h3>
@@ -325,7 +338,7 @@
                                     </div>
                                 </div>
 
-                                <div class="slds-m-top_small related-rule-grid">
+                                <div class="editor-stack related-rule-grid">
                                     <template if:true={activeRelatedRecordRow}>
                                             <div key={activeRelatedRecordRow.id} class="slds-box slds-theme_default builder-section related-rule-card">
                                                 <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
@@ -644,24 +657,36 @@
                                             </div>
                                     </template>
                                 </div>
+                                </div>
                             </div>
-                            <div class="slds-col slds-size_5-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                            <div class="workspace-preview">
+                                <div class="builder-card preview-card">
+                                <div class="workspace-card-header">
                                     <h3 class="slds-text-heading_small">Related Records Preview</h3>
                                 </div>
-                                <div class="preview-panel slds-p-top_x-small">
+                                <div class="preview-card-body">
                                     <c-public-api-pretty-json json-string={relatedRecordsPreviewJson}></c-public-api-pretty-json>
+                                </div>
                                 </div>
                             </div>
                         </div>
+                        </div>
                     </lightning-tab>
                     <lightning-tab label="Triggers">
-                        <div class="slds-grid slds-gutters">
-                            <div class="slds-col slds-size_7-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                        <div class="tab-shell">
+                        <div class="builder-card builder-card--intro">
+                            <div class="section-heading">Trigger Configuration</div>
+                            <div class="slds-text-body_small slds-text-color_weak">
+                                Define the field and values that should enqueue outbound delivery for the selected target object.
+                            </div>
+                        </div>
+                        <div class="tab-workspace">
+                            <div class="workspace-main">
+                                <div class="builder-card workspace-card">
+                                <div class="workspace-card-header">
                                     <h3 class="slds-text-heading_small">Outbound Trigger Settings</h3>
                                 </div>
-                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                <div class="slds-box slds-theme_default builder-section">
                                     <div class="slds-grid slds-gutters slds-wrap">
                                         <div class="slds-col slds-size_1-of-1">
                                             <lightning-input
@@ -741,21 +766,33 @@
                                         </div>
                                     </div>
                                 </div>
+                                </div>
                             </div>
-                            <div class="slds-col slds-size_5-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                            <div class="workspace-preview">
+                                <div class="builder-card preview-card">
+                                <div class="workspace-card-header">
                                     <h3 class="slds-text-heading_small">Triggers Preview</h3>
                                 </div>
-                                <div class="preview-panel slds-p-top_x-small">
+                                <div class="preview-card-body">
                                     <c-public-api-pretty-json json-string={triggersPreviewJson}></c-public-api-pretty-json>
+                                </div>
                                 </div>
                             </div>
                         </div>
+                        </div>
                     </lightning-tab>
                     <lightning-tab label="Headers">
-                        <div class="slds-grid slds-gutters">
-                            <div class="slds-col slds-size_7-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                        <div class="tab-shell">
+                        <div class="builder-card builder-card--intro">
+                            <div class="section-heading">Header Configuration</div>
+                            <div class="slds-text-body_small slds-text-color_weak">
+                                Configure provisioning, auth, and any additional outbound headers in one place.
+                            </div>
+                        </div>
+                        <div class="tab-workspace">
+                            <div class="workspace-main">
+                                <div class="builder-card workspace-card">
+                                <div class="workspace-card-header">
                                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
                                         <div>
                                             <h3 class="slds-text-heading_small">Headers</h3>
@@ -766,7 +803,8 @@
                                     </div>
                                 </div>
 
-                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                <div class="editor-stack">
+                                <div class="slds-box slds-theme_default builder-section">
                                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
                                         <div>
                                             <div class="section-heading">Webhook Domain Provisioning</div>
@@ -802,7 +840,7 @@
                                     </div>
                                 </div>
 
-                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                <div class="slds-box slds-theme_default builder-section">
                                     <div class="section-heading">Authentication</div>
                                     <div class="slds-grid slds-gutters slds-wrap">
                                         <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
@@ -828,7 +866,7 @@
                                     </div>
                                 </div>
 
-                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                <div class="slds-box slds-theme_default builder-section">
                                     <div class="section-heading">{primaryHeaderSectionTitle}</div>
                                     <template if:true={showPrimaryHeaderSection}>
                                         <div class="slds-grid slds-gutters slds-wrap">
@@ -871,7 +909,7 @@
                                     </template>
                                 </div>
 
-                                <div class="slds-box slds-theme_default slds-m-top_small builder-section">
+                                <div class="slds-box slds-theme_default builder-section">
                                     <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small">
                                         <div>
                                             <div class="section-heading">Additional Headers</div>
@@ -933,16 +971,21 @@
                                         </template>
                                     </div>
                                 </div>
+                                </div>
+                                </div>
                             </div>
 
-                            <div class="slds-col slds-size_5-of-12">
-                                <div class="panel-header slds-p-bottom_x-small slds-border_bottom">
+                            <div class="workspace-preview">
+                                <div class="builder-card preview-card">
+                                <div class="workspace-card-header">
                                     <h3 class="slds-text-heading_small">Headers Preview</h3>
                                 </div>
-                                <div class="preview-panel slds-p-top_x-small">
+                                <div class="preview-card-body">
                                     <c-public-api-pretty-json json-string={headersPreviewJson}></c-public-api-pretty-json>
                                 </div>
+                                </div>
                             </div>
+                        </div>
                         </div>
                     </lightning-tab>
                 </lightning-tabset>

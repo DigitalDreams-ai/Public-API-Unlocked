@@ -1,6 +1,54 @@
+.tab-shell {
+    --builder-surface: #ffffff;
+    --builder-surface-subtle: #f7f8fa;
+    --builder-surface-muted: #f2f4f7;
+    --builder-border: #d8dde6;
+    --builder-border-soft: #e5e8ec;
+    --builder-shadow: 0 1px 2px rgba(24, 24, 24, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
 .template-panel {
     max-height: 500px;
     overflow-y: auto;
+}
+
+.tab-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(19rem, 5fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.workspace-main,
+.workspace-preview {
+    min-width: 0;
+}
+
+.builder-card {
+    background: var(--builder-surface);
+    border: 1px solid var(--builder-border);
+    border-radius: 0.5rem;
+    box-shadow: var(--builder-shadow);
+}
+
+.builder-card--intro {
+    background: var(--builder-surface-subtle);
+    padding: 1rem;
+}
+
+.workspace-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.workspace-card-header {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--builder-border-soft);
 }
 
 .panel-header {
@@ -15,13 +63,35 @@
     overflow-y: auto;
 }
 
+.preview-card {
+    background: var(--builder-surface);
+    position: sticky;
+    top: 0;
+    padding: 1rem;
+}
+
+.preview-card-body {
+    background: var(--builder-surface);
+    max-height: 500px;
+    overflow-y: auto;
+    padding-top: 0.75rem;
+}
+
 .headers-panel {
     max-height: 320px;
     overflow-y: auto;
 }
 
 .builder-section {
+    background: var(--builder-surface-subtle);
+    border: 1px solid var(--builder-border-soft);
     border-radius: 0.25rem;
+}
+
+.editor-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 
 .section-heading {
@@ -31,7 +101,11 @@
 }
 
 .builder-help {
+    background: var(--builder-surface);
     border-left: 3px solid var(--slds-g-color-brand-base-50, #0176d3);
+    border-radius: 0.25rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
     padding-left: 0.75rem;
 }
 
@@ -46,7 +120,7 @@
 }
 
 .tree-node {
-    border-bottom: 1px solid var(--slds-g-color-border-base-1, #f3f3f3);
+    border-bottom: 1px solid var(--builder-border-soft);
 }
 
 .tree-node:last-child {
@@ -83,8 +157,8 @@
 }
 
 .related-rule-section {
-    background: var(--slds-g-color-neutral-base-95, #f3f3f3);
-    border: 1px solid var(--slds-g-color-border-base-1, #d8dde6);
+    background: var(--builder-surface-muted);
+    border: 1px solid var(--builder-border);
     border-radius: 0.25rem;
     overflow: visible;
     padding: 0.75rem;
@@ -110,9 +184,9 @@
 }
 
 .suggestions-panel {
-    border: 1px solid var(--slds-g-color-border-base-1, #d8dde6);
+    border: 1px solid var(--builder-border);
     border-radius: 0.25rem;
-    background: var(--slds-g-color-neutral-base-100, #fff);
+    background: var(--builder-surface);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
     margin-top: 0.25rem;
     max-height: 12rem;
@@ -134,11 +208,21 @@
 
 .suggestion-item:hover,
 .suggestion-item:focus {
-    background: var(--slds-g-color-neutral-base-95, #f3f3f3);
+    background: var(--builder-surface-subtle);
     outline: none;
 }
 
 .suggestion-empty {
     color: var(--slds-g-color-text-weak, #706e6b);
     padding: 0.5rem 0.75rem;
+}
+
+@media (max-width: 64rem) {
+    .tab-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .preview-card {
+        position: static;
+    }
 }
