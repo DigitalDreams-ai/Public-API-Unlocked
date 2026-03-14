@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Outbound_Enabled</fullName>
+    <columns>NAME</columns>
+    <columns>Is_Active__c</columns>
+    <columns>Target_Object_API_Name__c</columns>
+    <columns>Outbound_Trigger_Field_Name__c</columns>
+    <columns>Outbound_Trigger_Field_Values__c</columns>
+    <columns>Outbound_Webhook_URL__c</columns>
+    <columns>Outbound_Remote_Site_Status__c</columns>
+    <columns>Last_Webhook_Delivery_Status__c</columns>
+    <columns>Last_Webhook_Delivery_Attempt__c</columns>
+    <columns>CREATED_DATE</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>Outbound_Trigger_Enabled__c</field>
+        <operation>equals</operation>
+        <value>1</value>
+    </filters>
+    <label>Outbound Enabled</label>
+</ListView>

@@ -36,8 +36,14 @@ global with sharing class PublicApiIntakeApi {
                 return;
             }
 
-            Map<String, Object> payload = parsePayload(requestBody, getHeaderIgnoreCase(req, 'Content-Type'));
-            SObject submission = PublicApiIntakeService.createIntakeFromPublicApi(payload, config);
+            String requestContentType = getHeaderIgnoreCase(req, 'Content-Type');
+            Map<String, Object> payload = parsePayload(requestBody, requestContentType);
+            SObject submission = PublicApiIntakeService.createIntakeFromPublicApi(
+                payload,
+                requestBody,
+                requestContentType,
+                config
+            );
             res.statusCode = 201;
             res.responseBody = Blob.valueOf(JSON.serialize(new SubmissionResponse(submission.Id, 'Submission created successfully')));
         } catch (PublicApiIntakeServiceException e) {

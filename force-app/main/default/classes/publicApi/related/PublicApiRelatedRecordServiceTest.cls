@@ -13,10 +13,10 @@ private class PublicApiRelatedRecordServiceTest {
         PublicApiRelatedRecordService.applyRelatedRecordRules(
             target,
             payload,
-            '[' +
-                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                '"sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error"}' +
-            ']'
+            '{' +
+                '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '"sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error"' +
+            '}'
         );
 
         System.assertEquals(existingAccount.Id, target.AccountId);
@@ -43,11 +43,11 @@ private class PublicApiRelatedRecordServiceTest {
         PublicApiRelatedRecordService.applyRelatedRecordRules(
             target,
             payload,
-            '[' +
-                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+            '{' +
+                '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
                 '"sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error",' +
                 createMappingsJson + '}' +
-            ']'
+            '}'
         );
 
         SObject created = queryAccount(target.AccountId, accountLastNameFieldName, true);
@@ -56,7 +56,6 @@ private class PublicApiRelatedRecordServiceTest {
         if (accountLastNameFieldName != null) {
             System.assertEquals('Created Account', created.get(accountLastNameFieldName));
         }
-        assertAccountRecordTypeWasNotForcedToIndividual(created);
     }
 
     @IsTest
@@ -71,10 +70,10 @@ private class PublicApiRelatedRecordServiceTest {
         PublicApiRelatedRecordService.applyRelatedRecordRules(
             target,
             payload,
-            '[' +
-                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"}' +
-            ']'
+            '{' +
+                '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"' +
+            '}'
         );
 
         String accountLastNameFieldName = getAccountLastNameFieldName();
@@ -83,7 +82,6 @@ private class PublicApiRelatedRecordServiceTest {
         if (accountLastNameFieldName != null) {
             System.assertEquals('Swift', created.get(accountLastNameFieldName));
         }
-        assertAccountRecordTypeWasNotForcedToIndividual(created);
     }
 
     @IsTest
@@ -103,11 +101,11 @@ private class PublicApiRelatedRecordServiceTest {
         PublicApiRelatedRecordService.applyRelatedRecordRules(
             target,
             payload,
-            '[' +
-                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+            '{' +
+                '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
                 '"sourceKey":"accountName","createIfMissing":true,"createRecordTypeDeveloperName":"Business",' +
-                '"onMultipleMatches":"Error"}' +
-            ']'
+                '"onMultipleMatches":"Error"' +
+            '}'
         );
 
         Account created = [SELECT Id, RecordTypeId FROM Account WHERE Id = :target.AccountId];
@@ -132,10 +130,10 @@ private class PublicApiRelatedRecordServiceTest {
         PublicApiRelatedRecordService.applyRelatedRecordRules(
             target,
             payload,
-            '[' +
-                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                '"sourceKey":"accountName","createIfMissing":false,"onMultipleMatches":"UseOldest"}' +
-            ']'
+            '{' +
+                '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '"sourceKey":"accountName","createIfMissing":false,"onMultipleMatches":"UseOldest"' +
+            '}'
         );
 
         System.assertEquals(oldestAccount.Id, target.AccountId);
@@ -159,44 +157,53 @@ private class PublicApiRelatedRecordServiceTest {
         PublicApiRelatedRecordService.applyRelatedRecordRules(
             target,
             payload,
-            '[' +
-                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                '"sourceKey":"accountName","createIfMissing":false,"onMultipleMatches":"UseNewest"}' +
-            ']'
+            '{' +
+                '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '"sourceKey":"accountName","createIfMissing":false,"onMultipleMatches":"UseNewest"' +
+            '}'
         );
 
         System.assertEquals(newestAccount.Id, target.AccountId);
     }
 
     @IsTest
-    static void testDeferredRulesSplitAccountRulesFromImmediateRules() {
+    static void testDeferredRulesReturnSingleDeferredAccountRule() {
         String configJson =
-            '[' +
-                '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                '"sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error"},' +
-                '{"targetLookupField":"WhoId","relatedObjectApiName":"Lead","matchFieldName":"Email",' +
-                '"sourceKey":"email","createIfMissing":false,"onMultipleMatches":"Error"}' +
-            ']';
+            '{' +
+                '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '"sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error"' +
+            '}';
 
-        String immediateJson = PublicApiRelatedRecordService.getImmediateRulesJson(configJson);
-        String deferredJson = PublicApiRelatedRecordService.getDeferredRulesJson(configJson);
+        String immediateJson = PublicApiRelatedRecordService.getImmediateRuleJson(configJson);
+        String deferredJson = PublicApiRelatedRecordService.getDeferredRuleJson(configJson);
 
-        System.assertEquals(false, String.isBlank(immediateJson));
-        System.assertEquals(false, String.isBlank(deferredJson));
-        System.assertEquals(1, PublicApiRelatedRecordConfig.parseRules(immediateJson).size());
-        System.assertEquals('Lead', PublicApiRelatedRecordConfig.parseRules(immediateJson)[0].relatedObjectApiName);
-        System.assertEquals(1, PublicApiRelatedRecordConfig.parseRules(deferredJson).size());
-        System.assertEquals('Account', PublicApiRelatedRecordConfig.parseRules(deferredJson)[0].relatedObjectApiName);
+        System.assertEquals(true, String.isBlank(immediateJson));
+        System.assertEquals('Account', PublicApiRelatedRecordConfig.parseRule(deferredJson).relatedObjectApiName);
+    }
+
+    @IsTest
+    static void testImmediateRulesReturnSingleImmediateNonAccountRule() {
+        String configJson =
+            '{' +
+                '"targetLookupField":"WhoId","relatedObjectApiName":"Lead","matchFieldName":"Email",' +
+                '"sourceKey":"email","createIfMissing":false,"onMultipleMatches":"Error"' +
+            '}';
+
+        String immediateJson = PublicApiRelatedRecordService.getImmediateRuleJson(configJson);
+        String deferredJson = PublicApiRelatedRecordService.getDeferredRuleJson(configJson);
+
+        System.assertEquals('Lead', PublicApiRelatedRecordConfig.parseRule(immediateJson).relatedObjectApiName);
+        System.assertEquals(true, String.isBlank(deferredJson));
     }
 
     @IsTest
     static void testValidateRulesRejectsInvalidLookupField() {
         try {
             PublicApiRelatedRecordService.validateRules(
-                '[' +
-                    '{"targetLookupField":"LastName","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                    '"sourceKey":"accountName","createIfMissing":false}' +
-                ']',
+                '{' +
+                    '"targetLookupField":"LastName","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                    '"sourceKey":"accountName","createIfMissing":false' +
+                '}',
                 'Contact'
             );
             System.assert(false, 'Expected invalid lookup field to be rejected.');
@@ -209,10 +216,10 @@ private class PublicApiRelatedRecordServiceTest {
     static void testValidateRulesRejectsUnsupportedMultiMatchPolicy() {
         try {
             PublicApiRelatedRecordService.validateRules(
-                '[' +
-                    '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                    '"sourceKey":"accountName","createIfMissing":false,"onMultipleMatches":"UseFirst"}' +
-                ']',
+                '{' +
+                    '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                    '"sourceKey":"accountName","createIfMissing":false,"onMultipleMatches":"UseFirst"' +
+                '}',
                 'Contact'
             );
             System.assert(false, 'Expected unsupported multiple match policy to be rejected.');
@@ -225,36 +232,16 @@ private class PublicApiRelatedRecordServiceTest {
     static void testValidateRulesRejectsUnknownCreateRecordType() {
         try {
             PublicApiRelatedRecordService.validateRules(
-                '[' +
-                    '{"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                '{' +
+                    '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
                     '"sourceKey":"accountName","createIfMissing":true,"createRecordTypeDeveloperName":"DoesNotExist",' +
-                    '"onMultipleMatches":"Error"}' +
-                ']',
+                    '"onMultipleMatches":"Error"' +
+                '}',
                 'Contact'
             );
             System.assert(false, 'Expected unknown related record type to be rejected.');
         } catch (PublicApiIntakeServiceException e) {
             System.assert(e.getMessage().contains('Unknown related create record type'));
-        }
-    }
-
-    @IsTest
-    static void testValidateRulesRejectsLeadWhoAndAccountWhatCombinationForTask() {
-        try {
-            PublicApiRelatedRecordService.validateRules(
-                '[' +
-                    '{"targetLookupField":"WhoId","relatedObjectApiName":"Lead","matchFieldName":"Email",' +
-                    '"sourceKey":"email","createIfMissing":false,"onMultipleMatches":"Error"},' +
-                    '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"litify_pm__Email__c",' +
-                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"}' +
-                ']',
-                'Task'
-            );
-            System.assert(false, 'Expected unsupported Task Lead/Account activity combination to be rejected.');
-        } catch (PublicApiIntakeServiceException e) {
-            System.assert(
-                e.getMessage().contains('cannot combine Lead on WhoId with Account on WhatId')
-            );
         }
     }
 
@@ -269,10 +256,10 @@ private class PublicApiRelatedRecordServiceTest {
             PublicApiRelatedRecordService.applyRelatedRecordRules(
                 target,
                 payload,
-                '[' +
-                    '{"targetLookupField":"WhoId","relatedObjectApiName":"Lead","matchFieldName":"Email",' +
-                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"}' +
-                ']'
+                '{' +
+                    '"targetLookupField":"WhoId","relatedObjectApiName":"Lead","matchFieldName":"Email",' +
+                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error"' +
+                '}'
             );
             System.assert(false, 'Expected required-field validation to fail before DML.');
         } catch (PublicApiIntakeServiceException e) {
@@ -351,8 +338,4 @@ private class PublicApiRelatedRecordServiceTest {
         );
     }
 
-    private static void assertAccountRecordTypeWasNotForcedToIndividual(SObject accountRecord) {
-        Id individualRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Individual');
-        System.assertEquals(individualRecordTypeId, accountRecord.get('RecordTypeId'));
-    }
 }

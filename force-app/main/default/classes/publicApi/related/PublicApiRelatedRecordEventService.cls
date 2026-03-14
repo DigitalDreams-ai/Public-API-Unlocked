@@ -1,8 +1,12 @@
 public without sharing class PublicApiRelatedRecordEventService {
     @TestVisible static final Integer EVENT_PAYLOAD_MAX_LENGTH = 131072;
+    @TestVisible static final String DEFERRED_RELATED_STATUS_COMPLETED = 'DeferredCompleted';
+    @TestVisible static final String DEFERRED_RELATED_STATUS_FAILED = 'DeferredFailed';
+    @TestVisible static final String AUDIT_STATUS_FAILED = 'Failed';
 
     public static void publishRequest(
         Id configId,
+        Id auditRecordId,
         Id targetRecordId,
         String targetObjectApiName,
         Map<String, Object> payload,
@@ -17,6 +21,7 @@ public without sharing class PublicApiRelatedRecordEventService {
 
         PublicApi_Related_Record_Request__e requestEvent = new PublicApi_Related_Record_Request__e(
             Config_Id__c = String.valueOf(configId),
+            Audit_Record_Id__c = auditRecordId == null ? null : String.valueOf(auditRecordId),
             Target_Record_Id__c = String.valueOf(targetRecordId),
             Target_Object_API_Name__c = targetObjectApiName,
             Payload_JSON__c = truncate(JSON.serialize(payload), EVENT_PAYLOAD_MAX_LENGTH),
@@ -32,28 +37,49 @@ public without sharing class PublicApiRelatedRecordEventService {
         }
 
         List<SObject> recordsToUpdate = new List<SObject>();
+        List<PublicApi_Submission__c> auditUpdates = new List<PublicApi_Submission__c>();
         for (PublicApi_Related_Record_Request__e requestEvent : events) {
-            SObject targetRecord = getTargetRecord(
-                requestEvent.Target_Object_API_Name__c,
-                requestEvent.Target_Record_Id__c,
-                requestEvent.Related_Record_Configuration_JSON__c
-            );
-            if (targetRecord == null) {
-                continue;
-            }
+            try {
+                SObject targetRecord = getTargetRecord(
+                    requestEvent.Target_Object_API_Name__c,
+                    requestEvent.Target_Record_Id__c,
+                    requestEvent.Related_Record_Configuration_JSON__c
+                );
+                if (targetRecord == null) {
+                    continue;
+                }
 
-            Map<String, Object> payload = parsePayload(requestEvent.Payload_JSON__c);
-            PublicApiRelatedRecordService.applyRelatedRecordRules(
-                targetRecord,
-                payload,
-                requestEvent.Related_Record_Configuration_JSON__c
-            );
-            recordsToUpdate.add(targetRecord);
+                Map<String, Object> payload = parsePayload(requestEvent.Payload_JSON__c);
+                PublicApiRelatedRecordService.applyRelatedRecordRules(
+                    targetRecord,
+                    payload,
+                    requestEvent.Related_Record_Configuration_JSON__c
+                );
+                recordsToUpdate.add(targetRecord);
+                auditUpdates.add(
+                    buildAuditUpdate(
+                        requestEvent.Audit_Record_Id__c,
+                        DEFERRED_RELATED_STATUS_COMPLETED,
+                        null,
+                        null
+                    )
+                );
+            } catch (Exception e) {
+                auditUpdates.add(
+                    buildAuditUpdate(
+                        requestEvent.Audit_Record_Id__c,
+                        DEFERRED_RELATED_STATUS_FAILED,
+                        'RELATED_RECORD_DEFERRED_ERROR',
+                        e.getMessage()
+                    )
+                );
+            }
         }
 
         if (!recordsToUpdate.isEmpty()) {
             update recordsToUpdate;
         }
+        persistAuditUpdates(auditUpdates);
     }
 
     @TestVisible
@@ -74,11 +100,10 @@ public without sharing class PublicApiRelatedRecordEventService {
         }
 
         Set<String> fieldNames = new Set<String>{ 'Id' };
-        for (PublicApiRelatedRecordConfig.Rule rule :
-            PublicApiRelatedRecordConfig.parseRules(relatedRecordConfigurationJson)) {
-            if (rule != null && String.isNotBlank(rule.targetLookupField)) {
-                fieldNames.add(rule.targetLookupField.trim());
-            }
+        PublicApiRelatedRecordConfig.Rule rule =
+            PublicApiRelatedRecordConfig.parseRule(relatedRecordConfigurationJson);
+        if (rule != null && String.isNotBlank(rule.targetLookupField)) {
+            fieldNames.add(rule.targetLookupField.trim());
         }
 
         return Database.query(
@@ -106,5 +131,40 @@ public without sharing class PublicApiRelatedRecordEventService {
             return value;
         }
         return value.substring(0, maxLength);
+    }
+
+    @TestVisible
+    static PublicApi_Submission__c buildAuditUpdate(
+        String auditRecordId,
+        String relatedRecordStatus,
+        String errorCategory,
+        String errorMessage
+    ) {
+        if (String.isBlank(auditRecordId)) {
+            return null;
+        }
+
+        PublicApi_Submission__c auditUpdate = new PublicApi_Submission__c(
+            Id = (Id) auditRecordId,
+            Related_Record_Status__c = relatedRecordStatus,
+            Processing_Error_Category__c = errorCategory,
+            Processing_Error_Message__c = errorMessage
+        );
+        if (relatedRecordStatus == DEFERRED_RELATED_STATUS_FAILED || !String.isBlank(errorCategory)) {
+            auditUpdate.Processing_Status__c = AUDIT_STATUS_FAILED;
+        }
+        return auditUpdate;
+    }
+
+    private static void persistAuditUpdates(List<PublicApi_Submission__c> auditUpdates) {
+        List<PublicApi_Submission__c> filteredUpdates = new List<PublicApi_Submission__c>();
+        for (PublicApi_Submission__c auditUpdate : auditUpdates) {
+            if (auditUpdate != null && auditUpdate.Id != null) {
+                filteredUpdates.add(auditUpdate);
+            }
+        }
+        if (!filteredUpdates.isEmpty()) {
+            update filteredUpdates;
+        }
     }
 }

@@ -188,6 +188,11 @@
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Request_Content_Type__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
         <editable>true</editable>
         <field>PublicApi_Submission__c.Raw_Payload__c</field>
         <readable>true</readable>
@@ -195,6 +200,46 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>PublicApi_Submission__c.Received_At__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Target_Object_API_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Target_Record_Id__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Target_Record_Link__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Processing_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Related_Record_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Processing_Error_Category__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Processing_Error_Message__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>PublicApi_Submission__c.Effective_Config_JSON__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

@@ -47,12 +47,12 @@ private class PublicApiPayloadBuilderCtrlTest {
         String outboundJson =
             '[{"externalKey":"createdDate","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":1}]';
         String relatedRecordJson =
-            '[' +
-                '{"targetLookupField":"PublicApi_Integration_Config__c","relatedObjectApiName":"PublicApi_Integration_Config__c",' +
+            '{' +
+                '"targetLookupField":"PublicApi_Integration_Config__c","relatedObjectApiName":"PublicApi_Integration_Config__c",' +
                 '"matchFieldName":"API_Key__c","sourceKey":"configKey","createIfMissing":true,"onMultipleMatches":"Error",' +
                 relatedRecordTypeSegment +
-                '"createMappings":[{"sourceKey":"configKey","fieldName":"API_Key__c"}]}' +
-            ']';
+                '"createMappings":[{"sourceKey":"configKey","fieldName":"API_Key__c"}]' +
+            '}';
 
         PublicApiPayloadBuilderCtrl.savePayloadSettings(
             config.Id,
@@ -152,11 +152,11 @@ private class PublicApiPayloadBuilderCtrlTest {
             true,
             'Task',
             null,
-            '[' +
-                '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+            '{' +
+                '"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
                 '"sourceKey":"accountName","createIfMissing":true,"createRecordTypeDeveloperName":"' +
-                relatedRecordTypeDeveloperName + '","onMultipleMatches":"Error"}' +
-            ']',
+                relatedRecordTypeDeveloperName + '","onMultipleMatches":"Error"' +
+            '}',
             true,
             triggerFieldName,
             triggerFieldValues,
@@ -336,10 +336,10 @@ private class PublicApiPayloadBuilderCtrlTest {
                 true,
                 'PublicApi_Submission__c',
                 null,
-                '[' +
-                    '{"targetLookupField":"Status__c","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                    '"sourceKey":"accountName"}' +
-                ']',
+                '{' +
+                    '"targetLookupField":"Status__c","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                    '"sourceKey":"accountName"' +
+                '}',
                 true,
                 'Status__c',
                 'Converted',

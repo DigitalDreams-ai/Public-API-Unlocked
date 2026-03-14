@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Target_Record_Link__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(
+    ISBLANK(Target_Record_Id__c),
+    null,
+    HYPERLINK(
+        &apos;/&apos; &amp; Target_Record_Id__c,
+        Target_Record_Id__c,
+        &apos;_self&apos;
+    )
+)</formula>
+    <inlineHelpText>Opens the record created or updated by the public API request.</inlineHelpText>
+    <label>Target Record Link</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>
