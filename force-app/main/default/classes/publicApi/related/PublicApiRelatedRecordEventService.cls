@@ -1,5 +1,8 @@
 public without sharing class PublicApiRelatedRecordEventService {
     @TestVisible static final Integer EVENT_PAYLOAD_MAX_LENGTH = 131072;
+    @TestVisible static final String DEFERRED_RELATED_STATUS_COMPLETED = 'DeferredCompleted';
+    @TestVisible static final String DEFERRED_RELATED_STATUS_FAILED = 'DeferredFailed';
+    @TestVisible static final String AUDIT_STATUS_FAILED = 'Failed';
 
     public static void publishRequest(
         Id configId,
@@ -53,12 +56,19 @@ public without sharing class PublicApiRelatedRecordEventService {
                     requestEvent.Related_Record_Configuration_JSON__c
                 );
                 recordsToUpdate.add(targetRecord);
-                auditUpdates.add(buildAuditUpdate(requestEvent.Audit_Record_Id__c, 'DeferredCompleted', null, null));
+                auditUpdates.add(
+                    buildAuditUpdate(
+                        requestEvent.Audit_Record_Id__c,
+                        DEFERRED_RELATED_STATUS_COMPLETED,
+                        null,
+                        null
+                    )
+                );
             } catch (Exception e) {
                 auditUpdates.add(
                     buildAuditUpdate(
                         requestEvent.Audit_Record_Id__c,
-                        'DeferredFailed',
+                        DEFERRED_RELATED_STATUS_FAILED,
                         'RELATED_RECORD_DEFERRED_ERROR',
                         e.getMessage()
                     )
@@ -134,12 +144,16 @@ public without sharing class PublicApiRelatedRecordEventService {
             return null;
         }
 
-        return new PublicApi_Submission__c(
+        PublicApi_Submission__c auditUpdate = new PublicApi_Submission__c(
             Id = (Id) auditRecordId,
             Related_Record_Status__c = relatedRecordStatus,
             Processing_Error_Category__c = errorCategory,
             Processing_Error_Message__c = errorMessage
         );
+        if (relatedRecordStatus == DEFERRED_RELATED_STATUS_FAILED || !String.isBlank(errorCategory)) {
+            auditUpdate.Processing_Status__c = AUDIT_STATUS_FAILED;
+        }
+        return auditUpdate;
     }
 
     private static void persistAuditUpdates(List<PublicApi_Submission__c> auditUpdates) {

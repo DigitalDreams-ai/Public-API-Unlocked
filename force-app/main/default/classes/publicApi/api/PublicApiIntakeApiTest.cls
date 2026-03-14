@@ -283,6 +283,17 @@ private class PublicApiIntakeApiTest {
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('Related record configuration is invalid'));
         System.assertEquals(0, [SELECT Count() FROM Task WHERE Subject = 'Invalid Related Rule']);
+        PublicApi_Submission__c auditRecord = [
+            SELECT Processing_Status__c, Processing_Error_Category__c, Processing_Error_Message__c, Raw_Payload__c
+            FROM PublicApi_Submission__c
+            WHERE PublicApi_Integration_Config__c = :config.Id
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+        System.assertEquals(PublicApiIntakeService.AUDIT_STATUS_FAILED, auditRecord.Processing_Status__c);
+        System.assertEquals(PublicApiIntakeService.ERROR_CATEGORY_CONFIGURATION, auditRecord.Processing_Error_Category__c);
+        System.assert(String.isNotBlank(auditRecord.Processing_Error_Message__c));
+        System.assert(auditRecord.Raw_Payload__c.contains('Invalid Related Rule'));
     }
 
     @IsTest
@@ -315,6 +326,17 @@ private class PublicApiIntakeApiTest {
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('Related record configuration must be a JSON object'));
         System.assertEquals(0, [SELECT Count() FROM Task WHERE Subject = 'Legacy Array Related Rule']);
+        PublicApi_Submission__c auditRecord = [
+            SELECT Processing_Status__c, Processing_Error_Category__c, Processing_Error_Message__c, Raw_Payload__c
+            FROM PublicApi_Submission__c
+            WHERE PublicApi_Integration_Config__c = :config.Id
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+        System.assertEquals(PublicApiIntakeService.AUDIT_STATUS_FAILED, auditRecord.Processing_Status__c);
+        System.assertEquals(PublicApiIntakeService.ERROR_CATEGORY_CONFIGURATION, auditRecord.Processing_Error_Category__c);
+        System.assert(String.isNotBlank(auditRecord.Processing_Error_Message__c));
+        System.assert(auditRecord.Raw_Payload__c.contains('Legacy Array Related Rule'));
     }
 
     @IsTest

@@ -45,10 +45,6 @@ public without sharing class PublicApiIntakeService {
             throw new PublicApiIntakeServiceException('Submission object not found: ' + targetObjectApiName);
         }
 
-        String immediateRelatedRecordConfiguration =
-            PublicApiRelatedRecordService.getImmediateRuleJson(config.relatedRecordConfiguration);
-        String deferredRelatedRecordConfiguration =
-            PublicApiRelatedRecordService.getDeferredRuleJson(config.relatedRecordConfiguration);
         String rawPayload = truncate(
             String.isBlank(rawRequestBody) ? JSON.serialize(payload) : rawRequestBody,
             RAW_PAYLOAD_MAX_LENGTH
@@ -56,8 +52,8 @@ public without sharing class PublicApiIntakeService {
         String effectiveConfigJson = buildEffectiveConfigJson(
             config,
             targetObjectApiName,
-            immediateRelatedRecordConfiguration,
-            deferredRelatedRecordConfiguration
+            null,
+            config.relatedRecordConfiguration
         );
 
         PublicApi_Submission__c auditRecord = buildAuditRecord(
@@ -83,6 +79,17 @@ public without sharing class PublicApiIntakeService {
         }
 
         try {
+            String immediateRelatedRecordConfiguration =
+                PublicApiRelatedRecordService.getImmediateRuleJson(config.relatedRecordConfiguration);
+            String deferredRelatedRecordConfiguration =
+                PublicApiRelatedRecordService.getDeferredRuleJson(config.relatedRecordConfiguration);
+            auditRecord.Effective_Config_JSON__c = buildEffectiveConfigJson(
+                config,
+                targetObjectApiName,
+                immediateRelatedRecordConfiguration,
+                deferredRelatedRecordConfiguration
+            );
+
             validateInboundConfiguration(
                 config.inboundPayloadConfiguration,
                 config.relatedRecordConfiguration,

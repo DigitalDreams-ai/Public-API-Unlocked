@@ -77,4 +77,41 @@ private class PublicApiRelatedRecordEventServiceTest {
         );
     }
 
+    @IsTest
+    static void testHandleEventsMarksDeferredFailuresAsFailedProcessing() {
+        Task targetTask = new Task(Subject = 'Deferred Failure Target', Status = 'Not Started', Priority = 'Normal');
+        insert targetTask;
+
+        PublicApi_Submission__c auditRecord = new PublicApi_Submission__c(
+            Processing_Status__c = PublicApiIntakeService.AUDIT_STATUS_SUCCEEDED,
+            Related_Record_Status__c = PublicApiIntakeService.RELATED_STATUS_DEFERRED_PENDING,
+            Target_Object_API_Name__c = 'Task',
+            Target_Record_Id__c = String.valueOf(targetTask.Id)
+        );
+        insert auditRecord;
+
+        PublicApi_Related_Record_Request__e requestEvent = new PublicApi_Related_Record_Request__e(
+            Audit_Record_Id__c = String.valueOf(auditRecord.Id),
+            Target_Record_Id__c = String.valueOf(targetTask.Id),
+            Target_Object_API_Name__c = 'Task',
+            Payload_JSON__c = '{bad json',
+            Related_Record_Configuration_JSON__c =
+                '{"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name","sourceKey":"name"}'
+        );
+
+        Test.startTest();
+        PublicApiRelatedRecordEventService.handleEvents(new List<PublicApi_Related_Record_Request__e>{ requestEvent });
+        Test.stopTest();
+
+        PublicApi_Submission__c refreshedAuditRecord = [
+            SELECT Processing_Status__c, Related_Record_Status__c, Processing_Error_Category__c, Processing_Error_Message__c
+            FROM PublicApi_Submission__c
+            WHERE Id = :auditRecord.Id
+        ];
+        System.assertEquals(PublicApiIntakeService.AUDIT_STATUS_FAILED, refreshedAuditRecord.Processing_Status__c);
+        System.assertEquals('DeferredFailed', refreshedAuditRecord.Related_Record_Status__c);
+        System.assertEquals('RELATED_RECORD_DEFERRED_ERROR', refreshedAuditRecord.Processing_Error_Category__c);
+        System.assert(String.isNotBlank(refreshedAuditRecord.Processing_Error_Message__c));
+    }
+
 }
