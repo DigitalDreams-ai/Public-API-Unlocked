@@ -8,10 +8,10 @@ For complete endpoint and webhook documentation, see [docs/content](../content/R
 
 | File | Purpose |
 |------|---------|
-| `PublicApi Intake API.postman_collection.json` | Requests and test scripts for the public submissions endpoint. |
-| `PublicApi Intake API Environment (Dev Scratch Org).postman_environment.json` | Dev scratch-org Experience Cloud base URL and `rest_path`: `services/apexrest`. |
-| `PublicApi Intake API Environment (Beta).postman_environment.json` | Beta Experience Cloud base URL and `rest_path`: `services/apexrest`. |
-| `PublicApi Intake API Environment (Production).postman_environment.json` | Production Experience Cloud base URL and `rest_path`: `services/apexrest`. |
+| `PublicApi Submissions API.postman_collection.json` | Requests and test scripts for the public submissions endpoint. |
+| `PublicApi Submissions API Environment (Dev Scratch Org).postman_environment.json` | Dev scratch-org Experience Cloud base URL and `rest_path`: `services/apexrest`. |
+| `PublicApi Submissions API Environment (Beta).postman_environment.json` | Beta Experience Cloud base URL and `rest_path`: `services/apexrest`. |
+| `PublicApi Submissions API Environment (Production).postman_environment.json` | Production Experience Cloud base URL and `rest_path`: `services/apexrest`. |
 
 ## Import
 
@@ -54,7 +54,8 @@ Current environment defaults:
 
 The over‑engineered Shulman API in `stash/force-app/main/default/docs/postman` provides:
 
-- **Shulman API.postman_collection.json** – Referrals, Intakes, Webhooks, OAuth token, validation examples.
+- **Shulman API.postman_collection.json** – Referrals, submissions, webhooks, OAuth token, and validation examples.
 - **Referral API Environment (Staging | Production)** – `base_url`, OAuth `client_id`/`client_secret`, `partner_api_key`, `access_token`, etc.
 
 Public API submissions is a single-endpoint, public API using X-Api-Key only; the collection mirrors the same folder layout, test script style, and environment variable usage as the Shulman collection.
+

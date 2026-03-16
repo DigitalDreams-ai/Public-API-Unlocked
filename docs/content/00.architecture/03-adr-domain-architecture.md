@@ -19,7 +19,7 @@ Use domain-based organization under `classes/publicApi`:
 Enforce runtime mapping contracts:
 
 - Inbound and outbound mapping configs are required.
-- Mapping tokens must use `$intakes.<FieldApiName>`.
+- Mapping tokens must use `$<ObjectApiName>.<FieldApiName>`.
 - Invalid outbound config fails the delivery item and is logged; queueable batch continues.
 
 ## Why
