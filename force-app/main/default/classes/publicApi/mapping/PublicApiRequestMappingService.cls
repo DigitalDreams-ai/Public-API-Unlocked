@@ -206,7 +206,7 @@ public without sharing class PublicApiRequestMappingService {
 
         Object parsed = JSON.deserializeUntyped(configJson);
         if (!(parsed instanceof List<Object>)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Mapping configuration must be a JSON array of mapping rows.'
             );
         }
@@ -267,13 +267,13 @@ public without sharing class PublicApiRequestMappingService {
         Boolean inboundMode
     ) {
         if (String.isBlank(expectedObjectApiName)) {
-            throw new PublicApiIntakeServiceException('Target object API name is required for mapping validation.');
+            throw new PublicApiSubmissionServiceException('Target object API name is required for mapping validation.');
         }
 
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
         Schema.SObjectType expectedType = resolveSObjectType(expectedObjectApiName, globalDescribe);
         if (expectedType == null) {
-            throw new PublicApiIntakeServiceException('Unknown target object: ' + expectedObjectApiName);
+            throw new PublicApiSubmissionServiceException('Unknown target object: ' + expectedObjectApiName);
         }
 
         String canonicalObjectApiName = expectedType.getDescribe().getName();
@@ -281,12 +281,12 @@ public without sharing class PublicApiRequestMappingService {
         for (MappingConfig mapping : parseMappings(configJson)) {
             FieldReference reference = parseFieldReference(mapping == null ? null : mapping.value);
             if (reference == null) {
-                throw new PublicApiIntakeServiceException(
+                throw new PublicApiSubmissionServiceException(
                     'Invalid field reference: ' + (mapping == null ? null : mapping.value)
                 );
             }
             if (!equalsIgnoreCase(reference.objectApiName, canonicalObjectApiName)) {
-                throw new PublicApiIntakeServiceException(
+                throw new PublicApiSubmissionServiceException(
                     'Field reference object does not match configured object ' + canonicalObjectApiName + ': ' +
                     mapping.value
                 );
@@ -294,24 +294,24 @@ public without sharing class PublicApiRequestMappingService {
 
             if (equalsIgnoreCase(reference.fieldApiName, 'CreatedDate')) {
                 if (inboundMode) {
-                    throw new PublicApiIntakeServiceException('CreatedDate cannot be used for inbound mappings.');
+                    throw new PublicApiSubmissionServiceException('CreatedDate cannot be used for inbound mappings.');
                 }
                 continue;
             }
 
             String resolvedFieldApiName = resolveFieldApiName(reference.fieldApiName, fieldMap);
             if (String.isBlank(resolvedFieldApiName)) {
-                throw new PublicApiIntakeServiceException('Unknown field reference: ' + mapping.value);
+                throw new PublicApiSubmissionServiceException('Unknown field reference: ' + mapping.value);
             }
 
             Schema.DescribeFieldResult describe = fieldMap.get(resolvedFieldApiName).getDescribe();
             if (inboundMode && !isStructurallyWritableField(describe)) {
-                throw new PublicApiIntakeServiceException(
+                throw new PublicApiSubmissionServiceException(
                     'Inbound mapping field is read-only: $' + canonicalObjectApiName + '.' + resolvedFieldApiName
                 );
             }
             if (!inboundMode && !isStructurallyReadableField(describe)) {
-                throw new PublicApiIntakeServiceException(
+                throw new PublicApiSubmissionServiceException(
                     'Outbound mapping field is not readable: $' + canonicalObjectApiName + '.' + resolvedFieldApiName
                 );
             }
@@ -713,3 +713,4 @@ public without sharing class PublicApiRequestMappingService {
         }
     }
 }
+

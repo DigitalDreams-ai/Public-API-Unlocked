@@ -349,7 +349,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             PublicApiRelatedRecordService.validateRules(configJson, targetObjectApiName);
         } catch (JSONException e) {
             throwAuraException('Invalid JSON: ' + e.getMessage());
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             throwAuraException(e.getMessage());
         }
     }
@@ -372,7 +372,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             }
         } catch (JSONException e) {
             throwAuraException('Invalid JSON: ' + e.getMessage());
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             throwAuraException(e.getMessage());
         }
     }
@@ -452,3 +452,4 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         throw ex;
     }
 }
+

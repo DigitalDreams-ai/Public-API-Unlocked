@@ -12,11 +12,11 @@
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
-        <apexClass>PublicApiIntakeApi</apexClass>
+        <apexClass>PublicApiSubmissionApi</apexClass>
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
-        <apexClass>PublicApiIntakeService</apexClass>
+        <apexClass>PublicApiSubmissionService</apexClass>
         <enabled>true</enabled>
     </classAccesses>
     <classAccesses>
@@ -157,3 +157,4 @@
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
 </PermissionSet>
+

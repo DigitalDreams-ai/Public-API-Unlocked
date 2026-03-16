@@ -2,7 +2,7 @@
  * Guest-access public API endpoint for inbound submissions.
  */
 @RestResource(urlMapping='/v1/publicapi/submissions')
-global with sharing class PublicApiIntakeApi {
+global with sharing class PublicApiSubmissionApi {
     @HttpPost
     global static void createSubmission() {
         RestRequest req = RestContext.request;
@@ -20,7 +20,7 @@ global with sharing class PublicApiIntakeApi {
             PublicApiConfigService.Config config;
             try {
                 config = PublicApiConfigService.getConfigForApiKey(apiKeyHeader);
-            } catch (PublicApiIntakeServiceException e) {
+            } catch (PublicApiSubmissionServiceException e) {
                 writeError(res, 503, e.getMessage());
                 return;
             }
@@ -37,16 +37,14 @@ global with sharing class PublicApiIntakeApi {
             }
 
             String requestContentType = getHeaderIgnoreCase(req, 'Content-Type');
-            Map<String, Object> payload = parsePayload(requestBody, requestContentType);
-            SObject submission = PublicApiIntakeService.createIntakeFromPublicApi(
-                payload,
+            SObject submission = PublicApiSubmissionService.createSubmissionFromPublicApi(
                 requestBody,
                 requestContentType,
                 config
             );
             res.statusCode = 201;
-            res.responseBody = Blob.valueOf(JSON.serialize(new SubmissionResponse(submission.Id, 'Submission created successfully')));
-        } catch (PublicApiIntakeServiceException e) {
+            res.responseBody = Blob.valueOf(JSON.serialize(new SubmissionResponse(submission.Id, 'Submission received successfully')));
+        } catch (PublicApiSubmissionServiceException e) {
             writeError(res, 400, e.getMessage());
         } catch (JSONException e) {
             writeError(res, 400, 'Invalid JSON: ' + e.getMessage());
@@ -57,72 +55,7 @@ global with sharing class PublicApiIntakeApi {
 
     @TestVisible
     private static Map<String, Object> parsePayload(String requestBody, String contentType) {
-        if (String.isBlank(requestBody)) {
-            return new Map<String, Object>();
-        }
-
-        String normalizedContentType = contentType != null ? contentType.toLowerCase() : '';
-        if (normalizedContentType.contains('application/x-www-form-urlencoded')) {
-            return parseFormEncodedPayload(requestBody);
-        }
-
-        try {
-            Object deserialized = JSON.deserializeUntyped(requestBody);
-            if (deserialized instanceof Map<String, Object>) {
-                return (Map<String, Object>) deserialized;
-            }
-            throw new PublicApiIntakeServiceException(
-                'Invalid request body. Expected a JSON object or form-encoded key/value pairs.'
-            );
-        } catch (JSONException e) {
-            if (looksLikeFormEncoded(requestBody)) {
-                return parseFormEncodedPayload(requestBody);
-            }
-            throw e;
-        }
-    }
-
-    private static Boolean looksLikeFormEncoded(String requestBody) {
-        if (String.isBlank(requestBody)) {
-            return false;
-        }
-        return requestBody.contains('=') &&
-            !requestBody.trim().startsWith('{') &&
-            !requestBody.trim().startsWith('[');
-    }
-
-    private static Map<String, Object> parseFormEncodedPayload(String requestBody) {
-        Map<String, Object> payload = new Map<String, Object>();
-        if (String.isBlank(requestBody)) {
-            return payload;
-        }
-
-        for (String pair : requestBody.split('&')) {
-            if (String.isBlank(pair)) {
-                continue;
-            }
-
-            Integer equalsIndex = pair.indexOf('=');
-            String encodedKey = equalsIndex >= 0 ? pair.substring(0, equalsIndex) : pair;
-            String encodedValue = equalsIndex >= 0 ? pair.substring(equalsIndex + 1) : '';
-            String key = urlDecodeFormValue(encodedKey);
-            if (String.isBlank(key)) {
-                continue;
-            }
-            payload.put(key, urlDecodeFormValue(encodedValue));
-        }
-        return payload;
-    }
-
-    private static String urlDecodeFormValue(String value) {
-        if (value == null) {
-            return null;
-        }
-        try {
-            return EncodingUtil.urlDecode(value.replace('+', '%20'), 'UTF-8');
-        } catch (Exception e) {
-            throw new PublicApiIntakeServiceException('Invalid form-encoded payload: ' + e.getMessage());
-        }
+        return PublicApiPayloadParser.parsePayload(requestBody, contentType);
     }
 
     private static String getHeaderIgnoreCase(RestRequest req, String headerName) {
@@ -164,3 +97,4 @@ global with sharing class PublicApiIntakeApi {
         }
     }
 }
+

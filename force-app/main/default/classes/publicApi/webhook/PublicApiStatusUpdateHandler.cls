@@ -2,8 +2,6 @@ public without sharing class PublicApiStatusUpdateHandler {
     @TestVisible
     static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
     @TestVisible
-    static final String INTAKE_OBJECT_API_NAME = 'litify_pm__Intake__c';
-    @TestVisible
     static final String CONFIG_LOOKUP_FIELD_API_NAME = 'PublicApi_Integration_Config__c';
 
     public static void handleAfterUpdate(List<PublicApi_Submission__c> newRecords, Map<Id, PublicApi_Submission__c> oldMap) {
@@ -11,14 +9,6 @@ public without sharing class PublicApiStatusUpdateHandler {
             toSObjectList(newRecords),
             toSObjectMap(oldMap),
             SUBMISSION_OBJECT_API_NAME
-        );
-    }
-
-    public static void handleAfterUpdate(List<litify_pm__Intake__c> newRecords, Map<Id, litify_pm__Intake__c> oldMap) {
-        handleAfterUpdateGeneric(
-            toSObjectList(newRecords),
-            toSObjectMap(oldMap),
-            INTAKE_OBJECT_API_NAME
         );
     }
 
@@ -183,29 +173,7 @@ public without sharing class PublicApiStatusUpdateHandler {
         return converted;
     }
 
-    private static List<SObject> toSObjectList(List<litify_pm__Intake__c> records) {
-        List<SObject> converted = new List<SObject>();
-        if (records == null) {
-            return converted;
-        }
-        for (litify_pm__Intake__c record : records) {
-            converted.add(record);
-        }
-        return converted;
-    }
-
     private static Map<Id, SObject> toSObjectMap(Map<Id, PublicApi_Submission__c> recordsById) {
-        Map<Id, SObject> converted = new Map<Id, SObject>();
-        if (recordsById == null) {
-            return converted;
-        }
-        for (Id recordId : recordsById.keySet()) {
-            converted.put(recordId, recordsById.get(recordId));
-        }
-        return converted;
-    }
-
-    private static Map<Id, SObject> toSObjectMap(Map<Id, litify_pm__Intake__c> recordsById) {
         Map<Id, SObject> converted = new Map<Id, SObject>();
         if (recordsById == null) {
             return converted;

@@ -57,7 +57,7 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
         String responseJson = buildResponseJson(result, attemptedAt);
         return new PublicApi_Webhook_Delivery__c(
             PublicApi_Integration_Config__c = configId,
-            Intake__c = sourceObjectApiName == 'PublicApi_Submission__c' ? sourceRecordId : null,
+            Submission__c = sourceObjectApiName == 'PublicApi_Submission__c' ? sourceRecordId : null,
             Source_Record_Id__c = sourceRecordId == null ? null : String.valueOf(sourceRecordId),
             Source_Object_API_Name__c = sourceObjectApiName,
             Triggered_Status__c = triggeredStatus,

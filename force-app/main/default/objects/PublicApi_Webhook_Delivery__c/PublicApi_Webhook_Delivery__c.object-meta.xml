@@ -21,7 +21,7 @@
     <allowInChatterGroups>false</allowInChatterGroups>
     <compactLayoutAssignment>SYSTEM</compactLayoutAssignment>
     <deploymentStatus>Deployed</deploymentStatus>
-    <description>Tracks outbound PublicApi webhook delivery attempts for intake status updates.</description>
+    <description>Tracks outbound PublicApi webhook delivery attempts for submission and external source-object status updates.</description>
     <enableActivities>false</enableActivities>
     <enableBulkApi>true</enableBulkApi>
     <enableFeeds>false</enableFeeds>

@@ -57,7 +57,7 @@ private class PublicApiOutboundStatusActionTest {
                    Triggered_Status__c,
                    Status_Code__c,
                    Error_Code__c,
-                   Intake__c,
+                   Submission__c,
                    Source_Record_Id__c,
                    Source_Object_API_Name__c,
                    Request_JSON__c,
@@ -73,7 +73,7 @@ private class PublicApiOutboundStatusActionTest {
         );
         System.assertEquals('Converted', deliveries[0].Triggered_Status__c);
         System.assertEquals(200, deliveries[0].Status_Code__c);
-        System.assertEquals(null, deliveries[0].Intake__c);
+        System.assertEquals(null, deliveries[0].Submission__c);
         System.assertEquals(accountRecord.Id, deliveries[0].Source_Record_Id__c);
         System.assertEquals('Account', deliveries[0].Source_Object_API_Name__c);
         System.assert(String.valueOf(deliveries[0].Request_JSON__c).contains('Acme Status Record'));
@@ -82,7 +82,7 @@ private class PublicApiOutboundStatusActionTest {
     private static Account createAccount(String name) {
         Account accountRecord = new Account(Name = name);
         Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
-        for (String preferredFieldName : new List<String>{ 'LastName', 'litify_pm__Last_Name__c' }) {
+        for (String preferredFieldName : new List<String>{ 'LastName' }) {
             if (fieldMap.containsKey(preferredFieldName) &&
                 fieldMap.get(preferredFieldName).getDescribe().isCreateable()) {
                 accountRecord.put(preferredFieldName, name);

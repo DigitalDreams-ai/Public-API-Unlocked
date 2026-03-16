@@ -43,13 +43,13 @@ public without sharing class PublicApiRelatedRecordService {
         }
 
         if (String.isBlank(targetObjectApiName)) {
-            throw new PublicApiIntakeServiceException('Target object API name is required for related record validation.');
+            throw new PublicApiSubmissionServiceException('Target object API name is required for related record validation.');
         }
 
         Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
         Schema.SObjectType targetObjectType = resolveSObjectType(targetObjectApiName, globalDescribe);
         if (targetObjectType == null) {
-            throw new PublicApiIntakeServiceException('Unknown target object: ' + targetObjectApiName);
+            throw new PublicApiSubmissionServiceException('Unknown target object: ' + targetObjectApiName);
         }
 
         Map<String, Schema.SObjectField> targetFieldMap = targetObjectType.getDescribe().fields.getMap();
@@ -112,44 +112,44 @@ public without sharing class PublicApiRelatedRecordService {
             return;
         }
         if (String.isBlank(rule.targetLookupField)) {
-            throw new PublicApiIntakeServiceException('Related record rule target lookup field is required.');
+            throw new PublicApiSubmissionServiceException('Related record rule target lookup field is required.');
         }
         if (String.isBlank(rule.relatedObjectApiName)) {
-            throw new PublicApiIntakeServiceException('Related record rule related object is required.');
+            throw new PublicApiSubmissionServiceException('Related record rule related object is required.');
         }
         if (String.isBlank(rule.matchFieldName)) {
-            throw new PublicApiIntakeServiceException('Related record rule match field is required.');
+            throw new PublicApiSubmissionServiceException('Related record rule match field is required.');
         }
         if (String.isBlank(rule.sourceKey)) {
-            throw new PublicApiIntakeServiceException('Related record rule source key is required.');
+            throw new PublicApiSubmissionServiceException('Related record rule source key is required.');
         }
 
         String resolvedLookupFieldApiName = resolveFieldApiName(rule.targetLookupField, targetFieldMap);
         if (String.isBlank(resolvedLookupFieldApiName)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Unknown target lookup field on ' + targetObjectApiName + ': ' + rule.targetLookupField
             );
         }
 
         Schema.DescribeFieldResult lookupDescribe = targetFieldMap.get(resolvedLookupFieldApiName).getDescribe();
         if (!isLookupField(lookupDescribe)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Related record target field must be a lookup or master-detail field: ' + resolvedLookupFieldApiName
             );
         }
         if (!isStructurallyWritableField(lookupDescribe)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Related record target lookup field is read-only: ' + resolvedLookupFieldApiName
             );
         }
 
         Schema.SObjectType relatedObjectType = resolveSObjectType(rule.relatedObjectApiName, globalDescribe);
         if (relatedObjectType == null) {
-            throw new PublicApiIntakeServiceException('Unknown related object: ' + rule.relatedObjectApiName);
+            throw new PublicApiSubmissionServiceException('Unknown related object: ' + rule.relatedObjectApiName);
         }
         String canonicalRelatedObjectApiName = relatedObjectType.getDescribe().getName();
         if (!referencesObject(lookupDescribe, canonicalRelatedObjectApiName)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Lookup field ' + resolvedLookupFieldApiName + ' does not reference ' + canonicalRelatedObjectApiName
             );
         }
@@ -157,14 +157,14 @@ public without sharing class PublicApiRelatedRecordService {
         Map<String, Schema.SObjectField> relatedFieldMap = relatedObjectType.getDescribe().fields.getMap();
         String resolvedMatchFieldApiName = resolveFieldApiName(rule.matchFieldName, relatedFieldMap);
         if (String.isBlank(resolvedMatchFieldApiName)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Unknown related match field on ' + canonicalRelatedObjectApiName + ': ' + rule.matchFieldName
             );
         }
 
         Schema.DescribeFieldResult matchDescribe = relatedFieldMap.get(resolvedMatchFieldApiName).getDescribe();
         if (!isStructurallyQueryableField(matchDescribe)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Related record match field is not queryable: ' + canonicalRelatedObjectApiName + '.' +
                 resolvedMatchFieldApiName
             );
@@ -174,7 +174,7 @@ public without sharing class PublicApiRelatedRecordService {
             ? DEFAULT_MULTI_MATCH_POLICY
             : rule.onMultipleMatches.trim();
         if (!MULTI_MATCH_POLICIES.contains(multiMatchPolicy)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Unsupported related record multiple match policy: ' + multiMatchPolicy
             );
         }
@@ -185,21 +185,21 @@ public without sharing class PublicApiRelatedRecordService {
                     continue;
                 }
                 if (String.isBlank(mapping.sourceKey) || String.isBlank(mapping.fieldName)) {
-                    throw new PublicApiIntakeServiceException(
+                    throw new PublicApiSubmissionServiceException(
                         'Related record create mapping rows require both source key and field name.'
                     );
                 }
 
                 String resolvedCreateFieldApiName = resolveFieldApiName(mapping.fieldName, relatedFieldMap);
                 if (String.isBlank(resolvedCreateFieldApiName)) {
-                    throw new PublicApiIntakeServiceException(
+                    throw new PublicApiSubmissionServiceException(
                         'Unknown related create field on ' + canonicalRelatedObjectApiName + ': ' + mapping.fieldName
                     );
                 }
 
                 Schema.DescribeFieldResult createDescribe = relatedFieldMap.get(resolvedCreateFieldApiName).getDescribe();
                 if (!isStructurallyWritableField(createDescribe)) {
-                    throw new PublicApiIntakeServiceException(
+                    throw new PublicApiSubmissionServiceException(
                         'Related record create field is read-only: ' + canonicalRelatedObjectApiName + '.' +
                         resolvedCreateFieldApiName
                     );
@@ -212,7 +212,7 @@ public without sharing class PublicApiRelatedRecordService {
                 relatedObjectType,
                 rule.createRecordTypeDeveloperName
             ) == null) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Unknown related create record type on ' + canonicalRelatedObjectApiName + ': ' +
                 rule.createRecordTypeDeveloperName
             );
@@ -266,7 +266,7 @@ public without sharing class PublicApiRelatedRecordService {
             return null;
         }
         if (records.size() > 1 && rule.multiMatchPolicy == 'Error') {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Multiple related records matched ' + rule.relatedObjectApiName + '.' + rule.matchFieldApiName +
                 ' for source key ' + rule.sourceKey
             );
@@ -317,7 +317,7 @@ public without sharing class PublicApiRelatedRecordService {
         }
         List<String> missingRequiredFields = getMissingRequiredCreateFields(relatedRecord, rule.relatedFieldMap);
         if (!missingRequiredFields.isEmpty()) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Related record create configuration cannot satisfy required fields on ' +
                 rule.relatedObjectApiName + ': ' + String.join(missingRequiredFields, ', ')
             );
@@ -327,7 +327,7 @@ public without sharing class PublicApiRelatedRecordService {
             insert relatedRecord;
             return relatedRecord;
         } catch (DmlException e) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Failed to create related ' + rule.relatedObjectApiName + ' record: ' + e.getMessage()
             );
         }
@@ -594,7 +594,7 @@ public without sharing class PublicApiRelatedRecordService {
             return null;
         }
 
-        for (String preferredFieldApiName : new List<String>{ 'LastName', 'litify_pm__Last_Name__c' }) {
+        for (String preferredFieldApiName : new List<String>{ 'LastName' }) {
             String resolvedFieldApiName = resolveFieldApiName(preferredFieldApiName, relatedFieldMap);
             if (String.isNotBlank(resolvedFieldApiName) &&
                 isStructurallyWritableField(relatedFieldMap.get(resolvedFieldApiName).getDescribe())) {
@@ -621,7 +621,7 @@ public without sharing class PublicApiRelatedRecordService {
             return null;
         }
 
-        for (String preferredFieldApiName : new List<String>{ 'FirstName', 'litify_pm__First_Name__c' }) {
+        for (String preferredFieldApiName : new List<String>{ 'FirstName' }) {
             String resolvedFieldApiName = resolveFieldApiName(preferredFieldApiName, relatedFieldMap);
             if (String.isNotBlank(resolvedFieldApiName) &&
                 isStructurallyWritableField(relatedFieldMap.get(resolvedFieldApiName).getDescribe())) {
@@ -787,3 +787,4 @@ public without sharing class PublicApiRelatedRecordService {
         return stringValue;
     }
 }
+

@@ -1,6 +1,6 @@
 /**
  * Resolves PublicApi configuration from the Public API Integration Config custom object.
- * Intake creation authenticates requests by matching the supplied API key to one active config record.
+ * Submission processing authenticates requests by matching the supplied API key to one active config record.
  */
 public without sharing class PublicApiConfigService {
     @TestVisible
@@ -50,7 +50,7 @@ public without sharing class PublicApiConfigService {
             return null;
         }
         if (settings.size() > 1) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'PublicApi integration is misconfigured. Exactly one active Public API Integration Config record must match the supplied API key.'
             );
         }
@@ -122,3 +122,4 @@ public without sharing class PublicApiConfigService {
         return c;
     }
 }
+

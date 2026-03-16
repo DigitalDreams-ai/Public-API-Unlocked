@@ -304,7 +304,7 @@
                             <value>NAME</value>
                         </valueListItems>
                         <valueListItems>
-                            <value>Intake__c</value>
+                            <value>Created_Record_Link__c</value>
                         </valueListItems>
                         <valueListItems>
                             <value>Triggered_Status__c</value>

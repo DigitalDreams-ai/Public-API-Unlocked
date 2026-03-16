@@ -14,9 +14,7 @@ project:
         prefix_beta: "beta/"
         prefix_release: "release/"
     source_format: sfdx
-    dependencies:
-    - package_name: Litify
-      version_id: "04tHs000000w1CEIAY"
+    dependencies: []
 
 tasks:
     delete_existing_beta_release:
@@ -51,7 +49,7 @@ tasks:
     assign_publicApi_api_guest:
         class_path: cumulusci.tasks.salesforce.users.permsets.AssignPermissionSets
         options:
-            api_names: PublicApiIntakeApi_Guest
+            api_names: PublicApiGuestAccess
 
     set_publicApi_config_org_default:
         class_path: cumulusci.tasks.apex.anon.AnonymousApexTask
@@ -99,4 +97,5 @@ flows:
         steps:
             90:
                 task: load_managed_beta_sample_data
+
 

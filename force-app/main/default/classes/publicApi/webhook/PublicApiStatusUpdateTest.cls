@@ -49,9 +49,9 @@ private class PublicApiStatusUpdateTest {
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
-            SELECT Id, Intake__c, Status__c, Triggered_Status__c, Status_Code__c
+            SELECT Id, Submission__c, Status__c, Triggered_Status__c, Status_Code__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Intake__c = :submission.Id
+            WHERE Submission__c = :submission.Id
         ];
         System.assertEquals(1, deliveries.size());
         System.assertEquals('Success', deliveries[0].Status__c);
@@ -86,7 +86,7 @@ private class PublicApiStatusUpdateTest {
         List<PublicApi_Webhook_Delivery__c> deliveries = [
             SELECT Status__c, Response_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Intake__c = :submission.Id
+            WHERE Submission__c = :submission.Id
         ];
         System.assertEquals(1, deliveries.size());
         System.assertEquals('Failed', deliveries[0].Status__c);
@@ -126,7 +126,7 @@ private class PublicApiStatusUpdateTest {
 
         System.assertEquals(
             0,
-            [SELECT COUNT() FROM PublicApi_Webhook_Delivery__c WHERE Intake__c = :submission.Id]
+            [SELECT COUNT() FROM PublicApi_Webhook_Delivery__c WHERE Submission__c = :submission.Id]
         );
     }
 
@@ -162,7 +162,7 @@ private class PublicApiStatusUpdateTest {
         List<PublicApi_Webhook_Delivery__c> deliveries = [
             SELECT Triggered_Status__c, Status__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Intake__c = :submission.Id
+            WHERE Submission__c = :submission.Id
             ORDER BY CreatedDate ASC
         ];
         System.assertEquals(1, deliveries.size());
@@ -200,82 +200,12 @@ private class PublicApiStatusUpdateTest {
         List<PublicApi_Webhook_Delivery__c> deliveries = [
             SELECT Triggered_Status__c, Status__c, Request_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Intake__c = :submission.Id
+            WHERE Submission__c = :submission.Id
         ];
         System.assertEquals(1, deliveries.size());
         System.assertEquals('false', deliveries[0].Triggered_Status__c);
         System.assertEquals('Success', deliveries[0].Status__c);
         System.assert(String.valueOf(deliveries[0].Request_JSON__c).contains('"createdByApi":false'));
-    }
-
-    @IsTest
-    static void testIntakeStatusChangeQueuesAndSendsWebhookForConfiguredTargetObject() {
-        Test.setMock(HttpCalloutMock.class, new SuccessMock());
-
-        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
-            Is_Active__c = true,
-            API_Key__c = 'status-test-key-intake-target',
-            Target_Object_API_Name__c = 'litify_pm__Intake__c',
-            Outbound_Trigger_Enabled__c = true,
-            Outbound_Trigger_Field_Name__c = 'litify_pm__Status__c',
-            Outbound_Trigger_Field_Values__c = 'Converted',
-            Outbound_Webhook_URL__c = 'https://example.com/webhook',
-            Outbound_Payload_Configuration__c =
-                '[' +
-                    '{"externalKey":"status","value":"$litify_pm__Intake__c.litify_pm__Status__c","sortOrder":1},' +
-                    '{"externalKey":"firstName","value":"$litify_pm__Intake__c.litify_pm__First_Name__c","sortOrder":2}' +
-                ']'
-        );
-        PublicApiTestConfigFactory.insertConfig(config);
-
-        litify_pm__Intake__c intake = new litify_pm__Intake__c(
-            litify_pm__First_Name__c = 'Casey',
-            litify_pm__Last_Name__c = 'Trigger',
-            litify_pm__Status__c = 'Converted'
-        );
-        insert intake;
-
-        System.assertEquals(
-            1,
-            PublicApiConfigService.getConfigsForTargetObject('litify_pm__Intake__c').size(),
-            'Expected one active Intake-target config.'
-        );
-
-        litify_pm__Intake__c oldIntake = new litify_pm__Intake__c(
-            Id = intake.Id,
-            litify_pm__Status__c = 'New'
-        );
-        litify_pm__Intake__c updatedIntake = [
-            SELECT Id, litify_pm__Status__c, litify_pm__First_Name__c
-            FROM litify_pm__Intake__c
-            WHERE Id = :intake.Id
-        ];
-
-        Test.startTest();
-        PublicApiStatusUpdateHandler.handleAfterUpdate(
-            new List<litify_pm__Intake__c>{ updatedIntake },
-            new Map<Id, litify_pm__Intake__c>{ intake.Id => oldIntake }
-        );
-        Test.stopTest();
-
-        List<PublicApi_Webhook_Delivery__c> deliveries = [
-            SELECT Status__c,
-                   Triggered_Status__c,
-                   Status_Code__c,
-                   Intake__c,
-                   Source_Record_Id__c,
-                   Source_Object_API_Name__c,
-                   Request_JSON__c
-            FROM PublicApi_Webhook_Delivery__c
-            WHERE PublicApi_Integration_Config__c = :config.Id
-              AND Source_Record_Id__c = :String.valueOf(intake.Id)
-        ];
-        System.assertEquals(1, deliveries.size());
-        System.assertEquals('Success', deliveries[0].Status__c);
-        System.assertEquals('Converted', deliveries[0].Triggered_Status__c);
-        System.assertEquals(200, deliveries[0].Status_Code__c);
-        System.assertEquals(null, deliveries[0].Intake__c);
-        System.assertEquals('litify_pm__Intake__c', deliveries[0].Source_Object_API_Name__c);
     }
 
     @IsTest

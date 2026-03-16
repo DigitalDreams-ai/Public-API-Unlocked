@@ -24,7 +24,7 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
         try {
             PublicApiStatusUpdateDeliveryService.validateOutboundMappings(null);
             System.assert(false, 'Expected missing outbound mapping configuration to throw.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('Outbound mapping configuration is required'));
         }
     }
@@ -36,7 +36,7 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
         try {
             PublicApiStatusUpdateDeliveryService.validateOutboundMappings(configJson);
             System.assert(false, 'Expected invalid outbound mapping field to throw.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('Unknown field reference'));
         }
     }
@@ -186,3 +186,4 @@ private class PublicApiStatusUpdateDeliveryServiceTest {
         System.assertEquals(1, webhookCallCount);
     }
 }
+

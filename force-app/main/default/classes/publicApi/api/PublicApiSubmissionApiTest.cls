@@ -1,5 +1,5 @@
 @IsTest
-private class PublicApiIntakeApiTest {
+private class PublicApiSubmissionApiTest {
     @IsTest
     static void testCreateSubmissionSuccess() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
@@ -29,7 +29,8 @@ private class PublicApiIntakeApiTest {
         RestContext.response = res;
 
         Test.startTest();
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
@@ -58,8 +59,8 @@ private class PublicApiIntakeApiTest {
         System.assertEquals('application/json', created.Request_Content_Type__c);
         System.assertEquals('PublicApi_Submission__c', created.Target_Object_API_Name__c);
         System.assertEquals(String.valueOf(recordId), created.Target_Record_Id__c);
-        System.assertEquals(PublicApiIntakeService.AUDIT_STATUS_SUCCEEDED, created.Processing_Status__c);
-        System.assertEquals(PublicApiIntakeService.RELATED_STATUS_NOT_CONFIGURED, created.Related_Record_Status__c);
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED, created.Processing_Status__c);
+        System.assertEquals(PublicApiSubmissionService.RELATED_STATUS_NOT_CONFIGURED, created.Related_Record_Status__c);
         System.assert(String.isNotBlank(created.Effective_Config_JSON__c));
     }
 
@@ -74,7 +75,7 @@ private class PublicApiIntakeApiTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
         System.assertEquals(401, res.statusCode);
     }
 
@@ -96,7 +97,7 @@ private class PublicApiIntakeApiTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
         System.assertEquals(400, res.statusCode);
     }
 
@@ -120,7 +121,7 @@ private class PublicApiIntakeApiTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
         System.assertEquals(401, res.statusCode);
     }
 
@@ -146,7 +147,10 @@ private class PublicApiIntakeApiTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        Test.startTest();
+        PublicApiSubmissionApi.createSubmission();
+        Test.getEventBus().deliver();
+        Test.stopTest();
         System.assertEquals(201, res.statusCode);
     }
 
@@ -172,9 +176,19 @@ private class PublicApiIntakeApiTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('Invalid form-encoded payload'));
+        PublicApi_Submission__c auditRecord = [
+            SELECT Processing_Status__c, Processing_Error_Category__c, Raw_Payload__c
+            FROM PublicApi_Submission__c
+            WHERE PublicApi_Integration_Config__c = :config.Id
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_FAILED, auditRecord.Processing_Status__c);
+        System.assertEquals(PublicApiSubmissionService.ERROR_CATEGORY_PAYLOAD, auditRecord.Processing_Error_Category__c);
+        System.assert(auditRecord.Raw_Payload__c.contains('bad=%E0%A4%A'));
     }
 
     @IsTest
@@ -195,7 +209,7 @@ private class PublicApiIntakeApiTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('Inbound mapping configuration is required'));
     }
@@ -221,7 +235,7 @@ private class PublicApiIntakeApiTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('Inbound mapping configuration is invalid'));
     }
@@ -248,7 +262,7 @@ private class PublicApiIntakeApiTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('At least one inbound mapping row is required'));
     }
@@ -279,7 +293,7 @@ private class PublicApiIntakeApiTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('Related record configuration is invalid'));
         System.assertEquals(0, [SELECT Count() FROM Task WHERE Subject = 'Invalid Related Rule']);
@@ -290,8 +304,8 @@ private class PublicApiIntakeApiTest {
             ORDER BY CreatedDate DESC
             LIMIT 1
         ];
-        System.assertEquals(PublicApiIntakeService.AUDIT_STATUS_FAILED, auditRecord.Processing_Status__c);
-        System.assertEquals(PublicApiIntakeService.ERROR_CATEGORY_CONFIGURATION, auditRecord.Processing_Error_Category__c);
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_FAILED, auditRecord.Processing_Status__c);
+        System.assertEquals(PublicApiSubmissionService.ERROR_CATEGORY_CONFIGURATION, auditRecord.Processing_Error_Category__c);
         System.assert(String.isNotBlank(auditRecord.Processing_Error_Message__c));
         System.assert(auditRecord.Raw_Payload__c.contains('Invalid Related Rule'));
     }
@@ -322,7 +336,7 @@ private class PublicApiIntakeApiTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
         System.assertEquals(400, res.statusCode);
         System.assert(res.responseBody.toString().contains('Related record configuration must be a JSON object'));
         System.assertEquals(0, [SELECT Count() FROM Task WHERE Subject = 'Legacy Array Related Rule']);
@@ -333,8 +347,8 @@ private class PublicApiIntakeApiTest {
             ORDER BY CreatedDate DESC
             LIMIT 1
         ];
-        System.assertEquals(PublicApiIntakeService.AUDIT_STATUS_FAILED, auditRecord.Processing_Status__c);
-        System.assertEquals(PublicApiIntakeService.ERROR_CATEGORY_CONFIGURATION, auditRecord.Processing_Error_Category__c);
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_FAILED, auditRecord.Processing_Status__c);
+        System.assertEquals(PublicApiSubmissionService.ERROR_CATEGORY_CONFIGURATION, auditRecord.Processing_Error_Category__c);
         System.assert(String.isNotBlank(auditRecord.Processing_Error_Message__c));
         System.assert(auditRecord.Raw_Payload__c.contains('Legacy Array Related Rule'));
     }
@@ -363,12 +377,14 @@ private class PublicApiIntakeApiTest {
         RestContext.response = res;
 
         Test.startTest();
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
+        Test.getEventBus().deliver();
         Test.stopTest();
         System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
 
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
-        Id recordId = (Id) response.get('recordId');
+        Id submissionId = (Id) response.get('recordId');
+        Id recordId = getTargetRecordId(submissionId);
         Account created = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :recordId];
         System.assertEquals('Acme Public API', created.Name);
         if (!String.isBlank(configuredRecordTypeDeveloperName)) {
@@ -417,12 +433,14 @@ private class PublicApiIntakeApiTest {
         RestContext.response = res;
 
         Test.startTest();
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
+        Test.getEventBus().deliver();
         Test.stopTest();
         System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
 
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
-        Id recordId = (Id) response.get('recordId');
+        Id submissionId = (Id) response.get('recordId');
+        Id recordId = getTargetRecordId(submissionId);
         Task created = [SELECT Id, Subject, WhatId FROM Task WHERE Id = :recordId];
         System.assertEquals('Resolved Task', created.Subject);
         System.assertNotEquals(null, created.WhatId);
@@ -462,12 +480,14 @@ private class PublicApiIntakeApiTest {
         RestContext.response = res;
 
         Test.startTest();
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
+        Test.getEventBus().deliver();
         Test.stopTest();
         System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
 
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
-        Id recordId = (Id) response.get('recordId');
+        Id submissionId = (Id) response.get('recordId');
+        Id recordId = getTargetRecordId(submissionId);
         Task created = [SELECT Id, Subject, WhatId FROM Task WHERE Id = :recordId];
         System.assertNotEquals(null, created.WhatId);
 
@@ -481,7 +501,7 @@ private class PublicApiIntakeApiTest {
 
     private static String getAccountLastNameFieldName() {
         Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
-        for (String preferredFieldName : new List<String>{ 'LastName', 'litify_pm__Last_Name__c' }) {
+        for (String preferredFieldName : new List<String>{ 'LastName' }) {
             if (fieldMap.containsKey(preferredFieldName) &&
                 fieldMap.get(preferredFieldName).getDescribe().isCreateable()) {
                 return preferredFieldName;
@@ -507,6 +527,17 @@ private class PublicApiIntakeApiTest {
         return null;
     }
 
+    private static Id getTargetRecordId(Id submissionId) {
+        PublicApi_Submission__c submissionRecord = [
+            SELECT Target_Record_Id__c
+            FROM PublicApi_Submission__c
+            WHERE Id = :submissionId
+        ];
+        return submissionRecord.Target_Record_Id__c == null
+            ? null
+            : (Id) submissionRecord.Target_Record_Id__c;
+    }
+
     private static SObject queryAccount(Id accountId, String accountLastNameFieldName) {
         List<String> fieldNames = new List<String>{ 'Id', 'Name', 'RecordTypeId' };
         if (String.isNotBlank(accountLastNameFieldName)) {
@@ -518,3 +549,4 @@ private class PublicApiIntakeApiTest {
     }
 
 }
+

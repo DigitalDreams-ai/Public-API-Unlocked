@@ -25,7 +25,7 @@ public class PublicApiRelatedRecordConfig {
             return fromMap((Map<String, Object>) parsed);
         }
 
-        throw new PublicApiIntakeServiceException(
+        throw new PublicApiSubmissionServiceException(
             'Related record configuration must be a JSON object representing a single rule.'
         );
     }
@@ -128,3 +128,4 @@ public class PublicApiRelatedRecordConfig {
         return String.valueOf(value).trim().toLowerCase() == 'true';
     }
 }
+

@@ -254,7 +254,7 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
-        <field>PublicApi_Webhook_Delivery__c.Intake__c</field>
+        <field>PublicApi_Webhook_Delivery__c.Submission__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
