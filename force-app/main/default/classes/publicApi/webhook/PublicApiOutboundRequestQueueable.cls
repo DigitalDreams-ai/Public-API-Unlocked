@@ -3,14 +3,16 @@ public without sharing class PublicApiOutboundRequestQueueable implements Queuea
 
     public class RequestItem {
         public Id submissionId;
+        public Id configId;
         public String previousValue;
         public String currentValue;
         public Datetime changedAt;
 
         public RequestItem() {}
 
-        public RequestItem(Id submissionId, String previousValue, String currentValue, Datetime changedAt) {
+        public RequestItem(Id submissionId, Id configId, String previousValue, String currentValue, Datetime changedAt) {
             this.submissionId = submissionId;
+            this.configId = configId;
             this.previousValue = previousValue;
             this.currentValue = currentValue;
             this.changedAt = changedAt;

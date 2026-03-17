@@ -138,6 +138,36 @@ private class PublicApiOutboundStatusActionTest {
         );
     }
 
+    @IsTest
+    static void testInvocableRejectsNonSubmissionRecordIds() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'submission-outbound-non-submission-key',
+            Outbound_Webhook_URL__c = 'https://example.com/webhook',
+            Target_Object_API_Name__c = 'Account',
+            Outbound_Payload_Configuration__c =
+                '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+        );
+        PublicApiTestConfigFactory.insertConfig(config);
+
+        Account accountRecord = createAccount('Non Submission Record');
+        insert accountRecord;
+
+        PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
+        request.recordId = accountRecord.Id;
+        request.configId = config.Id;
+        request.previousStatus = 'Open';
+        request.currentStatus = 'Converted';
+        request.changedAt = System.now();
+
+        try {
+            PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
+            System.assert(false, 'Expected non-submission record ID to be rejected.');
+        } catch (PublicApiSubmissionServiceException e) {
+            System.assert(e.getMessage().contains('must reference a PublicApi_Submission__c record linked'));
+        }
+    }
+
     private static Account createAccount(String name) {
         Account accountRecord = new Account(Name = name);
         Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();

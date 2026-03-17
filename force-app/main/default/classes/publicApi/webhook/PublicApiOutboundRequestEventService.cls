@@ -13,6 +13,7 @@ public without sharing class PublicApiOutboundRequestEventService {
             }
             eventsToPublish.add(new PublicApi_Outbound_Request__e(
                 Submission_Record_Id__c = String.valueOf(request.recordId),
+                Config_Id__c = request.configId == null ? null : String.valueOf(request.configId),
                 Previous_Value__c = request.previousValue,
                 Current_Value__c = request.currentValue,
                 Changed_At__c = request.changedAt == null ? System.now() : request.changedAt
@@ -55,9 +56,9 @@ public without sharing class PublicApiOutboundRequestEventService {
         }
 
         Map<Id, PublicApiConfigService.Config> configsById = PublicApiConfigService.getConfigsById(
-            getLinkedConfigIds(submissionsById.values())
+            getRequestConfigIds(requests, submissionsById)
         );
-        Map<Id, SObject> payloadRecordsById = queryPayloadRecords(submissionsById, configsById);
+        Map<Id, SObject> payloadRecordsById = queryPayloadRecords(submissionsById, requests, configsById);
         Http http = new Http();
 
         List<PublicApi_Webhook_Delivery__c> deliveryRecords = new List<PublicApi_Webhook_Delivery__c>();
@@ -69,11 +70,12 @@ public without sharing class PublicApiOutboundRequestEventService {
             }
 
             PublicApi_Submission__c submissionRecord = submissionsById.get(submissionId);
-            if (submissionRecord == null || submissionRecord.PublicApi_Integration_Config__c == null) {
+            Id configId = getRequestConfigId(requestItem, submissionsById);
+            if (submissionRecord == null || configId == null) {
                 continue;
             }
 
-            PublicApiConfigService.Config config = configsById.get(submissionRecord.PublicApi_Integration_Config__c);
+            PublicApiConfigService.Config config = configsById.get(configId);
             if (config == null || String.isBlank(config.statusUpdateWebhookUrl)) {
                 continue;
             }
@@ -93,7 +95,7 @@ public without sharing class PublicApiOutboundRequestEventService {
                     : PublicApiStatusUpdateDeliveryService.sendStatusUpdate(http, payloadRecord, config);
 
             PublicApi_Webhook_Delivery__c deliveryRecord = PublicApiWebhookDeliveryRecordService.buildDeliveryRecord(
-                config.id,
+                configId,
                 submissionRecord.Id,
                 PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME,
                 currentValue,
@@ -125,6 +127,7 @@ public without sharing class PublicApiOutboundRequestEventService {
             }
             items.add(new PublicApiOutboundRequestQueueable.RequestItem(
                 submissionId,
+                parseConfigId(requestEvent),
                 requestEvent.Previous_Value__c,
                 requestEvent.Current_Value__c,
                 requestEvent.Changed_At__c
@@ -162,14 +165,35 @@ public without sharing class PublicApiOutboundRequestEventService {
     }
 
     @TestVisible
-    static Set<Id> getLinkedConfigIds(List<PublicApi_Submission__c> submissions) {
+    static Id getRequestConfigId(
+        PublicApiOutboundRequestQueueable.RequestItem requestItem,
+        Map<Id, PublicApi_Submission__c> submissionsById
+    ) {
+        if (requestItem == null || requestItem.submissionId == null) {
+            return null;
+        }
+
+        if (requestItem.configId != null) {
+            return requestItem.configId;
+        }
+
+        PublicApi_Submission__c submissionRecord = submissionsById.get(requestItem.submissionId);
+        return submissionRecord == null ? null : submissionRecord.PublicApi_Integration_Config__c;
+    }
+
+    @TestVisible
+    static Set<Id> getRequestConfigIds(
+        List<PublicApiOutboundRequestQueueable.RequestItem> requests,
+        Map<Id, PublicApi_Submission__c> submissionsById
+    ) {
         Set<Id> configIds = new Set<Id>();
-        if (submissions == null) {
+        if (requests == null) {
             return configIds;
         }
-        for (PublicApi_Submission__c submissionRecord : submissions) {
-            if (submissionRecord != null && submissionRecord.PublicApi_Integration_Config__c != null) {
-                configIds.add(submissionRecord.PublicApi_Integration_Config__c);
+        for (PublicApiOutboundRequestQueueable.RequestItem requestItem : requests) {
+            Id configId = getRequestConfigId(requestItem, submissionsById);
+            if (configId != null) {
+                configIds.add(configId);
             }
         }
         return configIds;
@@ -182,6 +206,18 @@ public without sharing class PublicApiOutboundRequestEventService {
         }
         try {
             return (Id) requestEvent.Submission_Record_Id__c.trim();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    @TestVisible
+    static Id parseConfigId(PublicApi_Outbound_Request__e requestEvent) {
+        if (requestEvent == null || String.isBlank(requestEvent.Config_Id__c)) {
+            return null;
+        }
+        try {
+            return (Id) requestEvent.Config_Id__c.trim();
         } catch (Exception e) {
             return null;
         }
@@ -227,16 +263,20 @@ public without sharing class PublicApiOutboundRequestEventService {
     @TestVisible
     static Map<Id, SObject> queryPayloadRecords(
         Map<Id, PublicApi_Submission__c> submissionsById,
+        List<PublicApiOutboundRequestQueueable.RequestItem> requests,
         Map<Id, PublicApiConfigService.Config> configsById
     ) {
         Map<String, Set<Id>> recordIdsByObject = new Map<String, Set<Id>>();
         Map<String, Set<Id>> configIdsByObject = new Map<String, Set<Id>>();
-        for (PublicApi_Submission__c submissionRecord : submissionsById.values()) {
-            if (submissionRecord == null || submissionRecord.PublicApi_Integration_Config__c == null) {
+        for (PublicApiOutboundRequestQueueable.RequestItem requestItem : requests) {
+            Id submissionId = requestItem == null ? null : requestItem.submissionId;
+            PublicApi_Submission__c submissionRecord = submissionsById.get(submissionId);
+            Id configId = getRequestConfigId(requestItem, submissionsById);
+            if (submissionRecord == null || configId == null) {
                 continue;
             }
 
-            PublicApiConfigService.Config config = configsById.get(submissionRecord.PublicApi_Integration_Config__c);
+            PublicApiConfigService.Config config = configsById.get(configId);
             String payloadObjectApiName = normalizePayloadObjectApiName(submissionRecord, config);
             Id payloadRecordId = resolvePayloadRecordId(submissionRecord, config);
             if (config == null || payloadRecordId == null || String.isBlank(payloadObjectApiName)) {
@@ -252,7 +292,7 @@ public without sharing class PublicApiOutboundRequestEventService {
             if (!configIdsByObject.containsKey(objectApiName)) {
                 configIdsByObject.put(objectApiName, new Set<Id>());
             }
-            configIdsByObject.get(objectApiName).add(config.id);
+            configIdsByObject.get(objectApiName).add(configId);
         }
 
         Map<Id, SObject> recordsById = new Map<Id, SObject>();
