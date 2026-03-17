@@ -9,12 +9,11 @@ public without sharing class PublicApiRequestMappingService {
         @AuraEnabled public Integer sortOrder;
         @AuraEnabled public String sourceType;
         @AuraEnabled public String literalValue;
-        @AuraEnabled public String defaultValue;
 
         public MappingConfig() {}
 
         public MappingConfig(String externalKey, String value, Integer sortOrder) {
-            this(externalKey, value, sortOrder, SOURCE_TYPE_INCOMING_KEY, null, null);
+            this(externalKey, value, sortOrder, SOURCE_TYPE_INCOMING_KEY, null);
         }
 
         public MappingConfig(
@@ -22,15 +21,13 @@ public without sharing class PublicApiRequestMappingService {
             String value,
             Integer sortOrder,
             String sourceType,
-            String literalValue,
-            String defaultValue
+            String literalValue
         ) {
             this.externalKey = externalKey;
             this.value = value;
             this.sortOrder = sortOrder;
             this.sourceType = normalizeSourceType(sourceType);
             this.literalValue = literalValue;
-            this.defaultValue = defaultValue;
         }
     }
 
@@ -363,7 +360,6 @@ public without sharing class PublicApiRequestMappingService {
         mapping.sortOrder = parseInteger(entry.get('sortOrder'));
         mapping.sourceType = normalizeSourceType(normalizeString(entry.get('sourceType')));
         mapping.literalValue = normalizeString(entry.get('literalValue'));
-        mapping.defaultValue = normalizeString(entry.get('defaultValue'));
         if (String.isBlank(mapping.value)) {
             return null;
         }
@@ -463,7 +459,7 @@ public without sharing class PublicApiRequestMappingService {
         if (payloadValue.found) {
             return payloadValue.value;
         }
-        return mapping.defaultValue;
+        return null;
     }
 
     private static PayloadValueResult getPayloadValue(

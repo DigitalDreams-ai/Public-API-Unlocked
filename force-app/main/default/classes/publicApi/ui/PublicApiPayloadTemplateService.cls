@@ -453,8 +453,7 @@ public without sharing class PublicApiPayloadTemplateService {
                     mapping.value,
                     mapping.sortOrder,
                     mapping.sourceType,
-                    mapping.literalValue,
-                    mapping.defaultValue
+                    mapping.literalValue
                 )
             );
         }
@@ -498,12 +497,6 @@ public without sharing class PublicApiPayloadTemplateService {
             if (!equalsNullableIgnoreCase(
                     leftRow == null ? null : leftRow.literalValue,
                     rightRow == null ? null : rightRow.literalValue
-                )) {
-                return false;
-            }
-            if (!equalsNullableIgnoreCase(
-                    leftRow == null ? null : leftRow.defaultValue,
-                    rightRow == null ? null : rightRow.defaultValue
                 )) {
                 return false;
             }

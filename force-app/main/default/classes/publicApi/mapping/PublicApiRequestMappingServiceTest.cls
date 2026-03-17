@@ -88,11 +88,11 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
-    static void testApplyInboundMappingsUsesDefaultValueWhenIncomingKeyIsMissing() {
+    static void testApplyInboundMappingsLeavesFieldBlankWhenIncomingKeyIsMissing() {
         PublicApi_Submission__c submission = new PublicApi_Submission__c();
         String mappingsJson =
             '[' +
-                '{"externalKey":"missingStatus","defaultValue":"Queued","value":"$PublicApi_Submission__c.Status__c","sortOrder":1,"sourceType":"IncomingKey"}' +
+                '{"externalKey":"missingStatus","value":"$PublicApi_Submission__c.Status__c","sortOrder":1,"sourceType":"IncomingKey"}' +
             ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
@@ -102,7 +102,7 @@ private class PublicApiRequestMappingServiceTest {
             'PublicApi_Submission__c'
         );
 
-        System.assertEquals('Queued', submission.Status__c);
+        System.assertEquals(null, submission.Status__c);
     }
 
     @IsTest
@@ -205,7 +205,6 @@ private class PublicApiRequestMappingServiceTest {
         System.assertEquals(1, mappings.size());
         System.assertEquals('IncomingKey', mappings[0].sourceType);
         System.assertEquals(null, mappings[0].literalValue);
-        System.assertEquals(null, mappings[0].defaultValue);
     }
 
     @IsTest
