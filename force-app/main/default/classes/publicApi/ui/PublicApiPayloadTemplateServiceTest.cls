@@ -33,6 +33,15 @@ private class PublicApiPayloadTemplateServiceTest {
             false,
             PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(sameMappings, differentMappings)
         );
+
+        String literalInboundMappings =
+            '[' +
+                '{"sourceType":"LiteralValue","literalValue":"Manual","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}' +
+            ']';
+        System.assertEquals(
+            false,
+            PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(literalInboundMappings, sameMappings)
+        );
     }
 
     @IsTest

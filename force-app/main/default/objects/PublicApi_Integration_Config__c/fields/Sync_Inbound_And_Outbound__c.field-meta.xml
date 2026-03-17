@@ -3,6 +3,6 @@
     <fullName>Sync_Inbound_And_Outbound__c</fullName>
     <defaultValue>true</defaultValue>
     <description>When true, the request builder keeps inbound and outbound payload mappings mirrored.</description>
-    <label>Inbound and Outbound are the same</label>
+    <label>Sync Inbound And Outbound</label>
     <type>Checkbox</type>
 </CustomField>

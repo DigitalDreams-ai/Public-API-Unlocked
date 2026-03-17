@@ -88,6 +88,42 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
+    static void testApplyInboundMappingsUsesDefaultValueWhenIncomingKeyIsMissing() {
+        PublicApi_Submission__c submission = new PublicApi_Submission__c();
+        String mappingsJson =
+            '[' +
+                '{"externalKey":"missingStatus","defaultValue":"Queued","value":"$PublicApi_Submission__c.Status__c","sortOrder":1,"sourceType":"IncomingKey"}' +
+            ']';
+
+        PublicApiRequestMappingService.applyInboundMappings(
+            submission,
+            new Map<String, Object>{ 'otherKey' => 'ignored' },
+            mappingsJson,
+            'PublicApi_Submission__c'
+        );
+
+        System.assertEquals('Queued', submission.Status__c);
+    }
+
+    @IsTest
+    static void testApplyInboundMappingsUsesLiteralValue() {
+        PublicApi_Submission__c submission = new PublicApi_Submission__c();
+        String mappingsJson =
+            '[' +
+                '{"sourceType":"LiteralValue","literalValue":"Manual","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}' +
+            ']';
+
+        PublicApiRequestMappingService.applyInboundMappings(
+            submission,
+            new Map<String, Object>{ 'status' => 'Ignored' },
+            mappingsJson,
+            'PublicApi_Submission__c'
+        );
+
+        System.assertEquals('Manual', submission.Status__c);
+    }
+
+    @IsTest
     static void testValidateInboundMappingsRejectsNonCanonicalPrefixes() {
         String mappingsJson =
             '[{"externalKey":"status","value":"$submission.Status__c","sortOrder":1}]';
@@ -123,6 +159,17 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
+    static void testValidateInboundMappingsAllowsLiteralValueRows() {
+        String mappingsJson =
+            '[{"sourceType":"LiteralValue","literalValue":"Manual","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
+
+        PublicApiRequestMappingService.validateInboundMappings(
+            mappingsJson,
+            'PublicApi_Submission__c'
+        );
+    }
+
+    @IsTest
     static void testStructurallyWritableFieldRejectsAutoNumberAndAllowsEditableField() {
         Map<String, Schema.SObjectField> fieldMap = PublicApi_Submission__c.SObjectType.getDescribe().fields.getMap();
 
@@ -146,6 +193,19 @@ private class PublicApiRequestMappingServiceTest {
                 e.getMessage().contains('must be a JSON array')
             );
         }
+    }
+
+    @IsTest
+    static void testParseMappingsDefaultsSourceTypeForLegacyRows() {
+        List<PublicApiRequestMappingService.MappingConfig> mappings =
+            PublicApiRequestMappingService.parseMappings(
+                '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
+            );
+
+        System.assertEquals(1, mappings.size());
+        System.assertEquals('IncomingKey', mappings[0].sourceType);
+        System.assertEquals(null, mappings[0].literalValue);
+        System.assertEquals(null, mappings[0].defaultValue);
     }
 
     @IsTest

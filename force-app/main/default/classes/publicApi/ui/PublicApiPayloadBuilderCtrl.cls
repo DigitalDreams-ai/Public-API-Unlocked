@@ -16,6 +16,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         @AuraEnabled public List<String> availableTargetRecordTypeDeveloperNames;
         @AuraEnabled public List<String> availableInboundFieldReferences;
         @AuraEnabled public List<String> availableOutboundFieldReferences;
+        @AuraEnabled public List<String> availableRequiredInboundFieldNames;
         @AuraEnabled public List<String> availableLookupFieldNames;
         @AuraEnabled public List<String> availableTriggerFieldNames;
         @AuraEnabled public List<String> availableTriggerFieldValues;
@@ -80,6 +81,8 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             settings.targetObjectApiName,
             false
         );
+        settings.availableRequiredInboundFieldNames =
+            PublicApiPayloadTemplateService.getRequiredCreateFieldNames(settings.targetObjectApiName);
         settings.availableLookupFieldNames =
             PublicApiPayloadTemplateService.getAvailableLookupFieldNames(settings.targetObjectApiName);
         settings.availableTriggerFieldNames =
