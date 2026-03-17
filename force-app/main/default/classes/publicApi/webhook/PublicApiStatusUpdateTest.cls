@@ -46,6 +46,7 @@ private class PublicApiStatusUpdateTest {
         Test.startTest();
         submission.Status__c = 'Converted';
         update submission;
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
@@ -81,6 +82,7 @@ private class PublicApiStatusUpdateTest {
 
         Test.startTest();
         update new PublicApi_Submission__c(Id = submission.Id, Status__c = 'Referred Out');
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
@@ -122,6 +124,7 @@ private class PublicApiStatusUpdateTest {
 
         Test.startTest();
         update new PublicApi_Submission__c(Id = submission.Id, Status__c = 'Converted');
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         System.assertEquals(
@@ -157,6 +160,7 @@ private class PublicApiStatusUpdateTest {
         Test.startTest();
         update new PublicApi_Submission__c(Id = submission.Id, Status__c = 'Converted');
         update new PublicApi_Submission__c(Id = submission.Id, Status__c = customStatus);
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
@@ -195,6 +199,7 @@ private class PublicApiStatusUpdateTest {
 
         Test.startTest();
         update new PublicApi_Submission__c(Id = submission.Id, Created_By_PublicApi_API__c = false);
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [

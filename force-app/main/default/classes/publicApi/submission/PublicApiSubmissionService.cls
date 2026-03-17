@@ -9,7 +9,12 @@ public without sharing class PublicApiSubmissionService {
     @TestVisible public static final String ERROR_CATEGORY_PAYLOAD = 'PAYLOAD_PARSE_ERROR';
     @TestVisible public static final String ERROR_CATEGORY_CONFIGURATION = 'CONFIGURATION_ERROR';
     @TestVisible public static final String ERROR_CATEGORY_TARGET_DML = 'TARGET_DML_ERROR';
+    @TestVisible public static final String ERROR_CATEGORY_EVENT_PUBLISH = 'EVENT_PUBLISH_ERROR';
     @TestVisible public static final String ERROR_CATEGORY_UNEXPECTED = 'UNEXPECTED_PROCESSING_ERROR';
+    @TestVisible public static final String OVERSIZED_PAYLOAD_MESSAGE_PREFIX =
+        'Request body exceeds maximum supported size of ';
+    @TestVisible public static final String EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX =
+        'Failed to publish submission processing event: ';
 
     public static SObject createSubmissionFromPublicApi(
         String rawRequestBody,
@@ -25,8 +30,9 @@ public without sharing class PublicApiSubmissionService {
         String targetObjectApiName = String.isBlank(config.targetObjectApiName)
             ? PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME
             : config.targetObjectApiName.trim();
+        String fullRequestBody = rawRequestBody == null ? '' : rawRequestBody;
         String rawPayload = truncate(
-            rawRequestBody,
+            fullRequestBody,
             RAW_PAYLOAD_MAX_LENGTH
         );
         String effectiveConfigJson = buildEffectiveConfigJson(config, targetObjectApiName);
@@ -46,7 +52,8 @@ public without sharing class PublicApiSubmissionService {
                 throw new PublicApiSubmissionServiceException('Submission object not found: ' + targetObjectApiName);
             }
 
-            PublicApiPayloadParser.parsePayload(rawPayload, requestContentType);
+            validateRawPayloadSize(fullRequestBody);
+            PublicApiPayloadParser.parsePayload(fullRequestBody, requestContentType);
             validateSubmissionProcessingConfiguration(
                 config.inboundPayloadConfiguration,
                 config.relatedRecordConfiguration,
@@ -55,10 +62,7 @@ public without sharing class PublicApiSubmissionService {
             publishSubmissionRequest(auditRecord.Id);
             return auditRecord;
         } catch (PublicApiSubmissionServiceException e) {
-            String errorCategory = e.getMessage() != null &&
-                (e.getMessage().startsWith('Invalid JSON:') || e.getMessage().startsWith('Invalid form-encoded payload'))
-                ? ERROR_CATEGORY_PAYLOAD
-                : ERROR_CATEGORY_CONFIGURATION;
+            String errorCategory = getErrorCategoryForMessage(e.getMessage());
             markAuditFailure(auditRecord.Id, errorCategory, e.getMessage());
             throw e;
         } catch (DmlException e) {
@@ -136,6 +140,59 @@ public without sharing class PublicApiSubmissionService {
             Processing_Error_Category__c = errorCategory,
             Processing_Error_Message__c = errorMessage
         );
+    }
+
+    @TestVisible
+    static void validateRawPayloadSize(String rawRequestBody) {
+        if (rawRequestBody != null && rawRequestBody.length() > RAW_PAYLOAD_MAX_LENGTH) {
+            throw new PublicApiSubmissionServiceException(
+                OVERSIZED_PAYLOAD_MESSAGE_PREFIX + String.valueOf(RAW_PAYLOAD_MAX_LENGTH) + ' characters.'
+            );
+        }
+    }
+
+    @TestVisible
+    static String getErrorCategoryForMessage(String errorMessage) {
+        if (isPayloadErrorMessage(errorMessage)) {
+            return ERROR_CATEGORY_PAYLOAD;
+        }
+        if (isEventPublishErrorMessage(errorMessage)) {
+            return ERROR_CATEGORY_EVENT_PUBLISH;
+        }
+        return ERROR_CATEGORY_CONFIGURATION;
+    }
+
+    @TestVisible
+    public static Integer getHttpStatusCodeForMessage(String errorMessage) {
+        if (isEventPublishErrorMessage(errorMessage)) {
+            return 503;
+        }
+        if (isOversizedPayloadErrorMessage(errorMessage)) {
+            return 413;
+        }
+        return 400;
+    }
+
+    @TestVisible
+    static Boolean isPayloadErrorMessage(String errorMessage) {
+        return String.isNotBlank(errorMessage) &&
+            (
+                errorMessage.startsWith('Invalid JSON:') ||
+                errorMessage.startsWith('Invalid form-encoded payload') ||
+                isOversizedPayloadErrorMessage(errorMessage)
+            );
+    }
+
+    @TestVisible
+    static Boolean isOversizedPayloadErrorMessage(String errorMessage) {
+        return String.isNotBlank(errorMessage) &&
+            errorMessage.startsWith(OVERSIZED_PAYLOAD_MESSAGE_PREFIX);
+    }
+
+    @TestVisible
+    static Boolean isEventPublishErrorMessage(String errorMessage) {
+        return String.isNotBlank(errorMessage) &&
+            errorMessage.startsWith(EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX);
     }
 
     @TestVisible

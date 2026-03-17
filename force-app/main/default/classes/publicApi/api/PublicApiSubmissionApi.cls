@@ -1,7 +1,7 @@
 /**
  * Guest-access public API endpoint for inbound submissions.
  */
-@RestResource(urlMapping='/v1/publicapi/submissions')
+@RestResource(urlMapping='/v1/publicapi/*')
 global with sharing class PublicApiSubmissionApi {
     @HttpPost
     global static void createSubmission() {
@@ -11,20 +11,28 @@ global with sharing class PublicApiSubmissionApi {
 
         try {
             String requestBody = req.requestBody != null ? req.requestBody.toString() : '';
-            String apiKeyHeader = getHeaderIgnoreCase(req, 'x-api-key');
-            if (String.isBlank(apiKeyHeader)) {
-                writeError(res, 401, 'Invalid or missing API key');
+            String endpointPath;
+            try {
+                endpointPath = PublicApiEndpointPathService.extractRequestEndpointPath(req);
+            } catch (PublicApiSubmissionServiceException e) {
+                writeError(res, 404, e.getMessage());
                 return;
             }
 
             PublicApiConfigService.Config config;
             try {
-                config = PublicApiConfigService.getConfigForApiKey(apiKeyHeader);
+                config = PublicApiConfigService.getConfigForEndpointPath(endpointPath);
             } catch (PublicApiSubmissionServiceException e) {
                 writeError(res, 503, e.getMessage());
                 return;
             }
             if (config == null) {
+                writeError(res, 404, 'No active Public API Integration Config matches the requested endpoint path.');
+                return;
+            }
+
+            String apiKeyHeader = getHeaderIgnoreCase(req, 'x-api-key');
+            if (String.isBlank(apiKeyHeader) || config.apiKey != apiKeyHeader.trim()) {
                 writeError(res, 401, 'Invalid or missing API key');
                 return;
             }
@@ -45,7 +53,7 @@ global with sharing class PublicApiSubmissionApi {
             res.statusCode = 201;
             res.responseBody = Blob.valueOf(JSON.serialize(new SubmissionResponse(submission.Id, 'Submission received successfully')));
         } catch (PublicApiSubmissionServiceException e) {
-            writeError(res, 400, e.getMessage());
+            writeError(res, PublicApiSubmissionService.getHttpStatusCodeForMessage(e.getMessage()), e.getMessage());
         } catch (JSONException e) {
             writeError(res, 400, 'Invalid JSON: ' + e.getMessage());
         } catch (Exception e) {

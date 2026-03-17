@@ -37,31 +37,48 @@ public without sharing class PublicApiOutboundTriggerService {
             return;
         }
 
+        Map<Id, Id> linkedConfigIdBySubmissionId = getLinkedConfigIdBySubmissionId(getSubmissionIds(requests));
         Set<Id> configIds = new Set<Id>();
         for (ChangeRequest request : requests) {
-            if (request != null && request.configId != null) {
-                configIds.add(request.configId);
+            if (request == null || request.recordId == null) {
+                continue;
             }
+
+            Id linkedConfigId = linkedConfigIdBySubmissionId.get(request.recordId);
+            if (linkedConfigId == null) {
+                continue;
+            }
+            if (request.configId != null && request.configId != linkedConfigId) {
+                throw new PublicApiSubmissionServiceException(
+                    'Outbound request config does not match the submission-linked Public API Integration Config.'
+                );
+            }
+            configIds.add(linkedConfigId);
         }
         if (configIds.isEmpty()) {
             return;
         }
 
         Map<Id, PublicApiConfigService.Config> configsById = PublicApiConfigService.getConfigsById(configIds);
-        List<PublicApiStatusUpdateQueueable.DeliveryItem> items = new List<PublicApiStatusUpdateQueueable.DeliveryItem>();
+        List<ChangeRequest> eventsToPublish = new List<ChangeRequest>();
         for (ChangeRequest request : requests) {
-            if (request == null || request.recordId == null || request.configId == null) {
+            if (request == null || request.recordId == null) {
                 continue;
             }
 
-            PublicApiConfigService.Config config = configsById.get(request.configId);
+            Id linkedConfigId = linkedConfigIdBySubmissionId.get(request.recordId);
+            if (linkedConfigId == null) {
+                continue;
+            }
+
+            PublicApiConfigService.Config config = configsById.get(linkedConfigId);
             String normalizedCurrentValue = normalizeTriggerValue(request.currentValue);
             if (!shouldSendOutboundTrigger(config, normalizedCurrentValue)) {
                 continue;
             }
 
             String eventKey = String.valueOf(request.recordId) + ':' +
-                String.valueOf(request.configId) + ':' +
+                String.valueOf(linkedConfigId) + ':' +
                 normalizeTriggerValue(request.previousValue) + ':' +
                 normalizedCurrentValue;
             if (processedEventKeys.contains(eventKey)) {
@@ -69,17 +86,17 @@ public without sharing class PublicApiOutboundTriggerService {
             }
             processedEventKeys.add(eventKey);
 
-            items.add(new PublicApiStatusUpdateQueueable.DeliveryItem(
+            eventsToPublish.add(new ChangeRequest(
                 request.recordId,
-                request.configId,
+                linkedConfigId,
                 normalizeTriggerValue(request.previousValue),
                 normalizedCurrentValue,
                 request.changedAt == null ? System.now() : request.changedAt
             ));
         }
 
-        if (!items.isEmpty()) {
-            PublicApiStatusUpdateQueueable.enqueue(items);
+        if (!eventsToPublish.isEmpty()) {
+            PublicApiOutboundRequestEventService.publishRequests(eventsToPublish);
         }
     }
 
@@ -131,6 +148,36 @@ public without sharing class PublicApiOutboundTriggerService {
     @TestVisible
     public static Set<String> getConfiguredTriggerStatuses(PublicApiConfigService.Config config) {
         return getConfiguredTriggerFieldValues(config);
+    }
+
+    @TestVisible
+    static Set<Id> getSubmissionIds(List<ChangeRequest> requests) {
+        Set<Id> submissionIds = new Set<Id>();
+        if (requests == null) {
+            return submissionIds;
+        }
+        for (ChangeRequest request : requests) {
+            if (request != null && request.recordId != null) {
+                submissionIds.add(request.recordId);
+            }
+        }
+        return submissionIds;
+    }
+
+    @TestVisible
+    static Map<Id, Id> getLinkedConfigIdBySubmissionId(Set<Id> submissionIds) {
+        Map<Id, Id> linkedConfigIdBySubmissionId = new Map<Id, Id>();
+        if (submissionIds == null || submissionIds.isEmpty()) {
+            return linkedConfigIdBySubmissionId;
+        }
+        for (PublicApi_Submission__c submissionRecord : [
+            SELECT Id, PublicApi_Integration_Config__c
+            FROM PublicApi_Submission__c
+            WHERE Id IN :submissionIds
+        ]) {
+            linkedConfigIdBySubmissionId.put(submissionRecord.Id, submissionRecord.PublicApi_Integration_Config__c);
+        }
+        return linkedConfigIdBySubmissionId;
     }
 
     @TestVisible

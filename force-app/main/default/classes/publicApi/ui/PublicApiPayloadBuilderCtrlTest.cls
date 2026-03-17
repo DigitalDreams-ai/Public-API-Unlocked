@@ -21,7 +21,8 @@ private class PublicApiPayloadBuilderCtrlTest {
     static void testPayloadSettingsRoundTrip() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
-            API_Key__c = 'payload-builder-test-key'
+            API_Key__c = 'payload-builder-test-key',
+            Endpoint_Path__c = '/payload-builder-test'
         );
         insert config;
 
@@ -31,6 +32,7 @@ private class PublicApiPayloadBuilderCtrlTest {
         PublicApiPayloadBuilderCtrl.PayloadSettings initialSettings =
             PublicApiPayloadBuilderCtrl.getPayloadSettings(config.Id);
         System.assertNotEquals(null, initialSettings);
+        System.assertEquals('/payload-builder-test', initialSettings.endpointPath);
         System.assertNotEquals(null, initialSettings.defaultInboundJson);
         System.assertNotEquals(null, initialSettings.defaultOutboundJson);
         System.assertNotEquals(null, initialSettings.availableTargetRecordTypeDeveloperNames);
@@ -57,6 +59,7 @@ private class PublicApiPayloadBuilderCtrlTest {
         PublicApiPayloadBuilderCtrl.savePayloadSettings(
             config.Id,
             false,
+            '/payload-builder-updated',
             'PublicApi_Submission__c',
             targetRecordTypeDeveloperName,
             relatedRecordJson,
@@ -70,6 +73,7 @@ private class PublicApiPayloadBuilderCtrlTest {
         PublicApi_Integration_Config__c updated = [
             SELECT Inbound_Payload_Configuration__c,
                    Outbound_Payload_Configuration__c,
+                   Endpoint_Path__c,
                    Outbound_Trigger_Enabled__c,
                    Outbound_Trigger_Field_Name__c,
                    Outbound_Trigger_Field_Values__c,
@@ -82,6 +86,7 @@ private class PublicApiPayloadBuilderCtrlTest {
         ];
         System.assertEquals(inboundJson, updated.Inbound_Payload_Configuration__c);
         System.assertEquals(outboundJson, updated.Outbound_Payload_Configuration__c);
+        System.assertEquals('/payload-builder-updated', updated.Endpoint_Path__c);
         System.assertEquals(true, updated.Outbound_Trigger_Enabled__c);
         System.assertEquals(triggerFieldName, updated.Outbound_Trigger_Field_Name__c);
         System.assertEquals(triggerFieldValues, updated.Outbound_Trigger_Field_Values__c);
@@ -140,16 +145,18 @@ private class PublicApiPayloadBuilderCtrlTest {
 
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
-            API_Key__c = 'payload-builder-related-record-type-key'
+            API_Key__c = 'payload-builder-related-record-type-key',
+            Endpoint_Path__c = '/payload-builder-related-record-type'
         );
         insert config;
 
-        String triggerFieldName = selectPreferredTriggerFieldName('Task');
-        String triggerFieldValues = selectValidTriggerValues('Task', triggerFieldName);
+        String triggerFieldName = selectPreferredTriggerFieldName('PublicApi_Submission__c');
+        String triggerFieldValues = selectValidTriggerValues('PublicApi_Submission__c', triggerFieldName);
 
         PublicApiPayloadBuilderCtrl.savePayloadSettings(
             config.Id,
             true,
+            '/payload-builder-related-record-type-updated',
             'Task',
             null,
             '{' +
@@ -265,7 +272,8 @@ private class PublicApiPayloadBuilderCtrlTest {
     static void testSavePayloadSettingsRejectsInvalidJson() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
-            API_Key__c = 'invalid-json-key'
+            API_Key__c = 'invalid-json-key',
+            Endpoint_Path__c = '/invalid-json'
         );
         insert config;
 
@@ -273,6 +281,7 @@ private class PublicApiPayloadBuilderCtrlTest {
             PublicApiPayloadBuilderCtrl.savePayloadSettings(
                 config.Id,
                 true,
+                '/invalid-json-updated',
                 'PublicApi_Submission__c',
                 null,
                 null,
@@ -292,7 +301,8 @@ private class PublicApiPayloadBuilderCtrlTest {
     static void testSavePayloadSettingsRejectsInvalidTriggerValue() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
-            API_Key__c = 'invalid-trigger-value-key'
+            API_Key__c = 'invalid-trigger-value-key',
+            Endpoint_Path__c = '/invalid-trigger-value'
         );
         insert config;
 
@@ -307,6 +317,7 @@ private class PublicApiPayloadBuilderCtrlTest {
             PublicApiPayloadBuilderCtrl.savePayloadSettings(
                 config.Id,
                 true,
+                '/invalid-trigger-value-updated',
                 'PublicApi_Submission__c',
                 null,
                 null,
@@ -326,7 +337,8 @@ private class PublicApiPayloadBuilderCtrlTest {
     static void testSavePayloadSettingsRejectsInvalidRelatedRecordConfiguration() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
-            API_Key__c = 'invalid-related-json-key'
+            API_Key__c = 'invalid-related-json-key',
+            Endpoint_Path__c = '/invalid-related-json'
         );
         insert config;
 
@@ -334,6 +346,7 @@ private class PublicApiPayloadBuilderCtrlTest {
             PublicApiPayloadBuilderCtrl.savePayloadSettings(
                 config.Id,
                 true,
+                '/invalid-related-json-updated',
                 'PublicApi_Submission__c',
                 null,
                 '{' +
@@ -356,7 +369,8 @@ private class PublicApiPayloadBuilderCtrlTest {
     static void testSavePayloadSettingsRejectsInvalidTargetRecordType() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
-            API_Key__c = 'invalid-target-record-type-key'
+            API_Key__c = 'invalid-target-record-type-key',
+            Endpoint_Path__c = '/invalid-target-record-type'
         );
         insert config;
 
@@ -364,6 +378,7 @@ private class PublicApiPayloadBuilderCtrlTest {
             PublicApiPayloadBuilderCtrl.savePayloadSettings(
                 config.Id,
                 true,
+                '/invalid-target-record-type-updated',
                 'Account',
                 'DoesNotExist',
                 null,

@@ -58,6 +58,18 @@
                                 </div>
                                 <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
                                     <lightning-input
+                                        type="text"
+                                        label="Endpoint Path"
+                                        value={endpointPath}
+                                        placeholder="/submissions"
+                                        onchange={handleEndpointPathChange}>
+                                    </lightning-input>
+                                    <div class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                                        Public URL: <code>{endpointUrlPreview}</code>
+                                    </div>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1 slds-m-top_x-small">
+                                    <lightning-input
                                         type="checkbox"
                                         label="Inbound and Outbound are the same"
                                         checked={syncDirections}
@@ -677,7 +689,7 @@
                         <div class="builder-card builder-card--intro">
                             <div class="section-heading">Trigger Configuration</div>
                             <div class="slds-text-body_small slds-text-color_weak">
-                                Define the field and values that should enqueue outbound delivery for the selected target object.
+                                Define the `PublicApi_Submission__c` field and values that should enqueue outbound delivery for records created through this integration.
                             </div>
                         </div>
                         <div class="tab-workspace">
@@ -701,9 +713,9 @@
                                                 <lightning-input
                                                     data-role="trigger-field-name"
                                                     type="text"
-                                                    label="Outbound Trigger Field Name"
+                                                    label="Submission Trigger Field Name"
                                                     value={outboundTriggerFieldName}
-                                                    placeholder="Start typing a field API name"
+                                                    placeholder="Start typing a PublicApi_Submission__c field API name"
                                                     onfocus={handleTriggerFieldFocus}
                                                     onblur={handleTriggerFieldBlur}
                                                     onkeyup={handleTriggerFieldInput}
@@ -735,7 +747,7 @@
                                                 <lightning-input
                                                     data-role="trigger-field-values"
                                                     type="text"
-                                                    label="Outbound Trigger Field Values"
+                                                    label="Submission Trigger Field Values"
                                                     value={outboundTriggerFieldValues}
                                                     placeholder="Comma-separate values or pick from suggestions"
                                                     onfocus={handleTriggerValuesFocus}

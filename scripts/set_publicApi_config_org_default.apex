@@ -3,6 +3,7 @@ String defaultApiKey = 'dev-publicApi-api-key';
 List<PublicApi_Integration_Config__c> existing = [
     SELECT Id,
            API_Key__c,
+           Endpoint_Path__c,
            Is_Active__c
     FROM PublicApi_Integration_Config__c
     WHERE Is_Active__c = true
@@ -17,6 +18,10 @@ if (!existing.isEmpty()) {
         config.API_Key__c = defaultApiKey;
         shouldUpdate = true;
     }
+    if (String.isBlank(config.Endpoint_Path__c)) {
+        config.Endpoint_Path__c = PublicApiEndpointPathService.DEFAULT_ENDPOINT_PATH;
+        shouldUpdate = true;
+    }
     if (shouldUpdate) {
         update config;
         System.debug('Public API Integration Config: Updated active config bootstrap values.');
@@ -26,7 +31,8 @@ if (!existing.isEmpty()) {
 } else {
     insert new PublicApi_Integration_Config__c(
         Is_Active__c = true,
-        API_Key__c = defaultApiKey
+        API_Key__c = defaultApiKey,
+        Endpoint_Path__c = PublicApiEndpointPathService.DEFAULT_ENDPOINT_PATH
     );
     System.debug('Public API Integration Config: Created active config with API Key = ' + defaultApiKey);
 }

@@ -16,6 +16,7 @@ public without sharing class PublicApiConfigService {
         public Id id;
         public String webhookSecret;
         public String apiKey;
+        public String endpointPath;
         public Boolean outboundTriggerEnabled;
         public String outboundTriggerFieldName;
         public String outboundTriggerFieldValues;
@@ -57,6 +58,24 @@ public without sharing class PublicApiConfigService {
         return fromSetting(settings[0]);
     }
 
+    public static Config getConfigForEndpointPath(String endpointPath) {
+        if (String.isBlank(endpointPath)) {
+            return null;
+        }
+
+        List<PublicApi_Integration_Config__c> settings =
+            PublicApiConfigRepository.findActiveByEndpointPath(endpointPath, 2);
+        if (settings.isEmpty()) {
+            return null;
+        }
+        if (settings.size() > 1) {
+            throw new PublicApiSubmissionServiceException(
+                'PublicApi integration is misconfigured. Exactly one active Public API Integration Config record must match the requested endpoint path.'
+            );
+        }
+        return fromSetting(settings[0]);
+    }
+
     public static Config getConfigById(Id configId) {
         PublicApi_Integration_Config__c setting = PublicApiConfigRepository.findActiveById(configId);
         return setting == null ? null : fromSetting(setting);
@@ -92,6 +111,7 @@ public without sharing class PublicApiConfigService {
         c.id = setting.Id;
         c.webhookSecret = setting.Webhook_Secret__c;
         c.apiKey = setting.API_Key__c;
+        c.endpointPath = PublicApiEndpointPathService.normalizeConfiguredPath(setting.Endpoint_Path__c);
         c.outboundTriggerEnabled = setting.Outbound_Trigger_Enabled__c;
         c.outboundTriggerFieldName = setting.Outbound_Trigger_Field_Name__c;
         c.outboundTriggerFieldValues = setting.Outbound_Trigger_Field_Values__c;
