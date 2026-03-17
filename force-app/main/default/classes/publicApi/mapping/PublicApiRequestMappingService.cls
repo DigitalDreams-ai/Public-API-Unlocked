@@ -1,17 +1,36 @@
 public without sharing class PublicApiRequestMappingService {
     @TestVisible static final String DEFAULT_OBJECT_API_NAME = 'PublicApi_Submission__c';
+    @TestVisible static final String SOURCE_TYPE_INCOMING_KEY = 'IncomingKey';
+    @TestVisible static final String SOURCE_TYPE_LITERAL_VALUE = 'LiteralValue';
 
     public class MappingConfig {
         @AuraEnabled public String externalKey;
         @AuraEnabled public String value;
         @AuraEnabled public Integer sortOrder;
+        @AuraEnabled public String sourceType;
+        @AuraEnabled public String literalValue;
+        @AuraEnabled public String defaultValue;
 
         public MappingConfig() {}
 
         public MappingConfig(String externalKey, String value, Integer sortOrder) {
+            this(externalKey, value, sortOrder, SOURCE_TYPE_INCOMING_KEY, null, null);
+        }
+
+        public MappingConfig(
+            String externalKey,
+            String value,
+            Integer sortOrder,
+            String sourceType,
+            String literalValue,
+            String defaultValue
+        ) {
             this.externalKey = externalKey;
             this.value = value;
             this.sortOrder = sortOrder;
+            this.sourceType = normalizeSourceType(sourceType);
+            this.literalValue = literalValue;
+            this.defaultValue = defaultValue;
         }
     }
 
@@ -30,6 +49,16 @@ public without sharing class PublicApiRequestMappingService {
     private class NameSplitTargets {
         public String firstNameFieldApiName;
         public String lastNameFieldApiName;
+    }
+
+    private class PayloadValueResult {
+        public Boolean found;
+        public Object value;
+
+        public PayloadValueResult(Boolean found, Object value) {
+            this.found = found;
+            this.value = value;
+        }
     }
 
     public static void applyInboundMappings(
@@ -75,7 +104,7 @@ public without sharing class PublicApiRequestMappingService {
                 continue;
             }
 
-            Object rawValue = getPayloadValue(payload, data, mapping.externalKey);
+            Object rawValue = resolveInboundRawValue(mapping, payload, data);
             if (rawValue == null) {
                 continue;
             }
@@ -279,6 +308,11 @@ public without sharing class PublicApiRequestMappingService {
         String canonicalObjectApiName = expectedType.getDescribe().getName();
         Map<String, Schema.SObjectField> fieldMap = expectedType.getDescribe().fields.getMap();
         for (MappingConfig mapping : parseMappings(configJson)) {
+            if (inboundMode &&
+                normalizeSourceType(mapping == null ? null : mapping.sourceType) == SOURCE_TYPE_INCOMING_KEY &&
+                String.isBlank(mapping == null ? null : mapping.externalKey)) {
+                throw new PublicApiSubmissionServiceException('Inbound mapping external key is required.');
+            }
             FieldReference reference = parseFieldReference(mapping == null ? null : mapping.value);
             if (reference == null) {
                 throw new PublicApiSubmissionServiceException(
@@ -327,7 +361,13 @@ public without sharing class PublicApiRequestMappingService {
         mapping.externalKey = normalizeString(entry.get('externalKey'));
         mapping.value = normalizeString(entry.get('value'));
         mapping.sortOrder = parseInteger(entry.get('sortOrder'));
-        if (String.isBlank(mapping.externalKey) || String.isBlank(mapping.value)) {
+        mapping.sourceType = normalizeSourceType(normalizeString(entry.get('sourceType')));
+        mapping.literalValue = normalizeString(entry.get('literalValue'));
+        mapping.defaultValue = normalizeString(entry.get('defaultValue'));
+        if (String.isBlank(mapping.value)) {
+            return null;
+        }
+        if (mapping.sourceType == SOURCE_TYPE_INCOMING_KEY && String.isBlank(mapping.externalKey)) {
             return null;
         }
         return mapping;
@@ -407,43 +447,66 @@ public without sharing class PublicApiRequestMappingService {
         return payload;
     }
 
-    private static Object getPayloadValue(Map<String, Object> payload, Map<String, Object> data, String externalKey) {
-        if (String.isBlank(externalKey)) {
+    private static Object resolveInboundRawValue(
+        MappingConfig mapping,
+        Map<String, Object> payload,
+        Map<String, Object> data
+    ) {
+        if (mapping == null) {
             return null;
         }
+        if (normalizeSourceType(mapping.sourceType) == SOURCE_TYPE_LITERAL_VALUE) {
+            return mapping.literalValue;
+        }
 
-        Object value = getValueByPath(data, externalKey);
-        if (value != null) {
+        PayloadValueResult payloadValue = getPayloadValue(payload, data, mapping.externalKey);
+        if (payloadValue.found) {
+            return payloadValue.value;
+        }
+        return mapping.defaultValue;
+    }
+
+    private static PayloadValueResult getPayloadValue(
+        Map<String, Object> payload,
+        Map<String, Object> data,
+        String externalKey
+    ) {
+        if (String.isBlank(externalKey)) {
+            return new PayloadValueResult(false, null);
+        }
+
+        PayloadValueResult value = getValueByPath(data, externalKey);
+        if (value.found) {
             return value;
         }
 
         if (payload == data) {
-            return null;
+            return new PayloadValueResult(false, null);
         }
 
         return getValueByPath(payload, externalKey);
     }
 
-    private static Object getValueByPath(Map<String, Object> root, String path) {
+    private static PayloadValueResult getValueByPath(Map<String, Object> root, String path) {
         if (root == null || String.isBlank(path)) {
-            return null;
+            return new PayloadValueResult(false, null);
         }
         if (root.containsKey(path)) {
-            return root.get(path);
+            return new PayloadValueResult(true, root.get(path));
         }
 
         Object current = root;
         for (String token : path.split('\\.')) {
             if (!(current instanceof Map<String, Object>)) {
-                return null;
+                return new PayloadValueResult(false, null);
             }
             Map<String, Object> currentMap = (Map<String, Object>) current;
             if (!currentMap.containsKey(token)) {
-                return null;
+                return new PayloadValueResult(false, null);
             }
             current = currentMap.get(token);
         }
-        return current;
+        return new PayloadValueResult(true, current);
     }
 
     private static Object normalizeInboundValue(Object rawValue, Schema.DescribeFieldResult describe) {
@@ -698,6 +761,13 @@ public without sharing class PublicApiRequestMappingService {
 
     private static String normalizeString(Object value) {
         return value == null ? null : String.valueOf(value).trim();
+    }
+
+    private static String normalizeSourceType(String sourceType) {
+        return String.isNotBlank(sourceType) &&
+            sourceType.toLowerCase() == SOURCE_TYPE_LITERAL_VALUE.toLowerCase()
+            ? SOURCE_TYPE_LITERAL_VALUE
+            : SOURCE_TYPE_INCOMING_KEY;
     }
 
     private class MappingSortComparator implements Comparator<MappingConfig> {
