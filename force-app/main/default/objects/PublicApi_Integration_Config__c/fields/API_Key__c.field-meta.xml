@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>API_Key__c</fullName>
-    <description>Required API key for public intake requests. Clients send it in the X-Api-Key header.</description>
+    <description>Required API key for public submission requests. Clients send it in the X-Api-Key header.</description>
     <externalId>false</externalId>
     <label>API Key</label>
     <length>255</length>

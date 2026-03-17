@@ -1,5 +1,6 @@
 public with sharing class PublicApiPayloadBuilderCtrl {
     public class PayloadSettings {
+        @AuraEnabled public String endpointPath;
         @AuraEnabled public Boolean syncInboundAndOutbound;
         @AuraEnabled public String inboundConfigurationJson;
         @AuraEnabled public String outboundConfigurationJson;
@@ -49,6 +50,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         settings.inboundConfigurationJson = record.Inbound_Payload_Configuration__c;
         settings.outboundConfigurationJson = record.Outbound_Payload_Configuration__c;
         settings.relatedRecordConfigurationJson = record.Related_Record_Configuration__c;
+        settings.endpointPath = PublicApiEndpointPathService.normalizeConfiguredPath(record.Endpoint_Path__c);
         settings.syncInboundAndOutbound = record.Sync_Inbound_And_Outbound__c == null
             ? PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(
                 settings.inboundConfigurationJson,
@@ -81,10 +83,12 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         settings.availableLookupFieldNames =
             PublicApiPayloadTemplateService.getAvailableLookupFieldNames(settings.targetObjectApiName);
         settings.availableTriggerFieldNames =
-            PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(settings.targetObjectApiName);
+            PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(
+                PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME
+            );
         settings.availableTriggerFieldValues =
             PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(
-                settings.targetObjectApiName,
+                PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME,
                 settings.outboundTriggerFieldName
             );
         return settings;
@@ -217,6 +221,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
     public static void savePayloadSettings(
         Id recordId,
         Boolean syncInboundAndOutbound,
+        String endpointPath,
         String targetObjectApiName,
         String targetRecordTypeDeveloperName,
         String relatedRecordConfigurationJson,
@@ -234,6 +239,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             targetObjectApiName,
             'Target object API name is required.'
         );
+        String normalizedEndpointPath = normalizeEndpointPath(endpointPath, recordId);
         String normalizedTargetRecordTypeDeveloperName = normalizeBlank(targetRecordTypeDeveloperName);
         String normalizedTriggerFieldName = normalizeBlank(outboundTriggerFieldName);
         validateInboundMappingConfigurationJson(inboundConfigJson, normalizedTargetObjectApiName);
@@ -241,13 +247,14 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         validateRelatedRecordConfigurationJson(relatedRecordConfigurationJson, normalizedTargetObjectApiName);
         validateRecordTypeConfiguration(normalizedTargetObjectApiName, normalizedTargetRecordTypeDeveloperName);
         validateTriggerFieldConfiguration(
-            normalizedTargetObjectApiName,
+            PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME,
             normalizedTriggerFieldName,
             outboundTriggerFieldValues
         );
 
         update new PublicApi_Integration_Config__c(
             Id = recordId,
+            Endpoint_Path__c = normalizedEndpointPath,
             Target_Object_API_Name__c = normalizedTargetObjectApiName,
             Target_Record_Type_Developer_Name__c = normalizedTargetRecordTypeDeveloperName,
             Sync_Inbound_And_Outbound__c = syncInboundAndOutbound,
@@ -349,7 +356,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             PublicApiRelatedRecordService.validateRules(configJson, targetObjectApiName);
         } catch (JSONException e) {
             throwAuraException('Invalid JSON: ' + e.getMessage());
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             throwAuraException(e.getMessage());
         }
     }
@@ -372,7 +379,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             }
         } catch (JSONException e) {
             throwAuraException('Invalid JSON: ' + e.getMessage());
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             throwAuraException(e.getMessage());
         }
     }
@@ -431,6 +438,18 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         }
     }
 
+    private static String normalizeEndpointPath(String endpointPath, Id recordId) {
+        String normalizedPath = PublicApiEndpointPathService.normalizeConfiguredPath(endpointPath);
+        List<PublicApi_Integration_Config__c> existingRecords =
+            PublicApiConfigRepository.findByEndpointPath(normalizedPath, 2);
+        for (PublicApi_Integration_Config__c existingRecord : existingRecords) {
+            if (existingRecord != null && existingRecord.Id != recordId) {
+                throwAuraException('Endpoint path must be unique across Public API Integration Config records.');
+            }
+        }
+        return normalizedPath;
+    }
+
     private static void validateRecordTypeConfiguration(
         String objectApiName,
         String configuredDeveloperName
@@ -452,3 +471,4 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         throw ex;
     }
 }
+

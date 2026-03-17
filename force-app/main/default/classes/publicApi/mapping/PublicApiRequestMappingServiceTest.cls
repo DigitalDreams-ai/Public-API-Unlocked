@@ -98,7 +98,7 @@ private class PublicApiRequestMappingServiceTest {
                 'PublicApi_Submission__c'
             );
             System.assert(false, 'Expected non-canonical prefixes to be rejected.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(
                 e.getMessage().contains('Invalid field reference') ||
                 e.getMessage().contains('does not match configured object')
@@ -117,7 +117,7 @@ private class PublicApiRequestMappingServiceTest {
                 'PublicApi_Submission__c'
             );
             System.assert(false, 'Expected read-only inbound fields to be rejected.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('Inbound mapping field is read-only'));
         }
     }
@@ -141,7 +141,7 @@ private class PublicApiRequestMappingServiceTest {
         try {
             PublicApiRequestMappingService.parseMappings('{"x":1}');
             System.assert(false, 'Expected non-array mapping payloads to throw.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(
                 e.getMessage().contains('must be a JSON array')
             );
@@ -193,3 +193,4 @@ private class PublicApiRequestMappingServiceTest {
         System.assertEquals('Smith', leadRecord.LastName);
     }
 }
+

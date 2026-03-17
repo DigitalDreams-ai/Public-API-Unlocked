@@ -185,7 +185,7 @@ def main():
             if non_interactive:
                 print("Error: Provide --repo-name or set explicit project values.")
                 sys.exit(1)
-            project_name = input("Project Name (e.g. 'Shulman Intake Platform'): ").strip()
+            project_name = input("Project Name (e.g. 'Shulman Public API Platform'): ").strip()
             if not project_name:
                 print("Error: Project name is required.")
                 continue

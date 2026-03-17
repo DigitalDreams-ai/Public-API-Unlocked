@@ -3,6 +3,7 @@
     <fullName>Provisioning_Failures</fullName>
     <columns>NAME</columns>
     <columns>Is_Active__c</columns>
+    <columns>Endpoint_Path__c</columns>
     <columns>Target_Object_API_Name__c</columns>
     <columns>Outbound_Webhook_URL__c</columns>
     <columns>Outbound_Remote_Site_Status__c</columns>

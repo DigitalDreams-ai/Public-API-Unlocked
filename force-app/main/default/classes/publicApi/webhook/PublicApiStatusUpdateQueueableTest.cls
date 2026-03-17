@@ -51,7 +51,7 @@ private class PublicApiStatusUpdateQueueableTest {
             config.outboundAuthMode = 'ApiKeyHeader';
             PublicApiStatusUpdateDeliveryService.applyAuthHeaders(request, config, '{"x":1}');
             System.assert(false, 'Expected invalid auth configuration to throw.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('Outbound auth configuration is invalid'));
         }
     }
@@ -78,7 +78,7 @@ private class PublicApiStatusUpdateQueueableTest {
             config.outboundAdditionalHeadersJson = '{ bad json }';
             PublicApiStatusUpdateDeliveryService.applyAdditionalHeaders(request, config);
             System.assert(false, 'Expected invalid additional headers JSON to throw.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('Outbound header configuration is invalid'));
         }
     }
@@ -148,7 +148,7 @@ private class PublicApiStatusUpdateQueueableTest {
         List<PublicApi_Webhook_Delivery__c> deliveries = [
             SELECT Status__c, Status_Code__c, Error_Code__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Intake__c = :submission.Id
+            WHERE Submission__c = :submission.Id
         ];
         System.assertEquals(1, deliveries.size());
         System.assertEquals('Success', deliveries[0].Status__c);
@@ -157,3 +157,4 @@ private class PublicApiStatusUpdateQueueableTest {
         System.assertEquals(1, webhookCallCount, 'Webhook callout should still occur.');
     }
 }
+

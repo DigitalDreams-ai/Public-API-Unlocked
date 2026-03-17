@@ -27,7 +27,7 @@ private class PublicApiRelatedRecordConfigTest {
         try {
             PublicApiRelatedRecordConfig.parseRule('"bad"');
             System.assert(false, 'Expected invalid config to be rejected.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('JSON object'));
         }
     }
@@ -42,7 +42,7 @@ private class PublicApiRelatedRecordConfigTest {
                 ']'
             );
             System.assert(false, 'Expected legacy array config to be rejected.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('JSON object'));
         }
     }
@@ -82,3 +82,4 @@ private class PublicApiRelatedRecordConfigTest {
         System.assert(serialized.contains('"sourceKey":"email"'));
     }
 }
+

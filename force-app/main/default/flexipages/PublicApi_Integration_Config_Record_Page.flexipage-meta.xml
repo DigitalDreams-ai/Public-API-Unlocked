@@ -99,6 +99,16 @@
                 <identifier>RecordAPI_Key_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Endpoint_Path__c</fieldItem>
+                <identifier>RecordEndpoint_Path_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-2dae3615-1067-4aa4-8511-490bc5ab510d</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -304,7 +314,7 @@
                             <value>NAME</value>
                         </valueListItems>
                         <valueListItems>
-                            <value>Intake__c</value>
+                            <value>Created_Record_Link__c</value>
                         </valueListItems>
                         <valueListItems>
                             <value>Triggered_Status__c</value>

@@ -87,29 +87,32 @@ private class PublicApiRelatedRecordServiceTest {
     @IsTest
     static void testApplyRelatedRecordRulesUsesConfiguredRelatedRecordTypeWhenAvailable() {
         Id businessRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Business');
-        if (businessRecordTypeId == null) {
-            System.assertEquals(null, businessRecordTypeId);
-            return;
-        }
-
         Contact target = new Contact(LastName = 'Configured');
         Map<String, Object> payload = new Map<String, Object>{
             'accountName' => 'Configured Related Account',
             'accountLastName' => 'Configured Related Account'
         };
+        String configuredRecordTypeSegment =
+            businessRecordTypeId == null
+                ? ''
+                : '"createRecordTypeDeveloperName":"Business",';
 
         PublicApiRelatedRecordService.applyRelatedRecordRules(
             target,
             payload,
             '{' +
                 '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                '"sourceKey":"accountName","createIfMissing":true,"createRecordTypeDeveloperName":"Business",' +
+                '"sourceKey":"accountName","createIfMissing":true,' +
+                configuredRecordTypeSegment +
                 '"onMultipleMatches":"Error"' +
             '}'
         );
 
-        Account created = [SELECT Id, RecordTypeId FROM Account WHERE Id = :target.AccountId];
-        System.assertEquals(businessRecordTypeId, created.RecordTypeId);
+        SObject created = queryAccount(target.AccountId, null, false);
+        System.assertNotEquals(null, created.get('Id'));
+        if (businessRecordTypeId != null && accountSupportsRecordTypes()) {
+            System.assertEquals(businessRecordTypeId, created.get('RecordTypeId'));
+        }
     }
 
     @IsTest
@@ -207,7 +210,7 @@ private class PublicApiRelatedRecordServiceTest {
                 'Contact'
             );
             System.assert(false, 'Expected invalid lookup field to be rejected.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('lookup or master-detail'));
         }
     }
@@ -223,7 +226,7 @@ private class PublicApiRelatedRecordServiceTest {
                 'Contact'
             );
             System.assert(false, 'Expected unsupported multiple match policy to be rejected.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('Unsupported related record multiple match policy'));
         }
     }
@@ -240,7 +243,7 @@ private class PublicApiRelatedRecordServiceTest {
                 'Contact'
             );
             System.assert(false, 'Expected unknown related record type to be rejected.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('Unknown related create record type'));
         }
     }
@@ -262,7 +265,7 @@ private class PublicApiRelatedRecordServiceTest {
                 '}'
             );
             System.assert(false, 'Expected required-field validation to fail before DML.');
-        } catch (PublicApiIntakeServiceException e) {
+        } catch (PublicApiSubmissionServiceException e) {
             System.assert(e.getMessage().contains('cannot satisfy required fields'));
             System.assert(e.getMessage().contains('Company'));
             System.assert(e.getMessage().contains('LastName'));
@@ -307,7 +310,7 @@ private class PublicApiRelatedRecordServiceTest {
 
     private static String getAccountLastNameFieldName() {
         Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
-        for (String preferredFieldName : new List<String>{ 'LastName', 'litify_pm__Last_Name__c' }) {
+        for (String preferredFieldName : new List<String>{ 'LastName' }) {
             if (fieldMap.containsKey(preferredFieldName) &&
                 fieldMap.get(preferredFieldName).getDescribe().isCreateable()) {
                 return preferredFieldName;
@@ -326,7 +329,10 @@ private class PublicApiRelatedRecordServiceTest {
     }
 
     private static SObject queryAccount(Id accountId, String accountLastNameFieldName, Boolean includeSite) {
-        List<String> fieldNames = new List<String>{ 'Id', 'Name', 'RecordTypeId' };
+        List<String> fieldNames = new List<String>{ 'Id', 'Name' };
+        if (accountSupportsRecordTypes()) {
+            fieldNames.add('RecordTypeId');
+        }
         if (includeSite) {
             fieldNames.add('Site');
         }
@@ -338,4 +344,9 @@ private class PublicApiRelatedRecordServiceTest {
         );
     }
 
+    private static Boolean accountSupportsRecordTypes() {
+        return Account.SObjectType.getDescribe().fields.getMap().containsKey('RecordTypeId');
+    }
+
 }
+

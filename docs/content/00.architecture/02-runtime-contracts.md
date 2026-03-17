@@ -19,5 +19,5 @@
 
 ## Mapping Token Format
 
-- Only `$intakes.<FieldApiName>` is accepted.
+- Only `$<ObjectApiName>.<FieldApiName>` is accepted.
 - Legacy prefixes and raw field names are rejected by validation.

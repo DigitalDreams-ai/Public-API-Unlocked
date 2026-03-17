@@ -79,14 +79,21 @@ private class PublicApiSmokeTest {
             )
         );
 
-        Id submissionId = createSubmission(
+        Id submissionId;
+        Id taskSubmissionId;
+        Id taskId;
+        Test.startTest();
+        submissionId = createSubmission(
             'smoke-route-submission',
             new Map<String, Object>{ 'status' => 'New' }
         );
-        Id taskId = createSubmission(
+        taskSubmissionId = createSubmission(
             'smoke-route-task',
             new Map<String, Object>{ 'subject' => 'Route Me', 'priority' => 'High' }
         );
+        Test.getEventBus().deliver();
+        Test.stopTest();
+        taskId = getTargetRecordId(taskSubmissionId);
 
         PublicApi_Submission__c submission = [
             SELECT Id, Status__c, PublicApi_Integration_Config__c
@@ -138,6 +145,7 @@ private class PublicApiSmokeTest {
             )
         );
 
+        Test.startTest();
         Id firstSubmissionId = createSubmission(
             'smoke-outbound-a',
             new Map<String, Object>{ 'status' => 'New' }
@@ -146,18 +154,18 @@ private class PublicApiSmokeTest {
             'smoke-outbound-b',
             new Map<String, Object>{ 'status' => 'New' }
         );
-
-        Test.startTest();
+        Test.getEventBus().deliver();
         update new List<PublicApi_Submission__c>{
             new PublicApi_Submission__c(Id = firstSubmissionId, Status__c = 'Converted'),
             new PublicApi_Submission__c(Id = secondSubmissionId, Status__c = 'Converted')
         };
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
-            SELECT Intake__c, Status__c, Request_JSON__c
+            SELECT Submission__c, Status__c, Request_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Intake__c IN :new Set<Id>{ firstSubmissionId, secondSubmissionId }
+            WHERE Submission__c IN :new Set<Id>{ firstSubmissionId, secondSubmissionId }
             ORDER BY CreatedDate ASC
         ];
         System.assertEquals(2, deliveries.size());
@@ -186,7 +194,6 @@ private class PublicApiSmokeTest {
             existing.put(lastNameField, 'Existing Related Account');
         }
         existing.put('Phone', '602-555-0001');
-        existing.put('litify_pm__Email__c', 'existing.related@example.com');
         insert existing;
 
         PublicApiTestConfigFactory.insertConfig(
@@ -199,35 +206,38 @@ private class PublicApiSmokeTest {
                 Related_Record_Configuration__c =
                     '{' +
                         '"targetLookupField":"WhatId","relatedObjectApiName":"Account",' +
-                        '"matchFieldName":"litify_pm__Email__c","sourceKey":"email",' +
+                        '"matchFieldName":"Name","sourceKey":"accountName",' +
                         '"createIfMissing":true,"onMultipleMatches":"UseNewest",' +
                         '"createMappings":[' +
-                            '{"sourceKey":"phone","fieldName":"Phone"},' +
-                            '{"sourceKey":"email","fieldName":"litify_pm__Email__c"}' +
+                            '{"sourceKey":"phone","fieldName":"Phone"}' +
                         ']}'
             )
         );
 
+        Id matchedSubmissionId;
+        Id createdSubmissionId;
         Test.startTest();
-        Id matchedTaskId = createSubmission(
+        matchedSubmissionId = createSubmission(
             'smoke-related-task',
             new Map<String, Object>{
                 'subject' => 'Matched Related Rule',
-                'email' => 'existing.related@example.com',
+                'accountName' => 'Existing Related Account',
                 'phone' => '602-555-9999'
             }
         );
-        Id createdTaskId = createSubmission(
+        createdSubmissionId = createSubmission(
             'smoke-related-task',
             new Map<String, Object>{
                 'subject' => 'Created Related Rule',
-                'firstName' => 'Created',
-                'lastName' => 'Account',
-                'email' => 'created.related@example.com',
+                'accountName' => 'Created Related Account',
                 'phone' => '602-555-2222'
             }
         );
+        Test.getEventBus().deliver();
         Test.stopTest();
+
+        Id matchedTaskId = getTargetRecordId(matchedSubmissionId);
+        Id createdTaskId = getTargetRecordId(createdSubmissionId);
 
         Task matchedTask = [SELECT WhatId FROM Task WHERE Id = :matchedTaskId];
         Task createdTask = [SELECT WhatId FROM Task WHERE Id = :createdTaskId];
@@ -236,91 +246,90 @@ private class PublicApiSmokeTest {
         System.assertNotEquals(existing.Id, createdTask.WhatId);
 
         Account createdAccount = [
-            SELECT Id, Name, Phone, litify_pm__Email__c, RecordTypeId
+            SELECT Id, Name, Phone
             FROM Account
             WHERE Id = :createdTask.WhatId
         ];
+        System.assertEquals('Created Related Account', createdAccount.Name);
         System.assertEquals('602-555-2222', createdAccount.Phone);
-        System.assertEquals('created.related@example.com', createdAccount.litify_pm__Email__c);
     }
 
     @IsTest
-    static void smokeIntakeInboundDeferredRelatedRecordAndOutboundWebhook() {
+    static void smokeGenericInboundRelatedRecordAndSubmissionOutboundWebhook() {
         resetCapturedCallouts();
         Test.setMock(HttpCalloutMock.class, new CapturingCalloutMock());
 
-        PublicApiTestConfigFactory.insertConfig(
+        PublicApi_Integration_Config__c config = PublicApiTestConfigFactory.insertConfig(
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
-                API_Key__c = 'smoke-intake-related-webhook',
-                Target_Object_API_Name__c = 'litify_pm__Intake__c',
-                Outbound_Webhook_URL__c = 'https://example.com/intake-webhook',
-                Outbound_Trigger_Field_Name__c = 'litify_pm__Status__c',
+                API_Key__c = 'smoke-task-related-webhook',
+                Target_Object_API_Name__c = 'Task',
+                Outbound_Webhook_URL__c = 'https://example.com/task-webhook',
+                Outbound_Trigger_Field_Name__c = 'Status__c',
                 Outbound_Trigger_Field_Values__c = 'Converted',
                 Inbound_Payload_Configuration__c =
                     '[' +
-                        '{"externalKey":"firstName","value":"$litify_pm__Intake__c.litify_pm__First_Name__c","sortOrder":1},' +
-                        '{"externalKey":"lastName","value":"$litify_pm__Intake__c.litify_pm__Last_Name__c","sortOrder":2},' +
-                        '{"externalKey":"email","value":"$litify_pm__Intake__c.litify_pm__Email__c","sortOrder":3},' +
-                        '{"externalKey":"phone","value":"$litify_pm__Intake__c.litify_pm__Phone__c","sortOrder":4}' +
+                        '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1},' +
+                        '{"externalKey":"status","value":"$Task.Status","sortOrder":2}' +
                     ']',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"status","value":"$litify_pm__Intake__c.litify_pm__Status__c","sortOrder":1}]',
+                    '[{"externalKey":"status","value":"$Task.Status","sortOrder":1}]',
                 Related_Record_Configuration__c =
                     '{' +
-                        '"targetLookupField":"litify_pm__Client__c","relatedObjectApiName":"Account",' +
-                        '"matchFieldName":"litify_pm__Email__c","sourceKey":"email",' +
+                        '"targetLookupField":"WhatId","relatedObjectApiName":"Account",' +
+                        '"matchFieldName":"Name","sourceKey":"accountName",' +
                         '"createIfMissing":true,"onMultipleMatches":"Error",' +
                         '"createMappings":[' +
-                            '{"sourceKey":"phone","fieldName":"Phone"},' +
-                            '{"sourceKey":"email","fieldName":"litify_pm__Email__c"}' +
+                            '{"sourceKey":"phone","fieldName":"Phone"}' +
                         ']}'
             )
         );
 
-        RestResponse res = new RestResponse();
-        RestContext.response = res;
-
+        Id submissionId;
+        Id taskId;
         Test.startTest();
-        Id intakeId = createSubmission(
-            'smoke-intake-related-webhook',
+        submissionId = createSubmission(
+            'smoke-task-related-webhook',
             new Map<String, Object>{
-                'firstName' => 'Deferred',
-                'lastName' => 'Client',
-                'email' => 'deferred.client@example.com',
+                'subject' => 'Deferred Task',
+                'status' => 'Not Started',
+                'accountName' => 'Deferred Client Account',
                 'phone' => '602-555-8181'
             }
         );
         Test.getEventBus().deliver();
-        update new litify_pm__Intake__c(Id = intakeId, litify_pm__Status__c = 'Converted');
+        taskId = getTargetRecordId(submissionId);
+        update new Task(Id = taskId, Status = 'Completed');
+        update new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted');
+        Test.getEventBus().deliver();
         Test.stopTest();
 
-        litify_pm__Intake__c intake = [
-            SELECT Id, litify_pm__Client__c, litify_pm__Status__c
-            FROM litify_pm__Intake__c
-            WHERE Id = :intakeId
+        Task taskRecord = [
+            SELECT Id, WhatId, Status
+            FROM Task
+            WHERE Id = :taskId
         ];
-        System.assertEquals('Converted', intake.litify_pm__Status__c);
-        System.assertNotEquals(null, intake.litify_pm__Client__c);
+        System.assertEquals('Completed', taskRecord.Status);
+        System.assertNotEquals(null, taskRecord.WhatId);
 
         Account accountRecord = [
-            SELECT Id, Name, Phone, litify_pm__Email__c, RecordTypeId
+            SELECT Id, Name, Phone
             FROM Account
-            WHERE Id = :intake.litify_pm__Client__c
+            WHERE Id = :taskRecord.WhatId
         ];
+        System.assertEquals('Deferred Client Account', accountRecord.Name);
         System.assertEquals('602-555-8181', accountRecord.Phone);
-        System.assertEquals('deferred.client@example.com', accountRecord.litify_pm__Email__c);
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
             SELECT Status__c, Triggered_Status__c, Source_Object_API_Name__c, Source_Record_Id__c, Request_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Source_Record_Id__c = :String.valueOf(intakeId)
+            WHERE Submission__c = :submissionId
         ];
         System.assertEquals(1, deliveries.size());
         System.assertEquals('Success', deliveries[0].Status__c);
         System.assertEquals('Converted', deliveries[0].Triggered_Status__c);
-        System.assertEquals('litify_pm__Intake__c', deliveries[0].Source_Object_API_Name__c);
-        System.assert(String.valueOf(deliveries[0].Request_JSON__c).contains('"status":"Converted"'));
+        System.assertEquals('PublicApi_Submission__c', deliveries[0].Source_Object_API_Name__c);
+        System.assert(String.valueOf(deliveries[0].Request_JSON__c).contains('"status":"Completed"'));
     }
 
     @IsTest
@@ -338,16 +347,24 @@ private class PublicApiSmokeTest {
             )
         );
 
-        Id wrappedTaskId = createSubmissionRaw(
+        Id wrappedSubmissionId;
+        Id encodedSubmissionId;
+        Test.startTest();
+        wrappedSubmissionId = createSubmissionRaw(
             'smoke-data-wrapper',
             'application/json',
             '{"data":{"subject":"Wrapped Task","priority":"Normal"}}'
         );
-        Id encodedTaskId = createSubmissionRaw(
+        encodedSubmissionId = createSubmissionRaw(
             'smoke-data-wrapper',
             'application/x-www-form-urlencoded',
             'subject=Encoded+Task&priority=Low'
         );
+        Test.getEventBus().deliver();
+        Test.stopTest();
+
+        Id wrappedTaskId = getTargetRecordId(wrappedSubmissionId);
+        Id encodedTaskId = getTargetRecordId(encodedSubmissionId);
 
         List<Task> tasks = [
             SELECT Subject, Priority
@@ -367,76 +384,77 @@ private class PublicApiSmokeTest {
         resetCapturedCallouts();
         Test.setMock(HttpCalloutMock.class, new CapturingCalloutMock());
 
-        Account accountRecord = new Account(Name = 'Header Scenario Account');
-        String lastNameField = getAccountLastNameFieldName();
-        if (lastNameField != null) {
-            accountRecord.put(lastNameField, 'Header Scenario Account');
-        }
-        insert accountRecord;
-
         List<PublicApi_Integration_Config__c> configs = new List<PublicApi_Integration_Config__c>{
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-auth-apikey',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'PublicApi_Submission__c',
                 Outbound_Webhook_URL__c = 'https://example.com/auth-apikey',
                 Outbound_Auth_Mode__c = 'ApiKeyHeader',
                 Outbound_Header_Name__c = 'X-KEY',
                 Outbound_Header_Value__c = 'key-123',
                 Outbound_Additional_Headers_JSON__c = '{"X-Custom":"alpha","Content-Type":"blocked"}',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
             ),
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-auth-bearer',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'PublicApi_Submission__c',
                 Outbound_Webhook_URL__c = 'https://example.com/auth-bearer',
                 Outbound_Auth_Mode__c = 'BearerToken',
                 Outbound_Header_Value__c = 'bearer-xyz',
                 Outbound_Additional_Headers_JSON__c = '[{"name":"X-Trace","value":"trace-1"}]',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
             ),
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-auth-basic',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'PublicApi_Submission__c',
                 Outbound_Webhook_URL__c = 'https://example.com/auth-basic',
                 Outbound_Auth_Mode__c = 'BasicAuth',
                 Outbound_Header_Value__c = 'user:pass',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
             ),
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-auth-hmac',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'PublicApi_Submission__c',
                 Outbound_Webhook_URL__c = 'https://example.com/auth-hmac',
                 Outbound_Auth_Mode__c = 'HmacSignature',
                 Outbound_Header_Name__c = 'X-Signature',
                 Outbound_Webhook_Secret__c = 'smoke-secret',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
             )
         };
         for (PublicApi_Integration_Config__c config : configs) {
             PublicApiTestConfigFactory.insertConfig(config);
         }
 
-        List<PublicApiOutboundStatusAction.Request> requests = new List<PublicApiOutboundStatusAction.Request>();
-        for (PublicApi_Integration_Config__c config : configs) {
-            PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
-            request.recordId = accountRecord.Id;
-            request.configId = config.Id;
-            request.previousStatus = 'Open';
-            request.currentStatus = 'Converted';
-            request.changedAt = System.now();
-            requests.add(request);
-        }
+        List<Id> submissionIds = new List<Id>();
 
         Test.startTest();
-        PublicApiOutboundStatusAction.enqueue(requests);
+        for (PublicApi_Integration_Config__c config : configs) {
+            submissionIds.add(createSubmission(config.API_Key__c, new Map<String, Object>{ 'status' => 'New' }));
+        }
+        Test.getEventBus().deliver();
+        List<PublicApi_Submission__c> submissionUpdates = new List<PublicApi_Submission__c>();
+        for (Id submissionId : submissionIds) {
+            submissionUpdates.add(new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted'));
+        }
+        update submissionUpdates;
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         System.assertEquals(4, capturedHeaders.size());
@@ -460,6 +478,7 @@ private class PublicApiSmokeTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'smoke-provisioning',
+            Endpoint_Path__c = PublicApiTestConfigFactory.getDefaultEndpointPathForApiKey('smoke-provisioning'),
             Outbound_Webhook_URL__c = 'https://example.com/provision-webhook',
             Inbound_Payload_Configuration__c =
                 '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
@@ -468,19 +487,20 @@ private class PublicApiSmokeTest {
         );
         insert config;
 
+        Test.startTest();
         Id submissionId = createSubmission(
             'smoke-provisioning',
             new Map<String, Object>{ 'status' => 'New' }
         );
-
-        Test.startTest();
+        Test.getEventBus().deliver();
         update new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted');
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         PublicApi_Webhook_Delivery__c failedDelivery = [
             SELECT Status__c, Error_Code__c, Response_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Intake__c = :submissionId
+            WHERE Submission__c = :submissionId
             ORDER BY CreatedDate DESC
             LIMIT 1
         ];
@@ -510,19 +530,20 @@ private class PublicApiSmokeTest {
             Outbound_Webhook_URL__c = 'https://changed.example.org/new-webhook'
         );
 
+        Test.startTest();
         Id submissionId = createSubmission(
             'smoke-stale-domain',
             new Map<String, Object>{ 'status' => 'New' }
         );
-
-        Test.startTest();
+        Test.getEventBus().deliver();
         update new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted');
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         PublicApi_Webhook_Delivery__c failedDelivery = [
             SELECT Status__c, Error_Code__c, Response_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Intake__c = :submissionId
+            WHERE Submission__c = :submissionId
             ORDER BY CreatedDate DESC
             LIMIT 1
         ];
@@ -532,7 +553,7 @@ private class PublicApiSmokeTest {
     }
 
     @IsTest
-    static void smokeInvocableOutboundSupportsMultipleConfigsForSameObject() {
+    static void smokeSubmissionOutboundSupportsMultipleConfigsForSameTargetObject() {
         resetCapturedCallouts();
         Test.setMock(HttpCalloutMock.class, new CapturingCalloutMock());
 
@@ -540,10 +561,12 @@ private class PublicApiSmokeTest {
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-account-outbound-a',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'Task',
                 Outbound_Webhook_URL__c = 'https://example.com/account-a',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+                    '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]'
             )
         );
 
@@ -551,60 +574,55 @@ private class PublicApiSmokeTest {
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-account-outbound-b',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'Task',
                 Outbound_Webhook_URL__c = 'https://example.com/account-b',
+                Inbound_Payload_Configuration__c =
+                    '[' +
+                        '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1},' +
+                        '{"externalKey":"priority","value":"$Task.Priority","sortOrder":2}' +
+                    ']',
                 Outbound_Payload_Configuration__c =
                     '[' +
-                        '{"externalKey":"accountName","value":"$Account.Name","sortOrder":1},' +
-                        '{"externalKey":"site","value":"$Account.Site","sortOrder":2}' +
+                        '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1},' +
+                        '{"externalKey":"priority","value":"$Task.Priority","sortOrder":2}' +
                     ']'
             )
         );
 
-        Account accountRecord = new Account(Name = 'Scenario Account', Phone = '602-555-4000');
-        String lastNameField = getAccountLastNameFieldName();
-        if (lastNameField != null) {
-            accountRecord.put(lastNameField, 'Scenario Account');
-        }
-        insert accountRecord;
-
-        PublicApiOutboundStatusAction.Request requestA = new PublicApiOutboundStatusAction.Request();
-        requestA.recordId = accountRecord.Id;
-        requestA.configId = configA.Id;
-        requestA.previousStatus = 'Open';
-        requestA.currentStatus = 'Converted';
-        requestA.changedAt = System.now();
-
-        PublicApiOutboundStatusAction.Request requestB = new PublicApiOutboundStatusAction.Request();
-        requestB.recordId = accountRecord.Id;
-        requestB.configId = configB.Id;
-        requestB.previousStatus = 'Open';
-        requestB.currentStatus = 'Converted';
-        requestB.changedAt = System.now();
-
         Test.startTest();
-        PublicApiOutboundStatusAction.enqueue(
-            new List<PublicApiOutboundStatusAction.Request>{ requestA, requestB }
+        Id submissionIdA = createSubmission(
+            'smoke-account-outbound-a',
+            new Map<String, Object>{ 'subject' => 'Scenario Task A' }
         );
+        Id submissionIdB = createSubmission(
+            'smoke-account-outbound-b',
+            new Map<String, Object>{ 'subject' => 'Scenario Task B', 'priority' => 'High' }
+        );
+        Test.getEventBus().deliver();
+        update new List<PublicApi_Submission__c>{
+            new PublicApi_Submission__c(Id = submissionIdA, Status__c = 'Converted'),
+            new PublicApi_Submission__c(Id = submissionIdB, Status__c = 'Converted')
+        };
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
-            SELECT Status__c, Source_Object_API_Name__c, Source_Record_Id__c, Request_JSON__c
+            SELECT Status__c, Source_Object_API_Name__c, Source_Record_Id__c, Submission__c, Request_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Source_Record_Id__c = :String.valueOf(accountRecord.Id)
+            WHERE Submission__c IN :new Set<Id>{ submissionIdA, submissionIdB }
             ORDER BY CreatedDate ASC
         ];
         System.assertEquals(2, deliveries.size());
         System.assertEquals(2, capturedEndpoints.size());
-        System.assertEquals('Account', deliveries[0].Source_Object_API_Name__c);
-        System.assertEquals('Account', deliveries[1].Source_Object_API_Name__c);
+        System.assertEquals('PublicApi_Submission__c', deliveries[0].Source_Object_API_Name__c);
+        System.assertEquals('PublicApi_Submission__c', deliveries[1].Source_Object_API_Name__c);
         System.assert(
-            String.valueOf(deliveries[0].Request_JSON__c).contains('"accountName"') &&
-            String.valueOf(deliveries[1].Request_JSON__c).contains('"accountName"')
+            String.valueOf(deliveries[0].Request_JSON__c).contains('"subject"') &&
+            String.valueOf(deliveries[1].Request_JSON__c).contains('"subject"')
         );
         System.assert(
-            String.valueOf(deliveries[0].Request_JSON__c).contains('"site"') ||
-            String.valueOf(deliveries[1].Request_JSON__c).contains('"site"')
+            String.valueOf(deliveries[0].Request_JSON__c).contains('"priority"') ||
+            String.valueOf(deliveries[1].Request_JSON__c).contains('"priority"')
         );
     }
 
@@ -614,7 +632,8 @@ private class PublicApiSmokeTest {
 
     private static Id createSubmissionRaw(String apiKey, String contentType, String rawBody) {
         RestRequest req = new RestRequest();
-        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.requestURI =
+            '/services/apexrest/v1/publicapi' + PublicApiTestConfigFactory.getDefaultEndpointPathForApiKey(apiKey);
         req.httpMethod = 'POST';
         if (String.isNotBlank(contentType)) {
             req.addHeader('Content-Type', contentType);
@@ -627,15 +646,26 @@ private class PublicApiSmokeTest {
         RestContext.request = req;
         RestContext.response = res;
 
-        PublicApiIntakeApi.createSubmission();
+        PublicApiSubmissionApi.createSubmission();
         System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
         Map<String, Object> responseBody = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         return (Id) responseBody.get('recordId');
     }
 
+    private static Id getTargetRecordId(Id submissionId) {
+        PublicApi_Submission__c submissionRecord = [
+            SELECT Target_Record_Id__c
+            FROM PublicApi_Submission__c
+            WHERE Id = :submissionId
+        ];
+        return submissionRecord.Target_Record_Id__c == null
+            ? null
+            : (Id) submissionRecord.Target_Record_Id__c;
+    }
+
     private static String getAccountLastNameFieldName() {
         Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
-        for (String preferredFieldName : new List<String>{ 'LastName', 'litify_pm__Last_Name__c' }) {
+        for (String preferredFieldName : new List<String>{ 'LastName' }) {
             if (fieldMap.containsKey(preferredFieldName) &&
                 fieldMap.get(preferredFieldName).getDescribe().isCreateable()) {
                 return preferredFieldName;
@@ -653,3 +683,4 @@ private class PublicApiSmokeTest {
         return null;
     }
 }
+

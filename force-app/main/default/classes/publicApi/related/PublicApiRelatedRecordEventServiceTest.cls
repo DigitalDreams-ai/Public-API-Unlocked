@@ -6,26 +6,19 @@ private class PublicApiRelatedRecordEventServiceTest {
         String configuredRecordTypeSegment = expectedRecordTypeId == null
             ? ''
             : '"createRecordTypeDeveloperName":"Business",';
-        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
-            Is_Active__c = true,
-            API_Key__c = 'event-test-key-1',
+        Task createdTask = new Task(Subject = 'Deferred Account Task', Status = 'Not Started', Priority = 'Normal');
+        insert createdTask;
+
+        PublicApi_Submission__c auditRecord = new PublicApi_Submission__c(
+            Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED,
+            Related_Record_Status__c = 'DeferredPending',
             Target_Object_API_Name__c = 'Task',
-            Inbound_Payload_Configuration__c =
-                '[' +
-                    '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}' +
-                ']',
-            Related_Record_Configuration__c =
-                '{' +
-                    '"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                    '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error",' +
-                    configuredRecordTypeSegment +
-                    '"createMappings":[{"sourceKey":"phone","fieldName":"Phone"}]' +
-                '}'
+            Target_Record_Id__c = String.valueOf(createdTask.Id)
         );
-        insert config;
+        insert auditRecord;
+        Id auditRecordId = auditRecord.Id;
 
         Map<String, Object> payload = new Map<String, Object>{
-            'subject' => 'Deferred Account Task',
             'firstName' => 'Async',
             'lastName' => 'Account',
             'email' => 'async.account@example.com',
@@ -33,36 +26,49 @@ private class PublicApiRelatedRecordEventServiceTest {
         };
 
         Test.startTest();
-        SObject created = PublicApiIntakeService.createIntakeFromPublicApi(
-            payload,
-            PublicApiConfigService.getConfigById(config.Id)
+        PublicApiRelatedRecordEventService.handleEvents(
+            new List<PublicApi_Related_Record_Request__e>{
+                new PublicApi_Related_Record_Request__e(
+                    Audit_Record_Id__c = String.valueOf(auditRecord.Id),
+                    Target_Record_Id__c = String.valueOf(createdTask.Id),
+                    Target_Object_API_Name__c = 'Task',
+                    Payload_JSON__c = JSON.serialize(payload),
+                    Related_Record_Configuration_JSON__c =
+                        '{' +
+                            '"targetLookupField":"WhatId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
+                            '"sourceKey":"email","createIfMissing":true,"onMultipleMatches":"Error",' +
+                            configuredRecordTypeSegment +
+                            '"createMappings":[{"sourceKey":"phone","fieldName":"Phone"}]' +
+                        '}'
+                )
+            }
         );
         Test.stopTest();
 
-        Task refreshed = [SELECT Id, WhatId FROM Task WHERE Id = :created.Id];
+        Task refreshed = [SELECT Id, WhatId FROM Task WHERE Id = :createdTask.Id];
         System.assertNotEquals(null, refreshed.WhatId);
 
-        Account related = [SELECT Id, Name, Phone, RecordTypeId FROM Account WHERE Id = :refreshed.WhatId];
-        System.assertEquals('Async Account', related.Name);
-        System.assertEquals('555-0101', related.Phone);
-        if (expectedRecordTypeId != null) {
-            System.assertEquals(expectedRecordTypeId, related.RecordTypeId);
+        SObject related = queryAccount(refreshed.WhatId);
+        System.assertEquals('Async Account', related.get('Name'));
+        System.assertEquals('555-0101', related.get('Phone'));
+        if (expectedRecordTypeId != null && accountSupportsRecordTypes()) {
+            System.assertEquals(expectedRecordTypeId, related.get('RecordTypeId'));
         }
 
-        PublicApi_Submission__c auditRecord = [
+        PublicApi_Submission__c refreshedAuditRecord = [
             SELECT Processing_Status__c,
                    Related_Record_Status__c,
                    Target_Object_API_Name__c,
                    Target_Record_Id__c
             FROM PublicApi_Submission__c
-            WHERE Target_Record_Id__c = :String.valueOf(created.Id)
+            WHERE Id = :auditRecordId
             ORDER BY CreatedDate DESC
             LIMIT 1
         ];
-        System.assertEquals(PublicApiIntakeService.AUDIT_STATUS_SUCCEEDED, auditRecord.Processing_Status__c);
-        System.assertEquals('DeferredCompleted', auditRecord.Related_Record_Status__c);
-        System.assertEquals('Task', auditRecord.Target_Object_API_Name__c);
-        System.assertEquals(String.valueOf(created.Id), auditRecord.Target_Record_Id__c);
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED, refreshedAuditRecord.Processing_Status__c);
+        System.assertEquals('DeferredCompleted', refreshedAuditRecord.Related_Record_Status__c);
+        System.assertEquals('Task', refreshedAuditRecord.Target_Object_API_Name__c);
+        System.assertEquals(String.valueOf(createdTask.Id), refreshedAuditRecord.Target_Record_Id__c);
     }
 
     @IsTest
@@ -83,8 +89,8 @@ private class PublicApiRelatedRecordEventServiceTest {
         insert targetTask;
 
         PublicApi_Submission__c auditRecord = new PublicApi_Submission__c(
-            Processing_Status__c = PublicApiIntakeService.AUDIT_STATUS_SUCCEEDED,
-            Related_Record_Status__c = PublicApiIntakeService.RELATED_STATUS_DEFERRED_PENDING,
+            Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED,
+            Related_Record_Status__c = 'DeferredPending',
             Target_Object_API_Name__c = 'Task',
             Target_Record_Id__c = String.valueOf(targetTask.Id)
         );
@@ -108,10 +114,25 @@ private class PublicApiRelatedRecordEventServiceTest {
             FROM PublicApi_Submission__c
             WHERE Id = :auditRecord.Id
         ];
-        System.assertEquals(PublicApiIntakeService.AUDIT_STATUS_FAILED, refreshedAuditRecord.Processing_Status__c);
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_FAILED, refreshedAuditRecord.Processing_Status__c);
         System.assertEquals('DeferredFailed', refreshedAuditRecord.Related_Record_Status__c);
         System.assertEquals('RELATED_RECORD_DEFERRED_ERROR', refreshedAuditRecord.Processing_Error_Category__c);
         System.assert(String.isNotBlank(refreshedAuditRecord.Processing_Error_Message__c));
     }
 
+    private static Boolean accountSupportsRecordTypes() {
+        return Account.SObjectType.getDescribe().fields.getMap().containsKey('RecordTypeId');
+    }
+
+    private static SObject queryAccount(Id accountId) {
+        List<String> fieldNames = new List<String>{ 'Id', 'Name', 'Phone' };
+        if (accountSupportsRecordTypes()) {
+            fieldNames.add('RecordTypeId');
+        }
+        return Database.query(
+            'SELECT ' + String.join(fieldNames, ', ') + ' FROM Account WHERE Id = :accountId'
+        );
+    }
+
 }
+

@@ -29,7 +29,7 @@ Useful targeted test command while iterating:
 ## Coding Style & Naming Conventions
 - Use 4-space indentation in Apex and metadata.
 - Apex naming: `PascalCase` classes, `camelCase` methods/variables.
-- Keep code grouped by domain (`classes/intake`, `classes/referral`, `classes/webhook`).
+- Keep code grouped by domain (`classes/submission`, `classes/config`, `classes/webhook`).
 - Follow bulk-safe patterns: no SOQL/DML in loops, service-layer orchestration, explicit exception classes.
 - Avoid hardcoded org IDs; resolve record types/config by developer name.
 
@@ -40,7 +40,7 @@ Useful targeted test command while iterating:
 - Keep org-wide Apex coverage above the configured `75%` gate.
 
 ## Commit & Pull Request Guidelines
-- Commit with imperative subjects (for example: `Add intake status sync guard`).
+ - Commit with imperative subjects (for example: `Add submission status sync guard`).
 - Push feature branch and open PR to the appropriate target branch.
 - PR must include: summary, changed metadata paths, test evidence, and migration notes if needed.
 - Wait for PR checks, fix failures, then merge.

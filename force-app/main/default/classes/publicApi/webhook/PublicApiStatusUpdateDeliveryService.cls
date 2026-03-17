@@ -32,14 +32,15 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
         }
 
         try {
-            validateOutboundMappings(config.outboundPayloadConfiguration, config.targetObjectApiName);
+            String payloadObjectApiName = record.getSObjectType().getDescribe().getName();
+            validateOutboundMappings(config.outboundPayloadConfiguration, payloadObjectApiName);
             Map<String, Object> payloadMap = PublicApiRequestMappingService.buildOutboundPayload(
                 record,
                 config.outboundPayloadConfiguration,
-                config.targetObjectApiName
+                payloadObjectApiName
             );
             if (payloadMap == null || payloadMap.isEmpty()) {
-                throw new PublicApiIntakeServiceException(
+                throw new PublicApiSubmissionServiceException(
                     'Outbound mapping produced an empty payload. Ensure outbound mappings are configured and valid.'
                 );
             }
@@ -108,7 +109,7 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
         String targetObjectApiName
     ) {
         if (String.isBlank(outboundConfigurationJson)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Outbound mapping configuration is required on Public API Integration Config.'
             );
         }
@@ -279,7 +280,7 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
                 }
             }
         } catch (JSONException e) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Outbound header configuration is invalid: ' + e.getMessage()
             );
         }
@@ -314,14 +315,14 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
             authMode == AUTH_MODE_BEARER_TOKEN ||
             authMode == AUTH_MODE_BASIC_AUTH) &&
             String.isBlank(headerValue)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Outbound auth configuration is invalid: Outbound Header Value is required for auth mode ' + authMode + '.'
             );
         }
 
         String webhookSecret = normalizeConfigValue(config.statusUpdateWebhookSecret);
         if (authMode == AUTH_MODE_HMAC_SIGNATURE && String.isBlank(webhookSecret)) {
-            throw new PublicApiIntakeServiceException(
+            throw new PublicApiSubmissionServiceException(
                 'Outbound auth configuration is invalid: Outbound Webhook Secret is required for HMAC signature mode.'
             );
         }
@@ -437,3 +438,4 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
         return String.isNotBlank(configuredName) && normalizedHeader == configuredName.toLowerCase();
     }
 }
+

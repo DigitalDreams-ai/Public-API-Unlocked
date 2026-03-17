@@ -16,8 +16,8 @@ This documentation set mirrors the structure used by Shulman-API docs and is org
 
 All request-builder field mappings must use:
 
-`$intakes.<FieldApiName>`
+`$<ObjectApiName>.<FieldApiName>`
 
 Example:
 
-`$intakes.Email__c`
+`$PublicApi_Submission__c.Status__c`

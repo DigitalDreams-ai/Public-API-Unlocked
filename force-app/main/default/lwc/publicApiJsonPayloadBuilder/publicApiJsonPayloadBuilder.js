@@ -18,6 +18,7 @@ import provisionWebhookDomain from '@salesforce/apex/PublicApiPayloadBuilderCtrl
 
 const DEFAULT_CONTENT_TYPE = 'application/json';
 const DEFAULT_OBJECT_API_NAME = 'PublicApi_Submission__c';
+const DEFAULT_ENDPOINT_PATH = '/submissions';
 const SUGGESTION_LIMIT = 12;
 const MULTI_MATCH_POLICY_OPTIONS = [
     { label: 'Error', value: 'Error' },
@@ -38,6 +39,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     isDirty = false;
 
     syncDirections = true;
+    endpointPath = DEFAULT_ENDPOINT_PATH;
     activePayloadScope = 'inbound';
     defaultInboundRows = [];
     defaultOutboundRows = [];
@@ -116,6 +118,11 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
     get hasRelatedRecordRows() {
         return this.relatedRecordRule !== null;
+    }
+
+    get endpointUrlPreview() {
+        const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
+        return `${origin}/services/apexrest/v1/publicapi${this.endpointPath || DEFAULT_ENDPOINT_PATH}`;
     }
 
     get activeRelatedRecordRow() {
@@ -320,6 +327,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             ]);
 
             this.syncDirections = payloadSettings?.syncInboundAndOutbound !== false;
+            this.endpointPath = payloadSettings?.endpointPath || DEFAULT_ENDPOINT_PATH;
             this.targetObjectApiName = payloadSettings?.targetObjectApiName || DEFAULT_OBJECT_API_NAME;
             this.targetObjectSearchValue = this.targetObjectApiName;
             this.availableObjectApiNames = payloadSettings?.availableObjectApiNames || [];
@@ -394,6 +402,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                 savePayloadSettings({
                     recordId: this.recordId,
                     syncInboundAndOutbound: this.syncDirections,
+                    endpointPath: this.endpointPath,
                     targetObjectApiName: this.targetObjectApiName,
                     targetRecordTypeDeveloperName: this.targetRecordTypeDeveloperName,
                     relatedRecordConfigurationJson: JSON.stringify(
@@ -456,6 +465,11 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
     handleTargetRecordTypeChange(event) {
         this.targetRecordTypeDeveloperName = event.detail.value || '';
+        this.isDirty = true;
+    }
+
+    handleEndpointPathChange(event) {
+        this.endpointPath = event.target.value || DEFAULT_ENDPOINT_PATH;
         this.isDirty = true;
     }
 
@@ -1992,7 +2006,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     async refreshTriggerFieldNames() {
         try {
             this.availableTriggerFieldNames = await getTriggerFieldNames({
-                objectApiName: this.targetObjectApiName
+                objectApiName: DEFAULT_OBJECT_API_NAME
             });
             if (!this.availableTriggerFieldNames.includes((this.outboundTriggerFieldName || '').trim())) {
                 this.outboundTriggerFieldName = '';
@@ -2013,7 +2027,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
         try {
             this.availableTriggerFieldValues = await getTriggerFieldValues({
-                objectApiName: this.targetObjectApiName,
+                objectApiName: DEFAULT_OBJECT_API_NAME,
                 fieldName: normalizedFieldName
             });
         } catch (error) {
