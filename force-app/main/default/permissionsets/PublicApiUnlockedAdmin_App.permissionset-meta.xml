@@ -35,6 +35,10 @@
         <apexClass>PublicApiRequestMappingService</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>PublicApiSubmissionApi</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <fieldPermissions>
         <editable>true</editable>
         <field>PublicApi_Integration_Config__c.API_Key__c</field>

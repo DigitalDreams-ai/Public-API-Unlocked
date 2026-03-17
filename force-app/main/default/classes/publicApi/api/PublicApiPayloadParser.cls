@@ -5,6 +5,9 @@ public without sharing class PublicApiPayloadParser {
         }
 
         String normalizedContentType = contentType == null ? '' : contentType.toLowerCase();
+        if (normalizedContentType.contains('multipart/form-data')) {
+            return parseMultipartPayload(requestBody, contentType);
+        }
         if (normalizedContentType.contains('application/x-www-form-urlencoded')) {
             return parseFormEncodedPayload(requestBody);
         }
@@ -15,7 +18,7 @@ public without sharing class PublicApiPayloadParser {
                 return (Map<String, Object>) deserialized;
             }
             throw new PublicApiSubmissionServiceException(
-                'Invalid request body. Expected a JSON object or form-encoded key/value pairs.'
+                'Invalid request body. Expected a JSON object, multipart form fields, or form-encoded key/value pairs.'
             );
         } catch (JSONException e) {
             if (looksLikeFormEncoded(requestBody)) {
@@ -33,6 +36,50 @@ public without sharing class PublicApiPayloadParser {
         return requestBody.contains('=') &&
             !requestBody.trim().startsWith('{') &&
             !requestBody.trim().startsWith('[');
+    }
+
+    @TestVisible
+    private static Map<String, Object> parseMultipartPayload(String requestBody, String contentType) {
+        String boundary = extractMultipartBoundary(contentType);
+        if (String.isBlank(boundary)) {
+            throw new PublicApiSubmissionServiceException(
+                'Invalid multipart/form-data payload: missing boundary.'
+            );
+        }
+
+        Map<String, Object> payload = new Map<String, Object>();
+        String delimiter = '--' + boundary;
+        for (String part : requestBody.split(escapeRegex(delimiter))) {
+            if (String.isBlank(part)) {
+                continue;
+            }
+
+            String normalizedPart = stripLeadingLineBreaks(part);
+            if (normalizedPart == '--' || String.isBlank(normalizedPart.trim())) {
+                continue;
+            }
+
+            Integer headerBodySplitIndex = normalizedPart.indexOf('\r\n\r\n');
+            Integer separatorLength = 4;
+            if (headerBodySplitIndex < 0) {
+                headerBodySplitIndex = normalizedPart.indexOf('\n\n');
+                separatorLength = 2;
+            }
+            if (headerBodySplitIndex < 0) {
+                continue;
+            }
+
+            String headers = normalizedPart.substring(0, headerBodySplitIndex);
+            String body = normalizedPart.substring(headerBodySplitIndex + separatorLength);
+            String fieldName = extractMultipartFieldName(headers);
+            if (String.isBlank(fieldName)) {
+                continue;
+            }
+
+            payload.put(fieldName, stripTrailingLineBreaks(body));
+        }
+
+        return payload;
     }
 
     @TestVisible
@@ -68,6 +115,65 @@ public without sharing class PublicApiPayloadParser {
         } catch (Exception e) {
             throw new PublicApiSubmissionServiceException('Invalid form-encoded payload: ' + e.getMessage());
         }
+    }
+
+    private static String extractMultipartBoundary(String contentType) {
+        if (String.isBlank(contentType)) {
+            return null;
+        }
+
+        Matcher matcher = Pattern.compile('(?i)boundary="?([^";]+)"?')
+            .matcher(contentType);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private static String extractMultipartFieldName(String headers) {
+        if (String.isBlank(headers)) {
+            return null;
+        }
+
+        Matcher matcher = Pattern.compile('(?i)name="([^"]+)"')
+            .matcher(headers);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private static String stripLeadingLineBreaks(String value) {
+        String result = value;
+        while (result != null && (result.startsWith('\r\n') || result.startsWith('\n'))) {
+            result = result.startsWith('\r\n') ? result.substring(2) : result.substring(1);
+        }
+        return result;
+    }
+
+    private static String stripTrailingLineBreaks(String value) {
+        String result = value == null ? null : value;
+        while (result != null && (result.endsWith('\r\n') || result.endsWith('\n'))) {
+            result = result.endsWith('\r\n')
+                ? result.substring(0, result.length() - 2)
+                : result.substring(0, result.length() - 1);
+        }
+        return result;
+    }
+
+    private static String escapeRegex(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value
+            .replace('\\', '\\\\')
+            .replace('.', '\\.')
+            .replace('+', '\\+')
+            .replace('*', '\\*')
+            .replace('?', '\\?')
+            .replace('^', '\\^')
+            .replace('$', '\\$')
+            .replace('(', '\\(')
+            .replace(')', '\\)')
+            .replace('[', '\\[')
+            .replace(']', '\\]')
+            .replace('{', '\\{')
+            .replace('}', '\\}')
+            .replace('|', '\\|');
     }
 }
 

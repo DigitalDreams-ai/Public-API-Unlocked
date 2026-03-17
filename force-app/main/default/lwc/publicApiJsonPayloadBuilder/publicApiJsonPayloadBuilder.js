@@ -244,18 +244,18 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
     get primaryHeaderSectionTitle() {
         if (this.isApiKeyMode) {
-            return 'Primary API Key Header';
+            return 'Primary Outbound API Key Header';
         }
         if (this.isBearerMode) {
-            return 'Primary Bearer Header';
+            return 'Primary Outbound Bearer Header';
         }
         if (this.isBasicMode) {
-            return 'Primary Basic Auth Header';
+            return 'Primary Outbound Basic Auth Header';
         }
         if (this.isHmacMode) {
-            return 'Primary Signature Header';
+            return 'Primary Outbound Signature Header';
         }
-        return 'Primary Header';
+        return 'Primary Outbound Header';
     }
 
     get primaryHeaderSectionBody() {
@@ -263,16 +263,16 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             return 'No auth header will be added. Use Additional Headers only for non-auth custom headers.';
         }
         if (this.isApiKeyMode) {
-            return 'This header carries the API key for the receiving system.';
+            return 'This outbound header is sent to the receiving system. It is separate from the inbound API Key in the Information section.';
         }
         if (this.isBearerMode) {
-            return 'This header sends Bearer <token>. Leave the name blank to default to Authorization.';
+            return 'This outbound header sends Bearer <token>. Leave the name blank to default to Authorization.';
         }
         if (this.isBasicMode) {
-            return 'This header sends Basic <base64(username:password)>. Leave the name blank to default to Authorization.';
+            return 'This outbound header sends Basic <base64(username:password)>. Leave the name blank to default to Authorization.';
         }
         if (this.isHmacMode) {
-            return 'This header carries the generated request signature. The signature value comes from the Outbound Webhook Secret.';
+            return 'This outbound header carries the generated request signature. The signature value comes from the Outbound Webhook Secret.';
         }
         return '';
     }
@@ -2279,35 +2279,35 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
     get primaryHeaderNameLabel() {
         if (this.isHmacMode) {
-            return 'Signature Header Name';
+            return 'Outbound Signature Header Name';
         }
-        return 'Header Name';
+        return 'Outbound Header Name';
     }
 
     get primaryHeaderNamePlaceholder() {
         if (this.isApiKeyMode) {
-            return 'X-API-KEY';
+            return 'Example: X-API-KEY';
         }
         if (this.isBearerMode || this.isBasicMode) {
-            return 'Authorization';
+            return 'Example: Authorization';
         }
         if (this.isHmacMode) {
-            return 'x-publicapi-signature';
+            return 'Example: x-publicapi-signature';
         }
         return '';
     }
 
     get primaryHeaderValueLabel() {
         if (this.isApiKeyMode) {
-            return 'API Key Value';
+            return 'Outbound API Key Value';
         }
         if (this.isBearerMode) {
-            return 'Bearer Token';
+            return 'Outbound Bearer Token';
         }
         if (this.isBasicMode) {
-            return 'Username:Password';
+            return 'Outbound Username:Password';
         }
-        return 'Header Value';
+        return 'Outbound Header Value';
     }
 
     get primaryHeaderValuePlaceholder() {

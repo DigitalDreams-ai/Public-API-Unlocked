@@ -124,6 +124,51 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
+    static void testApplyInboundMappingsResolvesLookupLiteralValueByName() {
+        PublicApi_Submission__c submission = new PublicApi_Submission__c(Status__c = 'New');
+        insert submission;
+        submission = [SELECT Id, Name FROM PublicApi_Submission__c WHERE Id = :submission.Id];
+
+        PublicApi_Webhook_Delivery__c delivery = new PublicApi_Webhook_Delivery__c();
+        String mappingsJson =
+            '[' +
+                '{"sourceType":"LiteralValue","literalValue":"' + submission.Name + '",' +
+                '"value":"$PublicApi_Webhook_Delivery__c.Submission__c","sortOrder":1}' +
+            ']';
+
+        PublicApiRequestMappingService.applyInboundMappings(
+            delivery,
+            new Map<String, Object>(),
+            mappingsJson,
+            'PublicApi_Webhook_Delivery__c'
+        );
+
+        System.assertEquals(submission.Id, delivery.Submission__c);
+    }
+
+    @IsTest
+    static void testApplyInboundMappingsRejectsUnknownLookupLiteralValue() {
+        PublicApi_Webhook_Delivery__c delivery = new PublicApi_Webhook_Delivery__c();
+        String mappingsJson =
+            '[' +
+                '{"sourceType":"LiteralValue","literalValue":"does-not-exist",' +
+                '"value":"$PublicApi_Webhook_Delivery__c.Submission__c","sortOrder":1}' +
+            ']';
+
+        try {
+            PublicApiRequestMappingService.applyInboundMappings(
+                delivery,
+                new Map<String, Object>(),
+                mappingsJson,
+                'PublicApi_Webhook_Delivery__c'
+            );
+            System.assert(false, 'Expected unresolved lookup literal value to fail.');
+        } catch (PublicApiSubmissionServiceException e) {
+            System.assert(e.getMessage().contains('Lookup literal value could not be resolved'));
+        }
+    }
+
+    @IsTest
     static void testValidateInboundMappingsRejectsNonCanonicalPrefixes() {
         String mappingsJson =
             '[{"externalKey":"status","value":"$submission.Status__c","sortOrder":1}]';

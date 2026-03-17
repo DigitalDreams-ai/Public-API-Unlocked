@@ -111,6 +111,8 @@ public without sharing class PublicApiRequestMappingService {
                     resolvedFieldApiName,
                     normalizeInboundValue(rawValue, fieldMap.get(resolvedFieldApiName).getDescribe())
                 );
+            } catch (PublicApiSubmissionServiceException e) {
+                throw e;
             } catch (Exception e) {
                 continue;
             }
@@ -541,6 +543,9 @@ public without sharing class PublicApiRequestMappingService {
         if (typeValue == Schema.DisplayType.DateTime) {
             return Datetime.valueOf(stringValue);
         }
+        if (typeValue == Schema.DisplayType.Reference) {
+            return resolveLookupInboundValue(stringValue, describe);
+        }
         if (describe.getLength() > 0 && stringValue != null && stringValue.length() > describe.getLength()) {
             if (typeValue == Schema.DisplayType.Email) {
                 return clampEmail(stringValue, describe.getLength());
@@ -571,6 +576,82 @@ public without sharing class PublicApiRequestMappingService {
             localPart = localPart.substring(0, maxLocalPartLength);
         }
         return localPart + domain;
+    }
+
+    @TestVisible
+    private static Id resolveLookupInboundValue(String stringValue, Schema.DescribeFieldResult describe) {
+        if (String.isBlank(stringValue) || describe == null) {
+            return null;
+        }
+
+        Id candidateId = tryParseId(stringValue);
+        if (candidateId != null) {
+            return candidateId;
+        }
+
+        List<Schema.SObjectType> referenceTo = describe.getReferenceTo();
+        if (referenceTo == null || referenceTo.isEmpty()) {
+            throw new PublicApiSubmissionServiceException(
+                'Lookup literal value could not be resolved because the target field does not reference an object.'
+            );
+        }
+        if (referenceTo.size() != 1) {
+            throw new PublicApiSubmissionServiceException(
+                'Lookup literal value requires a field that references exactly one object type: ' + describe.getName()
+            );
+        }
+
+        Schema.DescribeSObjectResult targetDescribe = referenceTo[0].getDescribe();
+        String nameFieldApiName = resolveNameFieldApiName(targetDescribe);
+        if (String.isBlank(nameFieldApiName)) {
+            throw new PublicApiSubmissionServiceException(
+                'Lookup literal value could not be resolved because ' + targetDescribe.getName() +
+                ' does not expose a usable name field.'
+            );
+        }
+
+        List<SObject> matches = Database.query(
+            'SELECT Id FROM ' + targetDescribe.getName() +
+            ' WHERE ' + nameFieldApiName + ' = :stringValue LIMIT 2'
+        );
+        if (matches.isEmpty()) {
+            throw new PublicApiSubmissionServiceException(
+                'Lookup literal value could not be resolved for ' + describe.getName() +
+                ': ' + stringValue
+            );
+        }
+        if (matches.size() > 1) {
+            throw new PublicApiSubmissionServiceException(
+                'Lookup literal value matched multiple ' + targetDescribe.getName() +
+                ' records for ' + describe.getName() + ': ' + stringValue
+            );
+        }
+        return (Id) matches[0].get('Id');
+    }
+
+    private static Id tryParseId(String value) {
+        if (String.isBlank(value)) {
+            return null;
+        }
+        try {
+            return (Id) value.trim();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String resolveNameFieldApiName(Schema.DescribeSObjectResult describe) {
+        if (describe == null) {
+            return null;
+        }
+
+        for (Schema.SObjectField fieldToken : describe.fields.getMap().values()) {
+            Schema.DescribeFieldResult fieldDescribe = fieldToken.getDescribe();
+            if (fieldDescribe != null && fieldDescribe.isNameField()) {
+                return fieldDescribe.getName();
+            }
+        }
+        return null;
     }
 
     private static Object normalizeOutboundValue(Object value) {

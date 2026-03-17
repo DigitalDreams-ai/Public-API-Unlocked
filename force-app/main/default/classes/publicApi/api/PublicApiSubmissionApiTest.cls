@@ -206,6 +206,74 @@ private class PublicApiSubmissionApiTest {
     }
 
     @IsTest
+    static void testCreateSubmissionMultipartFormPayload() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-4c',
+            Endpoint_Path__c = '/multipart',
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
+        );
+        insert config;
+
+        String boundary = '----PublicApiBoundary123';
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/multipart';
+        req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'multipart/form-data; boundary=' + boundary);
+        req.requestBody = Blob.valueOf(
+            '--' + boundary + '\r\n' +
+            'Content-Disposition: form-data; name="first_name"\r\n\r\n' +
+            'Form\r\n' +
+            '--' + boundary + '\r\n' +
+            'Content-Disposition: form-data; name="email"\r\n\r\n' +
+            'form@example.com\r\n' +
+            '--' + boundary + '--\r\n'
+        );
+        req.headers.put('x-api-key', 'api-test-key-4c');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        Test.startTest();
+        PublicApiSubmissionApi.createSubmission();
+        Test.getEventBus().deliver();
+        Test.stopTest();
+
+        System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
+    }
+
+    @IsTest
+    static void testCreateSubmissionMultipartFormPayloadRequiresBoundary() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-4d',
+            Endpoint_Path__c = '/multipart-missing-boundary',
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/multipart-missing-boundary';
+        req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'multipart/form-data');
+        req.requestBody = Blob.valueOf('irrelevant');
+        req.headers.put('x-api-key', 'api-test-key-4d');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiSubmissionApi.createSubmission();
+        System.assertEquals(400, res.statusCode);
+        System.assert(res.responseBody.toString().contains('missing boundary'));
+    }
+
+    @IsTest
     static void testCreateSubmissionRejectsOversizedPayloadBeforeAsyncProcessing() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
