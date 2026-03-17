@@ -1,6 +1,19 @@
 @IsTest
 public class PublicApiTestConfigFactory {
+    public static String getDefaultEndpointPathForApiKey(String apiKey) {
+        String normalized = String.isBlank(apiKey) ? 'default' : apiKey.trim().toLowerCase();
+        normalized = normalized.replaceAll('[^a-z0-9]+', '-');
+        normalized = normalized.replaceAll('^-+', '').replaceAll('-+$', '');
+        if (String.isBlank(normalized)) {
+            normalized = 'default';
+        }
+        return '/test-' + normalized;
+    }
+
     public static PublicApi_Integration_Config__c insertConfig(PublicApi_Integration_Config__c config) {
+        if (config != null && String.isBlank(config.Endpoint_Path__c)) {
+            config.Endpoint_Path__c = getDefaultEndpointPathForApiKey(config.API_Key__c);
+        }
         if (config != null && String.isNotBlank(config.Outbound_Webhook_URL__c)) {
             String domain = PublicApiRemoteSiteSettingService.extractDomainFromUrl(config.Outbound_Webhook_URL__c);
             config.Outbound_Remote_Site_Domain__c = domain;

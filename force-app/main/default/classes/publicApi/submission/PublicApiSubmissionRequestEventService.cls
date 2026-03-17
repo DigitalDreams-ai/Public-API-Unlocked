@@ -1,4 +1,6 @@
 public without sharing class PublicApiSubmissionRequestEventService {
+    @TestVisible static Boolean simulatePublishFailure = false;
+
     private class SubmissionConfigSnapshot {
         public Id configId;
         public String targetObjectApiName;
@@ -34,7 +36,24 @@ public without sharing class PublicApiSubmissionRequestEventService {
         PublicApi_Submission_Request__e requestEvent = new PublicApi_Submission_Request__e(
             Submission_Record_Id__c = String.valueOf(submissionRecordId)
         );
-        EventBus.publish(new List<PublicApi_Submission_Request__e>{ requestEvent });
+        try {
+            if (Test.isRunningTest() && simulatePublishFailure) {
+                throw new PublicApiSubmissionServiceException(
+                    PublicApiSubmissionService.EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX + 'Simulated publish failure.'
+                );
+            }
+
+            Database.SaveResult publishResult = EventBus.publish(requestEvent);
+            if (publishResult == null || !publishResult.isSuccess()) {
+                throw new PublicApiSubmissionServiceException(buildPublishFailureMessage(publishResult));
+            }
+        } catch (PublicApiSubmissionServiceException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PublicApiSubmissionServiceException(
+                PublicApiSubmissionService.EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX + e.getMessage()
+            );
+        }
     }
 
     public static void handleEvents(List<PublicApi_Submission_Request__e> events) {
@@ -245,6 +264,17 @@ public without sharing class PublicApiSubmissionRequestEventService {
     @TestVisible
     static Id parseSubmissionId(PublicApi_Submission_Request__e requestEvent) {
         return requestEvent == null ? null : parseId(requestEvent.Submission_Record_Id__c);
+    }
+
+    @TestVisible
+    static String buildPublishFailureMessage(Database.SaveResult publishResult) {
+        if (publishResult != null) {
+            Database.Error[] errors = publishResult.getErrors();
+            if (errors != null && !errors.isEmpty() && String.isNotBlank(errors[0].getMessage())) {
+                return PublicApiSubmissionService.EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX + errors[0].getMessage();
+            }
+        }
+        return PublicApiSubmissionService.EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX + 'Unknown publish failure.';
     }
 
     private static PublicApi_Submission__c buildFailureAuditUpdate(Id submissionId, Exception e) {

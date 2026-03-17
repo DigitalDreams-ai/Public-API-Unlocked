@@ -3,6 +3,7 @@
     <fullName>Outbound_Enabled</fullName>
     <columns>NAME</columns>
     <columns>Is_Active__c</columns>
+    <columns>Endpoint_Path__c</columns>
     <columns>Target_Object_API_Name__c</columns>
     <columns>Outbound_Trigger_Field_Name__c</columns>
     <columns>Outbound_Trigger_Field_Values__c</columns>

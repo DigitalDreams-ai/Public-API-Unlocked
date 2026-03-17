@@ -17,8 +17,8 @@ public without sharing class PublicApiOutboundStatusAction {
     }
 
     @InvocableMethod(
-        label='Enqueue Public API Outbound Status Update'
-        description='Queues a Public API outbound webhook delivery for any configured source object.'
+        label='Publish Public API Outbound Request'
+        description='Publishes a Public API outbound webhook request for a Public API submission record.'
     )
     public static void enqueue(List<Request> requests) {
         if (requests == null || requests.isEmpty()) {

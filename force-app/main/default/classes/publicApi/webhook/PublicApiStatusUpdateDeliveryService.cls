@@ -32,11 +32,12 @@ public without sharing class PublicApiStatusUpdateDeliveryService {
         }
 
         try {
-            validateOutboundMappings(config.outboundPayloadConfiguration, config.targetObjectApiName);
+            String payloadObjectApiName = record.getSObjectType().getDescribe().getName();
+            validateOutboundMappings(config.outboundPayloadConfiguration, payloadObjectApiName);
             Map<String, Object> payloadMap = PublicApiRequestMappingService.buildOutboundPayload(
                 record,
                 config.outboundPayloadConfiguration,
-                config.targetObjectApiName
+                payloadObjectApiName
             );
             if (payloadMap == null || payloadMap.isEmpty()) {
                 throw new PublicApiSubmissionServiceException(

@@ -5,6 +5,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-1',
+            Endpoint_Path__c = '/submission-success',
             Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
             Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
             Target_Object_API_Name__c = 'PublicApi_Submission__c'
@@ -17,7 +18,7 @@ private class PublicApiSubmissionApiTest {
         };
 
         RestRequest req = new RestRequest();
-        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.requestURI = '/services/apexrest/v1/publicapi/submission-success';
         req.httpMethod = 'POST';
         req.addHeader('Content-Type', 'application/json');
         req.headers.put('Content-Type', 'application/json');
@@ -66,6 +67,15 @@ private class PublicApiSubmissionApiTest {
 
     @IsTest
     static void testCreateSubmissionMissingApiKey() {
+        insert new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'missing-key-test',
+            Endpoint_Path__c = '/submissions',
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
+        );
+
         RestRequest req = new RestRequest();
         req.requestURI = '/services/apexrest/v1/publicapi/submissions';
         req.httpMethod = 'POST';
@@ -83,7 +93,8 @@ private class PublicApiSubmissionApiTest {
     static void testCreateSubmissionInvalidJson() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
-            API_Key__c = 'api-test-key-2'
+            API_Key__c = 'api-test-key-2',
+            Endpoint_Path__c = '/submissions'
         );
         insert config;
 
@@ -106,6 +117,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-3',
+            Endpoint_Path__c = '/submissions',
             Webhook_Secret__c = 'expected-secret'
         );
         insert config;
@@ -130,6 +142,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-4',
+            Endpoint_Path__c = '/submissions',
             Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
             Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
             Target_Object_API_Name__c = 'PublicApi_Submission__c'
@@ -159,6 +172,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-4b',
+            Endpoint_Path__c = '/submissions',
             Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
             Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
             Target_Object_API_Name__c = 'PublicApi_Submission__c'
@@ -192,10 +206,103 @@ private class PublicApiSubmissionApiTest {
     }
 
     @IsTest
+    static void testCreateSubmissionRejectsOversizedPayloadBeforeAsyncProcessing() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-oversized',
+            Endpoint_Path__c = '/oversized',
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
+        );
+        insert config;
+
+        String oversizedValue = repeatCharacter('x', PublicApiSubmissionService.RAW_PAYLOAD_MAX_LENGTH);
+        String oversizedRequestBody = '{"source":"' + oversizedValue + '"}';
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/oversized';
+        req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'application/json');
+        req.requestBody = Blob.valueOf(oversizedRequestBody);
+        req.headers.put('x-api-key', 'api-test-key-oversized');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiSubmissionApi.createSubmission();
+        System.assertEquals(413, res.statusCode);
+        System.assert(res.responseBody.toString().contains('Request body exceeds maximum supported size'));
+
+        PublicApi_Submission__c auditRecord = [
+            SELECT Processing_Status__c, Processing_Error_Category__c, Processing_Error_Message__c, Raw_Payload__c
+            FROM PublicApi_Submission__c
+            WHERE PublicApi_Integration_Config__c = :config.Id
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_FAILED, auditRecord.Processing_Status__c);
+        System.assertEquals(PublicApiSubmissionService.ERROR_CATEGORY_PAYLOAD, auditRecord.Processing_Error_Category__c);
+        System.assert(auditRecord.Processing_Error_Message__c.contains('Request body exceeds maximum supported size'));
+        System.assertEquals(PublicApiSubmissionService.RAW_PAYLOAD_MAX_LENGTH, auditRecord.Raw_Payload__c.length());
+    }
+
+    @IsTest
+    static void testCreateSubmissionReturns503WhenSubmissionRequestEventPublishFails() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'api-test-key-publish-fail',
+            Endpoint_Path__c = '/publish-fail',
+            Inbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultInboundMappingsJson(),
+            Outbound_Payload_Configuration__c = PublicApiPayloadTemplateService.getDefaultOutboundMappingsJson(),
+            Target_Object_API_Name__c = 'PublicApi_Submission__c'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/publish-fail';
+        req.httpMethod = 'POST';
+        req.addHeader('Content-Type', 'application/json');
+        req.requestBody = Blob.valueOf('{"source":"publish failure"}');
+        req.headers.put('x-api-key', 'api-test-key-publish-fail');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        try {
+            PublicApiSubmissionRequestEventService.simulatePublishFailure = true;
+            PublicApiSubmissionApi.createSubmission();
+        } finally {
+            PublicApiSubmissionRequestEventService.simulatePublishFailure = false;
+        }
+
+        System.assertEquals(503, res.statusCode);
+        System.assert(res.responseBody.toString().contains('Failed to publish submission processing event'));
+
+        PublicApi_Submission__c auditRecord = [
+            SELECT Processing_Status__c,
+                   Processing_Error_Category__c,
+                   Processing_Error_Message__c,
+                   Target_Record_Id__c
+            FROM PublicApi_Submission__c
+            WHERE PublicApi_Integration_Config__c = :config.Id
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_FAILED, auditRecord.Processing_Status__c);
+        System.assertEquals(PublicApiSubmissionService.ERROR_CATEGORY_EVENT_PUBLISH, auditRecord.Processing_Error_Category__c);
+        System.assert(auditRecord.Processing_Error_Message__c.contains('Failed to publish submission processing event'));
+        System.assertEquals(null, auditRecord.Target_Record_Id__c);
+    }
+
+    @IsTest
     static void testCreateSubmissionRejectsMissingInboundMappingConfiguration() {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
-            API_Key__c = 'api-test-key-5'
+            API_Key__c = 'api-test-key-5',
+            Endpoint_Path__c = '/submissions'
         );
         insert config;
 
@@ -219,6 +326,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-6',
+            Endpoint_Path__c = '/submissions',
             Inbound_Payload_Configuration__c =
                 '[{"externalKey":"name","value":"$PublicApi_Submission__c.Does_Not_Exist__c","sortOrder":1}]',
             Target_Object_API_Name__c = 'PublicApi_Submission__c'
@@ -245,6 +353,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-7',
+            Endpoint_Path__c = '/submissions',
             Inbound_Payload_Configuration__c = '[]',
             Outbound_Payload_Configuration__c =
                 '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
@@ -272,6 +381,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-7b',
+            Endpoint_Path__c = '/submissions',
             Inbound_Payload_Configuration__c =
                 '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
             Target_Object_API_Name__c = 'Task',
@@ -315,6 +425,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-7c',
+            Endpoint_Path__c = '/submissions',
             Inbound_Payload_Configuration__c =
                 '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
             Target_Object_API_Name__c = 'Task',
@@ -359,6 +470,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-8',
+            Endpoint_Path__c = '/submissions',
             Target_Object_API_Name__c = 'Account',
             Target_Record_Type_Developer_Name__c = configuredRecordTypeDeveloperName,
             Inbound_Payload_Configuration__c =
@@ -407,6 +519,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-9',
+            Endpoint_Path__c = '/submissions',
             Target_Object_API_Name__c = 'Task',
             Inbound_Payload_Configuration__c =
                 '[' +
@@ -454,6 +567,7 @@ private class PublicApiSubmissionApiTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'api-test-key-10',
+            Endpoint_Path__c = '/submissions',
             Target_Object_API_Name__c = 'Task',
             Inbound_Payload_Configuration__c =
                 '[' +
@@ -497,6 +611,104 @@ private class PublicApiSubmissionApiTest {
         if (accountLastNameFieldName != null) {
             System.assertEquals('Fox', related.get(accountLastNameFieldName));
         }
+    }
+
+    @IsTest
+    static void testCreateSubmissionRoutesByEndpointPath() {
+        insert new List<PublicApi_Integration_Config__c>{
+            new PublicApi_Integration_Config__c(
+                Is_Active__c = true,
+                API_Key__c = 'shared-api-key',
+                Endpoint_Path__c = '/alpha',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
+                Target_Object_API_Name__c = 'Task'
+            ),
+            new PublicApi_Integration_Config__c(
+                Is_Active__c = true,
+                API_Key__c = 'shared-api-key',
+                Endpoint_Path__c = '/beta',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
+                Target_Object_API_Name__c = 'Task'
+            )
+        };
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/beta';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"subject":"Path Routed Task"}');
+        req.headers.put('x-api-key', 'shared-api-key');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        Test.startTest();
+        PublicApiSubmissionApi.createSubmission();
+        Test.getEventBus().deliver();
+        Test.stopTest();
+
+        System.assertEquals(201, res.statusCode);
+        Id submissionId = (Id) ((Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString())).get('recordId');
+        PublicApi_Submission__c created = [
+            SELECT PublicApi_Integration_Config__r.Endpoint_Path__c
+            FROM PublicApi_Submission__c
+            WHERE Id = :submissionId
+        ];
+        System.assertEquals('/beta', created.PublicApi_Integration_Config__r.Endpoint_Path__c);
+    }
+
+    @IsTest
+    static void testCreateSubmissionSupportsLegacyBlankEndpointPathAtDefaultRoute() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
+            Is_Active__c = true,
+            API_Key__c = 'legacy-default-endpoint-key',
+            Inbound_Payload_Configuration__c =
+                '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
+            Target_Object_API_Name__c = 'Task'
+        );
+        insert config;
+
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"subject":"Legacy Default Route"}');
+        req.headers.put('x-api-key', 'legacy-default-endpoint-key');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        Test.startTest();
+        PublicApiSubmissionApi.createSubmission();
+        Test.getEventBus().deliver();
+        Test.stopTest();
+
+        System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
+        Id submissionId = (Id) ((Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString())).get('recordId');
+        PublicApi_Submission__c created = [
+            SELECT PublicApi_Integration_Config__c
+            FROM PublicApi_Submission__c
+            WHERE Id = :submissionId
+        ];
+        System.assertEquals(config.Id, created.PublicApi_Integration_Config__c);
+    }
+
+    @IsTest
+    static void testCreateSubmissionReturnsNotFoundForUnknownEndpoint() {
+        RestRequest req = new RestRequest();
+        req.requestURI = '/services/apexrest/v1/publicapi/does-not-exist';
+        req.httpMethod = 'POST';
+        req.requestBody = Blob.valueOf('{"subject":"No Match"}');
+        req.headers.put('x-api-key', 'unknown-key');
+
+        RestResponse res = new RestResponse();
+        RestContext.request = req;
+        RestContext.response = res;
+
+        PublicApiSubmissionApi.createSubmission();
+        System.assertEquals(404, res.statusCode);
     }
 
     private static String getAccountLastNameFieldName() {
@@ -546,6 +758,10 @@ private class PublicApiSubmissionApiTest {
         return Database.query(
             'SELECT ' + String.join(fieldNames, ', ') + ' FROM Account WHERE Id = :accountId'
         );
+    }
+
+    private static String repeatCharacter(String characterValue, Integer count) {
+        return ''.leftPad(count, characterValue);
     }
 
 }

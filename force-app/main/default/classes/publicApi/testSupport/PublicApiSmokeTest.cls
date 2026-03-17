@@ -159,6 +159,7 @@ private class PublicApiSmokeTest {
             new PublicApi_Submission__c(Id = firstSubmissionId, Status__c = 'Converted'),
             new PublicApi_Submission__c(Id = secondSubmissionId, Status__c = 'Converted')
         };
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
@@ -254,7 +255,7 @@ private class PublicApiSmokeTest {
     }
 
     @IsTest
-    static void smokeGenericInboundRelatedRecordAndInvocableOutboundWebhook() {
+    static void smokeGenericInboundRelatedRecordAndSubmissionOutboundWebhook() {
         resetCapturedCallouts();
         Test.setMock(HttpCalloutMock.class, new CapturingCalloutMock());
 
@@ -264,8 +265,8 @@ private class PublicApiSmokeTest {
                 API_Key__c = 'smoke-task-related-webhook',
                 Target_Object_API_Name__c = 'Task',
                 Outbound_Webhook_URL__c = 'https://example.com/task-webhook',
-                Outbound_Trigger_Field_Name__c = 'Status',
-                Outbound_Trigger_Field_Values__c = 'Completed',
+                Outbound_Trigger_Field_Name__c = 'Status__c',
+                Outbound_Trigger_Field_Values__c = 'Converted',
                 Inbound_Payload_Configuration__c =
                     '[' +
                         '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1},' +
@@ -299,13 +300,8 @@ private class PublicApiSmokeTest {
         Test.getEventBus().deliver();
         taskId = getTargetRecordId(submissionId);
         update new Task(Id = taskId, Status = 'Completed');
-        PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
-        request.recordId = taskId;
-        request.configId = config.Id;
-        request.previousStatus = 'Not Started';
-        request.currentStatus = 'Completed';
-        request.changedAt = System.now();
-        PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
+        update new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted');
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         Task taskRecord = [
@@ -327,12 +323,12 @@ private class PublicApiSmokeTest {
         List<PublicApi_Webhook_Delivery__c> deliveries = [
             SELECT Status__c, Triggered_Status__c, Source_Object_API_Name__c, Source_Record_Id__c, Request_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Source_Record_Id__c = :String.valueOf(taskId)
+            WHERE Submission__c = :submissionId
         ];
         System.assertEquals(1, deliveries.size());
         System.assertEquals('Success', deliveries[0].Status__c);
-        System.assertEquals('Completed', deliveries[0].Triggered_Status__c);
-        System.assertEquals('Task', deliveries[0].Source_Object_API_Name__c);
+        System.assertEquals('Converted', deliveries[0].Triggered_Status__c);
+        System.assertEquals('PublicApi_Submission__c', deliveries[0].Source_Object_API_Name__c);
         System.assert(String.valueOf(deliveries[0].Request_JSON__c).contains('"status":"Completed"'));
     }
 
@@ -388,76 +384,77 @@ private class PublicApiSmokeTest {
         resetCapturedCallouts();
         Test.setMock(HttpCalloutMock.class, new CapturingCalloutMock());
 
-        Account accountRecord = new Account(Name = 'Header Scenario Account');
-        String lastNameField = getAccountLastNameFieldName();
-        if (lastNameField != null) {
-            accountRecord.put(lastNameField, 'Header Scenario Account');
-        }
-        insert accountRecord;
-
         List<PublicApi_Integration_Config__c> configs = new List<PublicApi_Integration_Config__c>{
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-auth-apikey',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'PublicApi_Submission__c',
                 Outbound_Webhook_URL__c = 'https://example.com/auth-apikey',
                 Outbound_Auth_Mode__c = 'ApiKeyHeader',
                 Outbound_Header_Name__c = 'X-KEY',
                 Outbound_Header_Value__c = 'key-123',
                 Outbound_Additional_Headers_JSON__c = '{"X-Custom":"alpha","Content-Type":"blocked"}',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
             ),
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-auth-bearer',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'PublicApi_Submission__c',
                 Outbound_Webhook_URL__c = 'https://example.com/auth-bearer',
                 Outbound_Auth_Mode__c = 'BearerToken',
                 Outbound_Header_Value__c = 'bearer-xyz',
                 Outbound_Additional_Headers_JSON__c = '[{"name":"X-Trace","value":"trace-1"}]',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
             ),
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-auth-basic',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'PublicApi_Submission__c',
                 Outbound_Webhook_URL__c = 'https://example.com/auth-basic',
                 Outbound_Auth_Mode__c = 'BasicAuth',
                 Outbound_Header_Value__c = 'user:pass',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
             ),
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-auth-hmac',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'PublicApi_Submission__c',
                 Outbound_Webhook_URL__c = 'https://example.com/auth-hmac',
                 Outbound_Auth_Mode__c = 'HmacSignature',
                 Outbound_Header_Name__c = 'X-Signature',
                 Outbound_Webhook_Secret__c = 'smoke-secret',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+                    '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
             )
         };
         for (PublicApi_Integration_Config__c config : configs) {
             PublicApiTestConfigFactory.insertConfig(config);
         }
 
-        List<PublicApiOutboundStatusAction.Request> requests = new List<PublicApiOutboundStatusAction.Request>();
-        for (PublicApi_Integration_Config__c config : configs) {
-            PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
-            request.recordId = accountRecord.Id;
-            request.configId = config.Id;
-            request.previousStatus = 'Open';
-            request.currentStatus = 'Converted';
-            request.changedAt = System.now();
-            requests.add(request);
-        }
+        List<Id> submissionIds = new List<Id>();
 
         Test.startTest();
-        PublicApiOutboundStatusAction.enqueue(requests);
+        for (PublicApi_Integration_Config__c config : configs) {
+            submissionIds.add(createSubmission(config.API_Key__c, new Map<String, Object>{ 'status' => 'New' }));
+        }
+        Test.getEventBus().deliver();
+        List<PublicApi_Submission__c> submissionUpdates = new List<PublicApi_Submission__c>();
+        for (Id submissionId : submissionIds) {
+            submissionUpdates.add(new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted'));
+        }
+        update submissionUpdates;
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         System.assertEquals(4, capturedHeaders.size());
@@ -481,6 +478,7 @@ private class PublicApiSmokeTest {
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'smoke-provisioning',
+            Endpoint_Path__c = PublicApiTestConfigFactory.getDefaultEndpointPathForApiKey('smoke-provisioning'),
             Outbound_Webhook_URL__c = 'https://example.com/provision-webhook',
             Inbound_Payload_Configuration__c =
                 '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]',
@@ -496,6 +494,7 @@ private class PublicApiSmokeTest {
         );
         Test.getEventBus().deliver();
         update new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted');
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         PublicApi_Webhook_Delivery__c failedDelivery = [
@@ -538,6 +537,7 @@ private class PublicApiSmokeTest {
         );
         Test.getEventBus().deliver();
         update new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted');
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         PublicApi_Webhook_Delivery__c failedDelivery = [
@@ -553,7 +553,7 @@ private class PublicApiSmokeTest {
     }
 
     @IsTest
-    static void smokeInvocableOutboundSupportsMultipleConfigsForSameObject() {
+    static void smokeSubmissionOutboundSupportsMultipleConfigsForSameTargetObject() {
         resetCapturedCallouts();
         Test.setMock(HttpCalloutMock.class, new CapturingCalloutMock());
 
@@ -561,10 +561,12 @@ private class PublicApiSmokeTest {
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-account-outbound-a',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'Task',
                 Outbound_Webhook_URL__c = 'https://example.com/account-a',
+                Inbound_Payload_Configuration__c =
+                    '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
-                    '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
+                    '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]'
             )
         );
 
@@ -572,60 +574,55 @@ private class PublicApiSmokeTest {
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-account-outbound-b',
-                Target_Object_API_Name__c = 'Account',
+                Target_Object_API_Name__c = 'Task',
                 Outbound_Webhook_URL__c = 'https://example.com/account-b',
+                Inbound_Payload_Configuration__c =
+                    '[' +
+                        '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1},' +
+                        '{"externalKey":"priority","value":"$Task.Priority","sortOrder":2}' +
+                    ']',
                 Outbound_Payload_Configuration__c =
                     '[' +
-                        '{"externalKey":"accountName","value":"$Account.Name","sortOrder":1},' +
-                        '{"externalKey":"site","value":"$Account.Site","sortOrder":2}' +
+                        '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1},' +
+                        '{"externalKey":"priority","value":"$Task.Priority","sortOrder":2}' +
                     ']'
             )
         );
 
-        Account accountRecord = new Account(Name = 'Scenario Account', Phone = '602-555-4000');
-        String lastNameField = getAccountLastNameFieldName();
-        if (lastNameField != null) {
-            accountRecord.put(lastNameField, 'Scenario Account');
-        }
-        insert accountRecord;
-
-        PublicApiOutboundStatusAction.Request requestA = new PublicApiOutboundStatusAction.Request();
-        requestA.recordId = accountRecord.Id;
-        requestA.configId = configA.Id;
-        requestA.previousStatus = 'Open';
-        requestA.currentStatus = 'Converted';
-        requestA.changedAt = System.now();
-
-        PublicApiOutboundStatusAction.Request requestB = new PublicApiOutboundStatusAction.Request();
-        requestB.recordId = accountRecord.Id;
-        requestB.configId = configB.Id;
-        requestB.previousStatus = 'Open';
-        requestB.currentStatus = 'Converted';
-        requestB.changedAt = System.now();
-
         Test.startTest();
-        PublicApiOutboundStatusAction.enqueue(
-            new List<PublicApiOutboundStatusAction.Request>{ requestA, requestB }
+        Id submissionIdA = createSubmission(
+            'smoke-account-outbound-a',
+            new Map<String, Object>{ 'subject' => 'Scenario Task A' }
         );
+        Id submissionIdB = createSubmission(
+            'smoke-account-outbound-b',
+            new Map<String, Object>{ 'subject' => 'Scenario Task B', 'priority' => 'High' }
+        );
+        Test.getEventBus().deliver();
+        update new List<PublicApi_Submission__c>{
+            new PublicApi_Submission__c(Id = submissionIdA, Status__c = 'Converted'),
+            new PublicApi_Submission__c(Id = submissionIdB, Status__c = 'Converted')
+        };
+        Test.getEventBus().deliver();
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
-            SELECT Status__c, Source_Object_API_Name__c, Source_Record_Id__c, Request_JSON__c
+            SELECT Status__c, Source_Object_API_Name__c, Source_Record_Id__c, Submission__c, Request_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Source_Record_Id__c = :String.valueOf(accountRecord.Id)
+            WHERE Submission__c IN :new Set<Id>{ submissionIdA, submissionIdB }
             ORDER BY CreatedDate ASC
         ];
         System.assertEquals(2, deliveries.size());
         System.assertEquals(2, capturedEndpoints.size());
-        System.assertEquals('Account', deliveries[0].Source_Object_API_Name__c);
-        System.assertEquals('Account', deliveries[1].Source_Object_API_Name__c);
+        System.assertEquals('PublicApi_Submission__c', deliveries[0].Source_Object_API_Name__c);
+        System.assertEquals('PublicApi_Submission__c', deliveries[1].Source_Object_API_Name__c);
         System.assert(
-            String.valueOf(deliveries[0].Request_JSON__c).contains('"accountName"') &&
-            String.valueOf(deliveries[1].Request_JSON__c).contains('"accountName"')
+            String.valueOf(deliveries[0].Request_JSON__c).contains('"subject"') &&
+            String.valueOf(deliveries[1].Request_JSON__c).contains('"subject"')
         );
         System.assert(
-            String.valueOf(deliveries[0].Request_JSON__c).contains('"site"') ||
-            String.valueOf(deliveries[1].Request_JSON__c).contains('"site"')
+            String.valueOf(deliveries[0].Request_JSON__c).contains('"priority"') ||
+            String.valueOf(deliveries[1].Request_JSON__c).contains('"priority"')
         );
     }
 
@@ -635,7 +632,8 @@ private class PublicApiSmokeTest {
 
     private static Id createSubmissionRaw(String apiKey, String contentType, String rawBody) {
         RestRequest req = new RestRequest();
-        req.requestURI = '/services/apexrest/v1/publicapi/submissions';
+        req.requestURI =
+            '/services/apexrest/v1/publicapi' + PublicApiTestConfigFactory.getDefaultEndpointPathForApiKey(apiKey);
         req.httpMethod = 'POST';
         if (String.isNotBlank(contentType)) {
             req.addHeader('Content-Type', contentType);
