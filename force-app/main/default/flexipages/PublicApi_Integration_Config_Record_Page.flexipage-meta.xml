@@ -61,16 +61,6 @@
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
-                <fieldItem>Record.Referred_By_Party_Name__c</fieldItem>
-                <identifier>RecordReferred_By_Party_Name_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
                 <fieldItem>Record.Webhook_Secret__c</fieldItem>
                 <identifier>RecordWebhook_Secret_cField</identifier>
             </fieldInstance>
