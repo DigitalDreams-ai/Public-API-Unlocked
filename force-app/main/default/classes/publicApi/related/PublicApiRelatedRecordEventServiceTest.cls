@@ -48,11 +48,11 @@ private class PublicApiRelatedRecordEventServiceTest {
         Task refreshed = [SELECT Id, WhatId FROM Task WHERE Id = :createdTask.Id];
         System.assertNotEquals(null, refreshed.WhatId);
 
-        Account related = [SELECT Id, Name, Phone, RecordTypeId FROM Account WHERE Id = :refreshed.WhatId];
-        System.assertEquals('Async Account', related.Name);
-        System.assertEquals('555-0101', related.Phone);
-        if (expectedRecordTypeId != null) {
-            System.assertEquals(expectedRecordTypeId, related.RecordTypeId);
+        SObject related = queryAccount(refreshed.WhatId);
+        System.assertEquals('Async Account', related.get('Name'));
+        System.assertEquals('555-0101', related.get('Phone'));
+        if (expectedRecordTypeId != null && accountSupportsRecordTypes()) {
+            System.assertEquals(expectedRecordTypeId, related.get('RecordTypeId'));
         }
 
         PublicApi_Submission__c refreshedAuditRecord = [
@@ -118,6 +118,20 @@ private class PublicApiRelatedRecordEventServiceTest {
         System.assertEquals('DeferredFailed', refreshedAuditRecord.Related_Record_Status__c);
         System.assertEquals('RELATED_RECORD_DEFERRED_ERROR', refreshedAuditRecord.Processing_Error_Category__c);
         System.assert(String.isNotBlank(refreshedAuditRecord.Processing_Error_Message__c));
+    }
+
+    private static Boolean accountSupportsRecordTypes() {
+        return Account.SObjectType.getDescribe().fields.getMap().containsKey('RecordTypeId');
+    }
+
+    private static SObject queryAccount(Id accountId) {
+        List<String> fieldNames = new List<String>{ 'Id', 'Name', 'Phone' };
+        if (accountSupportsRecordTypes()) {
+            fieldNames.add('RecordTypeId');
+        }
+        return Database.query(
+            'SELECT ' + String.join(fieldNames, ', ') + ' FROM Account WHERE Id = :accountId'
+        );
     }
 
 }

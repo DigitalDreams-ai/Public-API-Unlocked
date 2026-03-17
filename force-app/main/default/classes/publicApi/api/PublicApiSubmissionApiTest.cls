@@ -497,13 +497,13 @@ private class PublicApiSubmissionApiTest {
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         Id submissionId = (Id) response.get('recordId');
         Id recordId = getTargetRecordId(submissionId);
-        Account created = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :recordId];
-        System.assertEquals('Acme Public API', created.Name);
+        SObject created = queryAccount(recordId, null);
+        System.assertEquals('Acme Public API', created.get('Name'));
         if (!String.isBlank(configuredRecordTypeDeveloperName)) {
             Id expectedRecordTypeId =
                 PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, configuredRecordTypeDeveloperName);
-            if (expectedRecordTypeId != null) {
-                System.assertEquals(expectedRecordTypeId, created.RecordTypeId);
+            if (expectedRecordTypeId != null && accountSupportsRecordTypes()) {
+                System.assertEquals(expectedRecordTypeId, created.get('RecordTypeId'));
             }
         }
     }
@@ -558,8 +558,8 @@ private class PublicApiSubmissionApiTest {
         System.assertEquals('Resolved Task', created.Subject);
         System.assertNotEquals(null, created.WhatId);
 
-        Account related = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :created.WhatId];
-        System.assertEquals('Resolved Account', related.Name);
+        SObject related = queryAccount(created.WhatId, null);
+        System.assertEquals('Resolved Account', related.get('Name'));
     }
 
     @IsTest
@@ -732,6 +732,9 @@ private class PublicApiSubmissionApiTest {
     }
 
     private static String getConfiguredAccountRecordTypeDeveloperName() {
+        if (!accountSupportsRecordTypes()) {
+            return null;
+        }
         Id businessRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Business');
         if (businessRecordTypeId != null) {
             return 'Business';
@@ -751,13 +754,20 @@ private class PublicApiSubmissionApiTest {
     }
 
     private static SObject queryAccount(Id accountId, String accountLastNameFieldName) {
-        List<String> fieldNames = new List<String>{ 'Id', 'Name', 'RecordTypeId' };
+        List<String> fieldNames = new List<String>{ 'Id', 'Name' };
+        if (accountSupportsRecordTypes()) {
+            fieldNames.add('RecordTypeId');
+        }
         if (String.isNotBlank(accountLastNameFieldName)) {
             fieldNames.add(accountLastNameFieldName);
         }
         return Database.query(
             'SELECT ' + String.join(fieldNames, ', ') + ' FROM Account WHERE Id = :accountId'
         );
+    }
+
+    private static Boolean accountSupportsRecordTypes() {
+        return Account.SObjectType.getDescribe().fields.getMap().containsKey('RecordTypeId');
     }
 
     private static String repeatCharacter(String characterValue, Integer count) {

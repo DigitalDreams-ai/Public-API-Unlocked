@@ -35,13 +35,13 @@ private class PublicApiSubmissionEventTest {
         System.assertEquals('Account', auditRecord.Target_Object_API_Name__c);
         System.assertNotEquals(null, auditRecord.Target_Record_Id__c);
 
-        Account created = [SELECT Id, Name, RecordTypeId FROM Account WHERE Id = :auditRecord.Target_Record_Id__c];
-        System.assertEquals('Async Submission Account', created.Name);
+        SObject created = queryAccount((Id) auditRecord.Target_Record_Id__c);
+        System.assertEquals('Async Submission Account', created.get('Name'));
         if (!String.isBlank(configuredRecordTypeDeveloperName)) {
             Id expectedRecordTypeId =
                 PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, configuredRecordTypeDeveloperName);
-            if (expectedRecordTypeId != null) {
-                System.assertEquals(expectedRecordTypeId, created.RecordTypeId);
+            if (expectedRecordTypeId != null && accountSupportsRecordTypes()) {
+                System.assertEquals(expectedRecordTypeId, created.get('RecordTypeId'));
             }
         }
     }
@@ -89,11 +89,28 @@ private class PublicApiSubmissionEventTest {
     }
 
     private static String getConfiguredAccountRecordTypeDeveloperName() {
+        if (!accountSupportsRecordTypes()) {
+            return null;
+        }
         Id businessRecordTypeId = PublicApiRecordTypeService.getRecordTypeId(Account.SObjectType, 'Business');
         if (businessRecordTypeId != null) {
             return 'Business';
         }
         return null;
+    }
+
+    private static Boolean accountSupportsRecordTypes() {
+        return Account.SObjectType.getDescribe().fields.getMap().containsKey('RecordTypeId');
+    }
+
+    private static SObject queryAccount(Id accountId) {
+        List<String> fieldNames = new List<String>{ 'Id', 'Name' };
+        if (accountSupportsRecordTypes()) {
+            fieldNames.add('RecordTypeId');
+        }
+        return Database.query(
+            'SELECT ' + String.join(fieldNames, ', ') + ' FROM Account WHERE Id = :accountId'
+        );
     }
 }
 

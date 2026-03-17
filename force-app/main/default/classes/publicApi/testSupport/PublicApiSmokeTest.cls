@@ -246,7 +246,7 @@ private class PublicApiSmokeTest {
         System.assertNotEquals(existing.Id, createdTask.WhatId);
 
         Account createdAccount = [
-            SELECT Id, Name, Phone, RecordTypeId
+            SELECT Id, Name, Phone
             FROM Account
             WHERE Id = :createdTask.WhatId
         ];
@@ -313,7 +313,7 @@ private class PublicApiSmokeTest {
         System.assertNotEquals(null, taskRecord.WhatId);
 
         Account accountRecord = [
-            SELECT Id, Name, Phone, RecordTypeId
+            SELECT Id, Name, Phone
             FROM Account
             WHERE Id = :taskRecord.WhatId
         ];
