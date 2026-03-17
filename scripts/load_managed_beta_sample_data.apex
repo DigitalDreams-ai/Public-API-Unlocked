@@ -11,7 +11,7 @@ Account sampleAccount = new Account(
 if (accountRecordTypesByDeveloperName.containsKey('Business')) {
     Schema.RecordTypeInfo businessRecordType = accountRecordTypesByDeveloperName.get('Business');
     if (businessRecordType != null && businessRecordType.isAvailable()) {
-        sampleAccount.RecordTypeId = businessRecordType.getRecordTypeId();
+        sampleAccount.put('RecordTypeId', businessRecordType.getRecordTypeId());
     }
 }
 
