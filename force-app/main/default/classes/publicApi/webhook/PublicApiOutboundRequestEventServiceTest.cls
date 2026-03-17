@@ -11,7 +11,7 @@ private class PublicApiOutboundRequestEventServiceTest {
     }
 
     @IsTest
-    static void testPublishesOutboundDeliveryFromSubmissionToTargetRecord() {
+    static void testPublishesOutboundDeliveryFromTargetRecord() {
         Test.setMock(HttpCalloutMock.class, new WebhookMock());
 
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
@@ -40,7 +40,7 @@ private class PublicApiOutboundRequestEventServiceTest {
         PublicApiOutboundRequestEventService.publishRequests(
             new List<PublicApiOutboundTriggerService.ChangeRequest>{
                 new PublicApiOutboundTriggerService.ChangeRequest(
-                    submission.Id,
+                    accountRecord.Id,
                     config.Id,
                     'New',
                     'Converted',
@@ -54,12 +54,12 @@ private class PublicApiOutboundRequestEventServiceTest {
         PublicApi_Webhook_Delivery__c delivery = [
             SELECT Submission__c, Source_Record_Id__c, Source_Object_API_Name__c, Triggered_Status__c, Request_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Submission__c = :submission.Id
+            WHERE PublicApi_Integration_Config__c = :config.Id
+            AND Source_Record_Id__c = :String.valueOf(accountRecord.Id)
             LIMIT 1
         ];
-        System.assertEquals(submission.Id, delivery.Submission__c);
-        System.assertEquals(submission.Id, delivery.Source_Record_Id__c);
-        System.assertEquals('PublicApi_Submission__c', delivery.Source_Object_API_Name__c);
+        System.assertEquals(accountRecord.Id, delivery.Source_Record_Id__c);
+        System.assertEquals('Account', delivery.Source_Object_API_Name__c);
         System.assertEquals('Converted', delivery.Triggered_Status__c);
         System.assert(String.valueOf(delivery.Request_JSON__c).contains('Outbound Event Account'));
     }
@@ -104,7 +104,7 @@ private class PublicApiOutboundRequestEventServiceTest {
         PublicApiOutboundRequestEventService.publishRequests(
             new List<PublicApiOutboundTriggerService.ChangeRequest>{
                 new PublicApiOutboundTriggerService.ChangeRequest(
-                    submission.Id,
+                    accountRecord.Id,
                     originalConfig.Id,
                     'New',
                     'Converted',
@@ -122,7 +122,8 @@ private class PublicApiOutboundRequestEventServiceTest {
         PublicApi_Webhook_Delivery__c delivery = [
             SELECT PublicApi_Integration_Config__c, Webhook_URL__c, Request_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Submission__c = :submission.Id
+            WHERE PublicApi_Integration_Config__c = :originalConfig.Id
+            AND Source_Record_Id__c = :String.valueOf(accountRecord.Id)
             LIMIT 1
         ];
         System.assertEquals(originalConfig.Id, delivery.PublicApi_Integration_Config__c);
@@ -156,7 +157,7 @@ private class PublicApiOutboundRequestEventServiceTest {
         PublicApiOutboundRequestEventService.publishRequests(
             new List<PublicApiOutboundTriggerService.ChangeRequest>{
                 new PublicApiOutboundTriggerService.ChangeRequest(
-                    submission.Id,
+                    '00T000000000001EAA',
                     config.Id,
                     'New',
                     'Converted',
@@ -170,7 +171,7 @@ private class PublicApiOutboundRequestEventServiceTest {
         PublicApi_Webhook_Delivery__c delivery = [
             SELECT Status__c, Error_Code__c, Response_JSON__c
             FROM PublicApi_Webhook_Delivery__c
-            WHERE Submission__c = :submission.Id
+            WHERE PublicApi_Integration_Config__c = :config.Id
             LIMIT 1
         ];
         System.assertEquals('Failed', delivery.Status__c);
@@ -202,11 +203,11 @@ private class PublicApiOutboundRequestEventServiceTest {
             PublicApiOutboundRequestEventService.simulatePublishFailure = true;
             PublicApiOutboundRequestEventService.publishRequests(
                 new List<PublicApiOutboundTriggerService.ChangeRequest>{
-                    new PublicApiOutboundTriggerService.ChangeRequest(
-                        submission.Id,
-                        config.Id,
-                        'New',
-                        'Converted',
+                new PublicApiOutboundTriggerService.ChangeRequest(
+                    submission.Id,
+                    config.Id,
+                    'New',
+                    'Converted',
                         System.now()
                     )
                 }
@@ -230,18 +231,14 @@ private class PublicApiOutboundRequestEventServiceTest {
             )
         ).Id;
 
-        PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            Status__c = 'New',
-            Created_By_PublicApi_API__c = true,
-            PublicApi_Integration_Config__c = configId
-        );
-        insert submission;
+        Task taskRecord = new Task(Subject = 'Parse Config Id');
+        insert taskRecord;
 
         List<PublicApiOutboundRequestQueueable.RequestItem> items =
             PublicApiOutboundRequestEventService.toRequestItems(
                 new List<PublicApi_Outbound_Request__e>{
                     new PublicApi_Outbound_Request__e(
-                        Submission_Record_Id__c = String.valueOf(submission.Id),
+                        Submission_Record_Id__c = String.valueOf(taskRecord.Id),
                         Config_Id__c = String.valueOf(configId),
                         Previous_Value__c = 'Old',
                         Current_Value__c = 'New',
@@ -252,6 +249,7 @@ private class PublicApiOutboundRequestEventServiceTest {
 
         System.assertEquals(1, items.size());
         System.assertEquals(configId, items[0].configId);
+        System.assertEquals(taskRecord.Id, items[0].sourceRecordId);
     }
 
     private static Account createAccount(String name) {

@@ -25,7 +25,7 @@ private class PublicApiOutboundStatusActionTest {
     }
 
     @IsTest
-    static void testInvocablePublishesOutboundForSubmissionRecord() {
+    static void testInvocablePublishesOutboundForTargetRecord() {
         Test.setMock(HttpCalloutMock.class, new WebhookOnlyMock());
 
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
@@ -51,7 +51,7 @@ private class PublicApiOutboundStatusActionTest {
         insert submission;
 
         PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
-        request.recordId = submission.Id;
+        request.recordId = accountRecord.Id;
         request.configId = config.Id;
         request.previousStatus = 'Open';
         request.currentStatus = 'Converted';
@@ -84,24 +84,44 @@ private class PublicApiOutboundStatusActionTest {
         System.assertEquals('Converted', deliveries[0].Triggered_Status__c);
         System.assertEquals(200, deliveries[0].Status_Code__c);
         System.assertEquals(submission.Id, deliveries[0].Submission__c);
-        System.assertEquals(submission.Id, deliveries[0].Source_Record_Id__c);
-        System.assertEquals('PublicApi_Submission__c', deliveries[0].Source_Object_API_Name__c);
+        System.assertEquals(accountRecord.Id, deliveries[0].Source_Record_Id__c);
+        System.assertEquals('Account', deliveries[0].Source_Object_API_Name__c);
         System.assert(String.valueOf(deliveries[0].Request_JSON__c).contains('Acme Status Record'));
     }
 
     @IsTest
-    static void testInvocableRejectsMismatchedSubmissionConfig() {
-        PublicApi_Integration_Config__c linkedConfig = new PublicApi_Integration_Config__c(
+    static void testInvocableRejectsRecordIdsForTheWrongTargetObject() {
+        PublicApi_Integration_Config__c accountConfig = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'submission-outbound-linked-key',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
-            Target_Object_API_Name__c = 'Task',
+            Target_Object_API_Name__c = 'Account',
             Outbound_Payload_Configuration__c =
-                '[{"externalKey":"status","value":"$Task.Subject","sortOrder":1}]'
+                '[{"externalKey":"status","value":"$Account.Name","sortOrder":1}]'
         );
-        PublicApiTestConfigFactory.insertConfig(linkedConfig);
+        PublicApiTestConfigFactory.insertConfig(accountConfig);
 
-        PublicApi_Integration_Config__c mismatchedConfig = new PublicApi_Integration_Config__c(
+        Task taskRecord = new Task(Subject = 'Wrong Object');
+        insert taskRecord;
+
+        PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
+        request.recordId = taskRecord.Id;
+        request.configId = accountConfig.Id;
+        request.previousStatus = 'New';
+        request.currentStatus = 'Converted';
+        request.changedAt = System.now();
+
+        try {
+            PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
+            System.assert(false, 'Expected wrong-object record ID to be rejected.');
+        } catch (PublicApiSubmissionServiceException e) {
+            System.assert(e.getMessage().contains('must reference a Account record'));
+        }
+    }
+
+    @IsTest
+    static void testInvocableRejectsUnknownConfigIds() {
+        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'submission-outbound-mismatched-key',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
@@ -109,62 +129,23 @@ private class PublicApiOutboundStatusActionTest {
             Outbound_Payload_Configuration__c =
                 '[{"externalKey":"status","value":"$Task.Subject","sortOrder":1}]'
         );
-        PublicApiTestConfigFactory.insertConfig(mismatchedConfig);
+        PublicApiTestConfigFactory.insertConfig(config);
 
-        PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            Status__c = 'New',
-            Created_By_PublicApi_API__c = true,
-            PublicApi_Integration_Config__c = linkedConfig.Id
-        );
-        insert submission;
+        Task taskRecord = new Task(Subject = 'Known Task');
+        insert taskRecord;
 
         PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
-        request.recordId = submission.Id;
-        request.configId = mismatchedConfig.Id;
+        request.recordId = taskRecord.Id;
+        request.configId = 'a0BUu0000000001MAA';
         request.previousStatus = 'New';
         request.currentStatus = 'Converted';
         request.changedAt = System.now();
 
         try {
             PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
-            System.assert(false, 'Expected mismatched config to be rejected.');
+            System.assert(false, 'Expected unknown config to be rejected.');
         } catch (PublicApiSubmissionServiceException e) {
-            System.assert(e.getMessage().contains('does not match the submission-linked'));
-        }
-
-        System.assertEquals(
-            0,
-            [SELECT COUNT() FROM PublicApi_Webhook_Delivery__c WHERE Submission__c = :submission.Id]
-        );
-    }
-
-    @IsTest
-    static void testInvocableRejectsNonSubmissionRecordIds() {
-        PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
-            Is_Active__c = true,
-            API_Key__c = 'submission-outbound-non-submission-key',
-            Outbound_Webhook_URL__c = 'https://example.com/webhook',
-            Target_Object_API_Name__c = 'Account',
-            Outbound_Payload_Configuration__c =
-                '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
-        );
-        PublicApiTestConfigFactory.insertConfig(config);
-
-        Account accountRecord = createAccount('Non Submission Record');
-        insert accountRecord;
-
-        PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
-        request.recordId = accountRecord.Id;
-        request.configId = config.Id;
-        request.previousStatus = 'Open';
-        request.currentStatus = 'Converted';
-        request.changedAt = System.now();
-
-        try {
-            PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
-            System.assert(false, 'Expected non-submission record ID to be rejected.');
-        } catch (PublicApiSubmissionServiceException e) {
-            System.assert(e.getMessage().contains('must reference a PublicApi_Submission__c record linked'));
+            System.assert(e.getMessage().contains('must reference an active Public API Integration Config'));
         }
     }
 

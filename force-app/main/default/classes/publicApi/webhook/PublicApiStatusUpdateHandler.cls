@@ -36,6 +36,9 @@ public without sharing class PublicApiStatusUpdateHandler {
             if (config == null) {
                 continue;
             }
+            if (normalizeTargetObjectApiName(config) != SUBMISSION_OBJECT_API_NAME) {
+                continue;
+            }
 
             String triggerFieldName = PublicApiOutboundTriggerService.getConfiguredTriggerFieldName(config);
             if (!hasField(newRecord, triggerFieldName) || !didFieldChange(newRecord, oldRecord, triggerFieldName)) {
@@ -68,7 +71,7 @@ public without sharing class PublicApiStatusUpdateHandler {
 
     @TestVisible
     static Boolean supportsSubmissionTrigger(PublicApiConfigService.Config config) {
-        return config != null;
+        return config != null && normalizeTargetObjectApiName(config) == SUBMISSION_OBJECT_API_NAME;
     }
 
     @TestVisible
@@ -134,5 +137,12 @@ public without sharing class PublicApiStatusUpdateHandler {
 
     private static String normalizeValue(Object value) {
         return value == null ? null : String.valueOf(value).trim();
+    }
+
+    private static String normalizeTargetObjectApiName(PublicApiConfigService.Config config) {
+        if (config == null || String.isBlank(config.targetObjectApiName)) {
+            return SUBMISSION_OBJECT_API_NAME;
+        }
+        return config.targetObjectApiName.trim();
     }
 }

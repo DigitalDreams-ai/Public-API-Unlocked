@@ -87,11 +87,11 @@ public with sharing class PublicApiPayloadBuilderCtrl {
             PublicApiPayloadTemplateService.getAvailableLookupFieldNames(settings.targetObjectApiName);
         settings.availableTriggerFieldNames =
             PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(
-                PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME
+                settings.targetObjectApiName
             );
         settings.availableTriggerFieldValues =
             PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(
-                PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME,
+                settings.targetObjectApiName,
                 settings.outboundTriggerFieldName
             );
         return settings;
@@ -250,7 +250,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         validateRelatedRecordConfigurationJson(relatedRecordConfigurationJson, normalizedTargetObjectApiName);
         validateRecordTypeConfiguration(normalizedTargetObjectApiName, normalizedTargetRecordTypeDeveloperName);
         validateTriggerFieldConfiguration(
-            PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME,
+            normalizedTargetObjectApiName,
             normalizedTriggerFieldName,
             outboundTriggerFieldValues
         );

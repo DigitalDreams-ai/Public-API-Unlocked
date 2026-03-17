@@ -2,7 +2,7 @@ public without sharing class PublicApiOutboundRequestQueueable implements Queuea
     @TestVisible static final Integer MAX_REQUESTS_PER_JOB = 90;
 
     public class RequestItem {
-        public Id submissionId;
+        public Id sourceRecordId;
         public Id configId;
         public String previousValue;
         public String currentValue;
@@ -10,8 +10,8 @@ public without sharing class PublicApiOutboundRequestQueueable implements Queuea
 
         public RequestItem() {}
 
-        public RequestItem(Id submissionId, Id configId, String previousValue, String currentValue, Datetime changedAt) {
-            this.submissionId = submissionId;
+        public RequestItem(Id sourceRecordId, Id configId, String previousValue, String currentValue, Datetime changedAt) {
+            this.sourceRecordId = sourceRecordId;
             this.configId = configId;
             this.previousValue = previousValue;
             this.currentValue = currentValue;

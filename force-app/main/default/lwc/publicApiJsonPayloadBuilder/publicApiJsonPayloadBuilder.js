@@ -115,7 +115,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
     get payloadHelpText() {
         return this.syncDirections
-            ? 'Inbound and outbound mappings stay in sync for shared key-to-field rows. Inbound-only literal and default rows stay on the inbound side.'
+            ? 'Inbound and outbound mappings stay in sync for shared key-to-field rows. Inbound-only literal rows stay on the inbound side.'
             : 'Inbound and outbound mappings are independent. Edit each tab separately.';
     }
 
@@ -635,12 +635,6 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         });
     }
 
-    handleMappingDefaultValueChange(event) {
-        this.updateMappingRow(event.target.dataset.scope, event.target.dataset.id, {
-            defaultValue: event.target.value || ''
-        });
-    }
-
     handleMappingValueInput(event) {
         const scope = event.target.dataset.scope;
         this.updateMappingRow(scope, event.target.dataset.id, {
@@ -978,8 +972,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         value = '',
         sortOrder = 0,
         sourceType = MAPPING_SOURCE_TYPE_INCOMING_KEY,
-        literalValue = '',
-        defaultValue = ''
+        literalValue = ''
     ) {
         mappingCounter++;
         return this.hydrateMappingRow({
@@ -990,7 +983,6 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             sortOrder,
             sourceType,
             literalValue,
-            defaultValue,
             showSuggestions: false
         });
     }
@@ -1004,11 +996,8 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
             scope,
             sourceType,
             literalValue: row?.literalValue || '',
-            defaultValue: row?.defaultValue || '',
             isIncomingKeySourceType: sourceType === MAPPING_SOURCE_TYPE_INCOMING_KEY,
             isLiteralSourceType: sourceType === MAPPING_SOURCE_TYPE_LITERAL_VALUE,
-            showDefaultValueInput:
-                scope === 'inbound' && sourceType === MAPPING_SOURCE_TYPE_INCOMING_KEY,
             sourceFieldLabel:
                 sourceType === MAPPING_SOURCE_TYPE_LITERAL_VALUE ? 'Literal Value' : 'Incoming Key',
             suggestions,
@@ -1038,8 +1027,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                 row.value || '',
                 Number.isFinite(Number(row.sortOrder)) ? Number(row.sortOrder) : 0,
                 row.sourceType || MAPPING_SOURCE_TYPE_INCOMING_KEY,
-                row.literalValue || '',
-                row.defaultValue || ''
+                row.literalValue || ''
             )
         );
     }
@@ -1096,8 +1084,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                 sortOrder: index + 1,
                 scope: row?.scope || 'inbound',
                 sourceType: this.normalizeMappingSourceType(row?.sourceType),
-                literalValue: (row?.literalValue || '').trim(),
-                defaultValue: (row?.defaultValue || '').trim()
+                literalValue: (row?.literalValue || '').trim()
             }))
             .filter((row) => {
                 if (row.scope === 'outbound') {
@@ -1122,9 +1109,6 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                     serialized.literalValue = row.literalValue;
                 } else {
                     serialized.externalKey = row.externalKey;
-                    if ((row.defaultValue || '') !== '') {
-                        serialized.defaultValue = row.defaultValue;
-                    }
                 }
                 return serialized;
             });
@@ -1204,8 +1188,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
                     row.value,
                     row.sortOrder,
                     effectiveScope === 'outbound' ? MAPPING_SOURCE_TYPE_INCOMING_KEY : sourceType,
-                    effectiveScope === 'outbound' ? '' : row.literalValue,
-                    effectiveScope === 'outbound' ? '' : row.defaultValue
+                    effectiveScope === 'outbound' ? '' : row.literalValue
                 );
             })
             .filter((row) => row !== null);
@@ -1648,11 +1631,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
         if (sourceType === MAPPING_SOURCE_TYPE_LITERAL_VALUE) {
             return !!((row?.literalValue || '').trim() || (row?.value || '').trim());
         }
-        return !!(
-            (row?.externalKey || '').trim() ||
-            (row?.defaultValue || '').trim() ||
-            (row?.value || '').trim()
-        );
+        return !!((row?.externalKey || '').trim() || (row?.value || '').trim());
     }
 
     clearSuggestionState() {
@@ -2213,7 +2192,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     async refreshTriggerFieldNames() {
         try {
             this.availableTriggerFieldNames = await getTriggerFieldNames({
-                objectApiName: DEFAULT_OBJECT_API_NAME
+                objectApiName: this.targetObjectApiName
             });
             if (!this.availableTriggerFieldNames.includes((this.outboundTriggerFieldName || '').trim())) {
                 this.outboundTriggerFieldName = '';
@@ -2234,7 +2213,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
         try {
             this.availableTriggerFieldValues = await getTriggerFieldValues({
-                objectApiName: DEFAULT_OBJECT_API_NAME,
+                objectApiName: this.targetObjectApiName,
                 fieldName: normalizedFieldName
             });
         } catch (error) {

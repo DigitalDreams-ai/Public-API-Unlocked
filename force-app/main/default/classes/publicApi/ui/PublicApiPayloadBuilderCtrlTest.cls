@@ -47,7 +47,7 @@ private class PublicApiPayloadBuilderCtrlTest {
 
         String inboundJson =
             '[' +
-                '{"externalKey":"status","defaultValue":"Queued","value":"$PublicApi_Submission__c.Status__c","sortOrder":1,"sourceType":"IncomingKey"},' +
+                '{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1,"sourceType":"IncomingKey"},' +
                 '{"sourceType":"LiteralValue","literalValue":"application/json","value":"$PublicApi_Submission__c.Request_Content_Type__c","sortOrder":2}' +
             ']';
         String outboundJson =
@@ -154,9 +154,6 @@ private class PublicApiPayloadBuilderCtrlTest {
         );
         insert config;
 
-        String triggerFieldName = selectPreferredTriggerFieldName('PublicApi_Submission__c');
-        String triggerFieldValues = selectValidTriggerValues('PublicApi_Submission__c', triggerFieldName);
-
         PublicApiPayloadBuilderCtrl.savePayloadSettings(
             config.Id,
             true,
@@ -169,8 +166,8 @@ private class PublicApiPayloadBuilderCtrlTest {
                 relatedRecordTypeDeveloperName + '","onMultipleMatches":"Error"' +
             '}',
             true,
-            triggerFieldName,
-            triggerFieldValues,
+            null,
+            null,
             '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
             '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]'
         );

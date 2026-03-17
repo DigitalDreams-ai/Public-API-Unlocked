@@ -176,19 +176,6 @@
                                                                                 </lightning-input>
                                                                             </template>
                                                                         </div>
-                                                                        <div class="slds-col slds-size_4-of-12">
-                                                                            <template if:true={row.showDefaultValueInput}>
-                                                                                <lightning-input
-                                                                                    data-role="mapping-default-value"
-                                                                                    data-scope="inbound"
-                                                                                    data-id={row.id}
-                                                                                    type="text"
-                                                                                    label="Default Value"
-                                                                                    value={row.defaultValue}
-                                                                                    onchange={handleMappingDefaultValueChange}>
-                                                                                </lightning-input>
-                                                                            </template>
-                                                                        </div>
                                                                         <div class="slds-col slds-size_1-of-12 header-row-action">
                                                                             <lightning-button-icon
                                                                                 icon-name="utility:delete"
@@ -201,7 +188,7 @@
                                                                         </div>
                                                                     </div>
                                                                     <div class="slds-grid slds-gutters_x-small slds-m-top_x-small">
-                                                                        <div class="slds-col slds-size_11-of-12">
+                                                                        <div class="slds-col slds-size_1-of-1">
                                                                             <lightning-input
                                                                                 data-role="mapping-value"
                                                                                 data-scope="inbound"
@@ -752,7 +739,7 @@
                                                 <lightning-input
                                                     data-role="trigger-field-name"
                                                     type="text"
-                                                    label="Submission Trigger Field Name"
+                                                    label="Outbound Trigger Field Name"
                                                     value={outboundTriggerFieldName}
                                                     placeholder="Start typing a PublicApi_Submission__c field API name"
                                                     onfocus={handleTriggerFieldFocus}
@@ -775,7 +762,7 @@
                                                             </template>
                                                         </template>
                                                         <template if:false={hasTriggerFieldSuggestions}>
-                                                            <div class="suggestion-empty">No supported trigger fields match the current search.</div>
+                                                            <div class="suggestion-empty">No supported trigger fields match the current target object.</div>
                                                         </template>
                                                     </div>
                                                 </template>
@@ -786,7 +773,7 @@
                                                 <lightning-input
                                                     data-role="trigger-field-values"
                                                     type="text"
-                                                    label="Submission Trigger Field Values"
+                                                    label="Outbound Trigger Field Values"
                                                     value={outboundTriggerFieldValues}
                                                     placeholder="Comma-separate values or pick from suggestions"
                                                     onfocus={handleTriggerValuesFocus}
