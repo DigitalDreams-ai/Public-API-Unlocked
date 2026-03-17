@@ -36,6 +36,7 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertNotEquals(null, initialSettings.defaultInboundJson);
         System.assertNotEquals(null, initialSettings.defaultOutboundJson);
         System.assertNotEquals(null, initialSettings.availableTargetRecordTypeDeveloperNames);
+        System.assertNotEquals(null, initialSettings.availableRequiredInboundFieldNames);
 
         String targetRecordTypeDeveloperName = selectPreferredRecordTypeDeveloperName('PublicApi_Submission__c');
         String relatedRecordTypeDeveloperName =
@@ -45,7 +46,10 @@ private class PublicApiPayloadBuilderCtrlTest {
             : '"createRecordTypeDeveloperName":"' + relatedRecordTypeDeveloperName + '",';
 
         String inboundJson =
-            '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]';
+            '[' +
+                '{"externalKey":"status","defaultValue":"Queued","value":"$PublicApi_Submission__c.Status__c","sortOrder":1,"sourceType":"IncomingKey"},' +
+                '{"sourceType":"LiteralValue","literalValue":"application/json","value":"$PublicApi_Submission__c.Request_Content_Type__c","sortOrder":2}' +
+            ']';
         String outboundJson =
             '[{"externalKey":"createdDate","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":1}]';
         String relatedRecordJson =

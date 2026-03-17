@@ -451,7 +451,10 @@ public without sharing class PublicApiPayloadTemplateService {
                 new PublicApiRequestMappingService.MappingConfig(
                     mapping.externalKey,
                     mapping.value,
-                    mapping.sortOrder
+                    mapping.sortOrder,
+                    mapping.sourceType,
+                    mapping.literalValue,
+                    mapping.defaultValue
                 )
             );
         }
@@ -474,16 +477,45 @@ public without sharing class PublicApiPayloadTemplateService {
         for (Integer index = 0; index < safeLeft.size(); index++) {
             PublicApiRequestMappingService.MappingConfig leftRow = safeLeft[index];
             PublicApiRequestMappingService.MappingConfig rightRow = safeRight[index];
-            if (!String.valueOf(leftRow == null ? null : leftRow.externalKey)
-                    .equalsIgnoreCase(String.valueOf(rightRow == null ? null : rightRow.externalKey))) {
+            if (!equalsNullableIgnoreCase(
+                    leftRow == null ? null : leftRow.externalKey,
+                    rightRow == null ? null : rightRow.externalKey
+                )) {
                 return false;
             }
-            if (!String.valueOf(leftRow == null ? null : leftRow.value)
-                    .equalsIgnoreCase(String.valueOf(rightRow == null ? null : rightRow.value))) {
+            if (!equalsNullableIgnoreCase(
+                    leftRow == null ? null : leftRow.value,
+                    rightRow == null ? null : rightRow.value
+                )) {
+                return false;
+            }
+            if (!equalsNullableIgnoreCase(
+                    leftRow == null ? null : leftRow.sourceType,
+                    rightRow == null ? null : rightRow.sourceType
+                )) {
+                return false;
+            }
+            if (!equalsNullableIgnoreCase(
+                    leftRow == null ? null : leftRow.literalValue,
+                    rightRow == null ? null : rightRow.literalValue
+                )) {
+                return false;
+            }
+            if (!equalsNullableIgnoreCase(
+                    leftRow == null ? null : leftRow.defaultValue,
+                    rightRow == null ? null : rightRow.defaultValue
+                )) {
                 return false;
             }
         }
         return true;
+    }
+
+    private static Boolean equalsNullableIgnoreCase(String left, String right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.equalsIgnoreCase(right);
     }
 
     private class MappingSortComparator implements Comparator<PublicApiRequestMappingService.MappingConfig> {
