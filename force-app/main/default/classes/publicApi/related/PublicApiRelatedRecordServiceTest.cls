@@ -92,13 +92,18 @@ private class PublicApiRelatedRecordServiceTest {
             'accountName' => 'Configured Related Account',
             'accountLastName' => 'Configured Related Account'
         };
+        String configuredRecordTypeSegment =
+            businessRecordTypeId == null
+                ? ''
+                : '"createRecordTypeDeveloperName":"Business",';
 
         PublicApiRelatedRecordService.applyRelatedRecordRules(
             target,
             payload,
             '{' +
                 '"targetLookupField":"AccountId","relatedObjectApiName":"Account","matchFieldName":"Name",' +
-                '"sourceKey":"accountName","createIfMissing":true,"createRecordTypeDeveloperName":"Business",' +
+                '"sourceKey":"accountName","createIfMissing":true,' +
+                configuredRecordTypeSegment +
                 '"onMultipleMatches":"Error"' +
             '}'
         );
