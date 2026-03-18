@@ -97,7 +97,8 @@ public without sharing class PublicApiOutboundRequestEventService {
             PublicApi_Webhook_Delivery__c deliveryRecord = PublicApiWebhookDeliveryRecordService.buildDeliveryRecord(
                 configId,
                 submissionRecord.Id,
-                PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME,
+                payloadRecordId,
+                normalizePayloadObjectApiName(submissionRecord, config),
                 currentValue,
                 config.statusUpdateWebhookUrl,
                 outcome == null ? null : outcome.payloadJson,

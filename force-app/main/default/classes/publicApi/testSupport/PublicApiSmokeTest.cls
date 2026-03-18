@@ -261,7 +261,7 @@ private class PublicApiSmokeTest {
                 API_Key__c = 'smoke-task-related-webhook',
                 Target_Object_API_Name__c = 'Task',
                 Outbound_Webhook_URL__c = 'https://example.com/task-webhook',
-                Outbound_Trigger_Field_Name__c = 'Status__c',
+                Outbound_Trigger_Field_Name__c = 'Subject',
                 Outbound_Trigger_Field_Values__c = 'Converted',
                 Inbound_Payload_Configuration__c =
                     '[' +
@@ -295,8 +295,16 @@ private class PublicApiSmokeTest {
         );
         Test.getEventBus().deliver();
         taskId = getTargetRecordId(submissionId);
-        update new Task(Id = taskId, Status = 'Completed');
-        update new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted');
+        update new Task(Id = taskId, Status = 'Completed', Subject = 'Converted');
+        PublicApiOutboundStatusAction.Request outboundRequest = new PublicApiOutboundStatusAction.Request();
+        outboundRequest.recordId = taskId;
+        outboundRequest.configId = config.Id;
+        outboundRequest.previousStatus = 'Deferred Task';
+        outboundRequest.currentStatus = 'Converted';
+        outboundRequest.changedAt = System.now();
+        PublicApiOutboundStatusAction.enqueue(
+            new List<PublicApiOutboundStatusAction.Request>{ outboundRequest }
+        );
         Test.getEventBus().deliver();
         Test.stopTest();
 
@@ -324,7 +332,8 @@ private class PublicApiSmokeTest {
         System.assertEquals(1, deliveries.size());
         System.assertEquals('Success', deliveries[0].Status__c);
         System.assertEquals('Converted', deliveries[0].Triggered_Status__c);
-        System.assertEquals('PublicApi_Submission__c', deliveries[0].Source_Object_API_Name__c);
+        System.assertEquals('Task', deliveries[0].Source_Object_API_Name__c);
+        System.assertEquals(taskId, deliveries[0].Source_Record_Id__c);
         System.assert(String.valueOf(deliveries[0].Request_JSON__c).contains('"status":"Completed"'));
     }
 
@@ -552,6 +561,8 @@ private class PublicApiSmokeTest {
                 API_Key__c = 'smoke-account-outbound-a',
                 Target_Object_API_Name__c = 'Task',
                 Outbound_Webhook_URL__c = 'https://example.com/account-a',
+                Outbound_Trigger_Field_Name__c = 'Subject',
+                Outbound_Trigger_Field_Values__c = 'Triggered A',
                 Inbound_Payload_Configuration__c =
                     '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]',
                 Outbound_Payload_Configuration__c =
@@ -565,6 +576,8 @@ private class PublicApiSmokeTest {
                 API_Key__c = 'smoke-account-outbound-b',
                 Target_Object_API_Name__c = 'Task',
                 Outbound_Webhook_URL__c = 'https://example.com/account-b',
+                Outbound_Trigger_Field_Name__c = 'Subject',
+                Outbound_Trigger_Field_Values__c = 'Triggered B',
                 Inbound_Payload_Configuration__c =
                     '[' +
                         '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1},' +
@@ -588,6 +601,26 @@ private class PublicApiSmokeTest {
             new Map<String, Object>{ 'subject' => 'Scenario Task B', 'priority' => 'High' }
         );
         Test.getEventBus().deliver();
+        Id taskIdA = getTargetRecordId(submissionIdA);
+        Id taskIdB = getTargetRecordId(submissionIdB);
+        update new Task(Id = taskIdA, Subject = 'Triggered A');
+        update new Task(Id = taskIdB, Subject = 'Triggered B', Priority = 'High');
+
+        PublicApiOutboundStatusAction.Request requestA = new PublicApiOutboundStatusAction.Request();
+        requestA.recordId = taskIdA;
+        requestA.configId = configA.Id;
+        requestA.previousStatus = 'Scenario Task A';
+        requestA.currentStatus = 'Triggered A';
+        requestA.changedAt = System.now();
+
+        PublicApiOutboundStatusAction.Request requestB = new PublicApiOutboundStatusAction.Request();
+        requestB.recordId = taskIdB;
+        requestB.configId = configB.Id;
+        requestB.previousStatus = 'Scenario Task B';
+        requestB.currentStatus = 'Triggered B';
+        requestB.changedAt = System.now();
+
+        PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ requestA, requestB });
         Test.getEventBus().deliver();
         Test.stopTest();
 
@@ -599,8 +632,8 @@ private class PublicApiSmokeTest {
         ];
         System.assertEquals(2, deliveries.size());
         System.assertEquals(2, capturedEndpoints.size());
-        System.assertEquals('PublicApi_Submission__c', deliveries[0].Source_Object_API_Name__c);
-        System.assertEquals('PublicApi_Submission__c', deliveries[1].Source_Object_API_Name__c);
+        System.assertEquals('Task', deliveries[0].Source_Object_API_Name__c);
+        System.assertEquals('Task', deliveries[1].Source_Object_API_Name__c);
         System.assert(
             String.valueOf(deliveries[0].Request_JSON__c).contains('"subject"') &&
             String.valueOf(deliveries[1].Request_JSON__c).contains('"subject"')

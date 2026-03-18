@@ -26,8 +26,8 @@ private class PublicApiPayloadBuilderCtrlTest {
         );
         insert config;
 
-        String triggerFieldName = selectPreferredTriggerFieldName('PublicApi_Submission__c');
-        String triggerFieldValues = selectValidTriggerValues('PublicApi_Submission__c', triggerFieldName);
+        String triggerFieldName = selectPreferredTriggerFieldName('Task');
+        String triggerFieldValues = selectValidTriggerValues('Task', triggerFieldName);
 
         PublicApiPayloadBuilderCtrl.PayloadSettings initialSettings =
             PublicApiPayloadBuilderCtrl.getPayloadSettings(config.Id);
@@ -38,33 +38,33 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertNotEquals(null, initialSettings.availableTargetRecordTypeDeveloperNames);
         System.assertNotEquals(null, initialSettings.availableRequiredInboundFieldNames);
 
-        String targetRecordTypeDeveloperName = selectPreferredRecordTypeDeveloperName('PublicApi_Submission__c');
+        String targetRecordTypeDeveloperName = selectPreferredRecordTypeDeveloperName('Task');
         String relatedRecordTypeDeveloperName =
-            selectPreferredRecordTypeDeveloperName('PublicApi_Integration_Config__c');
+            selectPreferredRecordTypeDeveloperName('Account');
         String relatedRecordTypeSegment = String.isBlank(relatedRecordTypeDeveloperName)
             ? ''
             : '"createRecordTypeDeveloperName":"' + relatedRecordTypeDeveloperName + '",';
 
         String inboundJson =
             '[' +
-                '{"externalKey":"status","defaultValue":"Queued","value":"$PublicApi_Submission__c.Status__c","sortOrder":1,"sourceType":"IncomingKey"},' +
-                '{"sourceType":"LiteralValue","literalValue":"application/json","value":"$PublicApi_Submission__c.Request_Content_Type__c","sortOrder":2}' +
+                '{"externalKey":"subject","value":"$Task.Subject","sortOrder":1,"sourceType":"IncomingKey"},' +
+                '{"sourceType":"LiteralValue","literalValue":"Normal","value":"$Task.Priority","sortOrder":2}' +
             ']';
         String outboundJson =
-            '[{"externalKey":"createdDate","value":"$PublicApi_Submission__c.CreatedDate","sortOrder":1}]';
+            '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]';
         String relatedRecordJson =
             '{' +
-                '"targetLookupField":"PublicApi_Integration_Config__c","relatedObjectApiName":"PublicApi_Integration_Config__c",' +
-                '"matchFieldName":"API_Key__c","sourceKey":"configKey","createIfMissing":true,"onMultipleMatches":"Error",' +
+                '"targetLookupField":"WhatId","relatedObjectApiName":"Account",' +
+                '"matchFieldName":"Name","sourceKey":"accountName","createIfMissing":true,"onMultipleMatches":"Error",' +
                 relatedRecordTypeSegment +
-                '"createMappings":[{"sourceKey":"configKey","fieldName":"API_Key__c"}]' +
+                '"createMappings":[{"sourceKey":"accountName","fieldName":"Name"}]' +
             '}';
 
         PublicApiPayloadBuilderCtrl.savePayloadSettings(
             config.Id,
             false,
             '/payload-builder-updated',
-            'PublicApi_Submission__c',
+            'Task',
             targetRecordTypeDeveloperName,
             relatedRecordJson,
             true,
@@ -95,22 +95,22 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertEquals(triggerFieldName, updated.Outbound_Trigger_Field_Name__c);
         System.assertEquals(triggerFieldValues, updated.Outbound_Trigger_Field_Values__c);
         System.assertEquals(relatedRecordJson, updated.Related_Record_Configuration__c);
-        System.assertEquals('PublicApi_Submission__c', updated.Target_Object_API_Name__c);
+        System.assertEquals('Task', updated.Target_Object_API_Name__c);
         System.assertEquals(targetRecordTypeDeveloperName, updated.Target_Record_Type_Developer_Name__c);
         System.assertEquals(false, updated.Sync_Inbound_And_Outbound__c);
     }
 
     @IsTest
     static void testGetTriggerMetadata() {
-        List<String> fieldNames = PublicApiPayloadBuilderCtrl.getTriggerFieldNames('PublicApi_Submission__c');
+        List<String> fieldNames = PublicApiPayloadBuilderCtrl.getTriggerFieldNames('Task');
         System.assertEquals(true, fieldNames.size() > 0);
-        System.assertEquals(true, fieldNames.contains(selectPreferredTriggerFieldName('PublicApi_Submission__c')));
+        System.assertEquals(true, fieldNames.contains(selectPreferredTriggerFieldName('Task')));
 
         String constrainedTriggerFieldName =
-            selectValueConstrainedTriggerFieldName('PublicApi_Submission__c');
+            selectValueConstrainedTriggerFieldName('Task');
         if (constrainedTriggerFieldName != null) {
             List<String> fieldValues = PublicApiPayloadBuilderCtrl.getTriggerFieldValues(
-                'PublicApi_Submission__c',
+                'Task',
                 constrainedTriggerFieldName
             );
             System.assertEquals(true, fieldValues.size() > 0);
@@ -154,8 +154,8 @@ private class PublicApiPayloadBuilderCtrlTest {
         );
         insert config;
 
-        String triggerFieldName = selectPreferredTriggerFieldName('PublicApi_Submission__c');
-        String triggerFieldValues = selectValidTriggerValues('PublicApi_Submission__c', triggerFieldName);
+        String triggerFieldName = selectPreferredTriggerFieldName('Task');
+        String triggerFieldValues = selectValidTriggerValues('Task', triggerFieldName);
 
         PublicApiPayloadBuilderCtrl.savePayloadSettings(
             config.Id,
@@ -191,11 +191,14 @@ private class PublicApiPayloadBuilderCtrlTest {
         if (fieldNames.contains('Processing_Status__c')) {
             return 'Processing_Status__c';
         }
-        if (fieldNames.contains('Created_By_PublicApi_API__c')) {
-            return 'Created_By_PublicApi_API__c';
+        if (fieldNames.contains('Status')) {
+            return 'Status';
         }
         if (fieldNames.contains('Status__c')) {
             return 'Status__c';
+        }
+        if (fieldNames.contains('Priority')) {
+            return 'Priority';
         }
         return fieldNames[0];
     }
@@ -293,8 +296,8 @@ private class PublicApiPayloadBuilderCtrlTest {
                 null,
                 null,
                 true,
-                'Status__c',
-                'Converted',
+                'Status',
+                'Completed',
                 '{ bad }',
                 '[]'
             );
