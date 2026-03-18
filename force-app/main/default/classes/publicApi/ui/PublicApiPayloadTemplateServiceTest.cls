@@ -81,6 +81,12 @@ private class PublicApiPayloadTemplateServiceTest {
         System.assertEquals(true, fieldNames.contains(selectPreferredTriggerFieldName('PublicApi_Submission__c')));
         System.assertEquals(false, fieldNames.contains('CreatedDate'));
 
+        List<String> processingStatusValues = PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(
+            'PublicApi_Submission__c',
+            'Processing_Status__c'
+        );
+        System.assertEquals(true, processingStatusValues.contains(PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED));
+
         String constrainedTriggerFieldName =
             selectValueConstrainedTriggerFieldName('PublicApi_Submission__c');
         if (constrainedTriggerFieldName != null) {
@@ -124,6 +130,9 @@ private class PublicApiPayloadTemplateServiceTest {
     private static String selectPreferredTriggerFieldName(String objectApiName) {
         List<String> fieldNames = PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(objectApiName);
         System.assertEquals(true, fieldNames.size() > 0, 'Expected at least one trigger field.');
+        if (fieldNames.contains('Processing_Status__c')) {
+            return 'Processing_Status__c';
+        }
         if (fieldNames.contains('Created_By_PublicApi_API__c')) {
             return 'Created_By_PublicApi_API__c';
         }

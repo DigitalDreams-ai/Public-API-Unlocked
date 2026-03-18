@@ -1,5 +1,19 @@
 public without sharing class PublicApiPayloadTemplateService {
     @TestVisible static final String SUBMISSION_OBJECT_API_NAME = 'PublicApi_Submission__c';
+    @TestVisible static final List<String> SUBMISSION_PROCESSING_STATUS_VALUES =
+        new List<String>{
+            PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
+            PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED,
+            PublicApiSubmissionService.AUDIT_STATUS_FAILED
+        };
+    @TestVisible static final List<String> SUBMISSION_RELATED_STATUS_VALUES =
+        new List<String>{
+            PublicApiSubmissionService.RELATED_STATUS_NOT_CONFIGURED,
+            PublicApiSubmissionService.RELATED_STATUS_PENDING_PROCESSING,
+            PublicApiSubmissionService.RELATED_STATUS_IMMEDIATE_PROCESSED,
+            'DeferredCompleted',
+            'DeferredFailed'
+        };
 
     @TestVisible
     static final List<PublicApiRequestMappingService.MappingConfig> DEFAULT_INBOUND_MAPPINGS =
@@ -103,6 +117,14 @@ public without sharing class PublicApiPayloadTemplateService {
         Schema.DescribeFieldResult describe = resolveFieldDescribe(objectApiName, fieldName);
         if (describe == null) {
             return new List<String>();
+        }
+
+        if (isSubmissionProcessingStatusField(objectApiName, fieldName)) {
+            return new List<String>(SUBMISSION_PROCESSING_STATUS_VALUES);
+        }
+
+        if (isSubmissionRelatedStatusField(objectApiName, fieldName)) {
+            return new List<String>(SUBMISSION_RELATED_STATUS_VALUES);
         }
 
         List<String> values = new List<String>();
@@ -412,6 +434,24 @@ public without sharing class PublicApiPayloadTemplateService {
             }
         }
         return null;
+    }
+
+    private static Boolean isSubmissionProcessingStatusField(String objectApiName, String fieldName) {
+        return SUBMISSION_OBJECT_API_NAME == normalizeObjectApiName(objectApiName) &&
+            'processing_status__c' == normalizeFieldApiName(fieldName);
+    }
+
+    private static Boolean isSubmissionRelatedStatusField(String objectApiName, String fieldName) {
+        return SUBMISSION_OBJECT_API_NAME == normalizeObjectApiName(objectApiName) &&
+            'related_record_status__c' == normalizeFieldApiName(fieldName);
+    }
+
+    private static String normalizeObjectApiName(String objectApiName) {
+        return String.isBlank(objectApiName) ? null : objectApiName.trim();
+    }
+
+    private static String normalizeFieldApiName(String fieldName) {
+        return String.isBlank(fieldName) ? null : fieldName.trim().toLowerCase();
     }
 
     private static Schema.DescribeFieldResult resolveFieldDescribe(String objectApiName, String fieldName) {
