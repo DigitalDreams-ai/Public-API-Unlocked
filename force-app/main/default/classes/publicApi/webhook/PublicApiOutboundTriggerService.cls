@@ -1,9 +1,9 @@
 public without sharing class PublicApiOutboundTriggerService {
     @TestVisible
-    static final String DEFAULT_TRIGGER_FIELD_NAME = 'Status__c';
+    static final String DEFAULT_TRIGGER_FIELD_NAME = 'Processing_Status__c';
 
     @TestVisible
-    static final Set<String> DEFAULT_TRIGGER_FIELD_VALUES = new Set<String>{ 'Referred Out', 'Converted' };
+    static final Set<String> DEFAULT_TRIGGER_FIELD_VALUES = new Set<String>{ 'Succeeded' };
 
     @TestVisible
     static Set<String> processedEventKeys = new Set<String>();

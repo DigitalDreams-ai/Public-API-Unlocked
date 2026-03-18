@@ -1,4 +1,6 @@
 public with sharing class PublicApiPayloadBuilderCtrl {
+    @TestVisible static final String SUBMISSION_OBJECT_API_NAME = PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME;
+
     public class PayloadSettings {
         @AuraEnabled public String endpointPath;
         @AuraEnabled public Boolean syncInboundAndOutbound;
@@ -206,18 +208,15 @@ public with sharing class PublicApiPayloadBuilderCtrl {
 
     @AuraEnabled(cacheable=true)
     public static List<String> getTriggerFieldNames(String objectApiName) {
-        if (String.isBlank(objectApiName)) {
-            return new List<String>();
-        }
-        return PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(objectApiName.trim());
+        return PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(SUBMISSION_OBJECT_API_NAME);
     }
 
     @AuraEnabled(cacheable=true)
     public static List<String> getTriggerFieldValues(String objectApiName, String fieldName) {
-        if (String.isBlank(objectApiName) || String.isBlank(fieldName)) {
+        if (String.isBlank(fieldName)) {
             return new List<String>();
         }
-        return PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(objectApiName.trim(), fieldName.trim());
+        return PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(SUBMISSION_OBJECT_API_NAME, fieldName.trim());
     }
 
     @AuraEnabled
@@ -250,7 +249,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         validateRelatedRecordConfigurationJson(relatedRecordConfigurationJson, normalizedTargetObjectApiName);
         validateRecordTypeConfiguration(normalizedTargetObjectApiName, normalizedTargetRecordTypeDeveloperName);
         validateTriggerFieldConfiguration(
-            PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME,
+            SUBMISSION_OBJECT_API_NAME,
             normalizedTriggerFieldName,
             outboundTriggerFieldValues
         );
@@ -408,11 +407,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         return normalized;
     }
 
-    private static void validateTriggerFieldConfiguration(
-        String targetObjectApiName,
-        String fieldName,
-        String rawValues
-    ) {
+    private static void validateTriggerFieldConfiguration(String targetObjectApiName, String fieldName, String rawValues) {
         if (String.isBlank(fieldName)) {
             return;
         }
@@ -420,7 +415,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         List<String> availableFieldNames =
             PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(targetObjectApiName);
         if (!availableFieldNames.contains(fieldName)) {
-            throwAuraException('Select a valid outbound trigger field name for the target object.');
+            throwAuraException('Select a valid outbound trigger field name on PublicApi_Submission__c.');
         }
 
         List<String> suggestedValues =

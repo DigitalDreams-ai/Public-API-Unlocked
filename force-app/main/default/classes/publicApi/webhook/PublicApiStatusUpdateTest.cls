@@ -32,19 +32,19 @@ private class PublicApiStatusUpdateTest {
             API_Key__c = 'status-test-key-1',
             Outbound_Webhook_URL__c = 'https://example.com/webhook',
             Outbound_Payload_Configuration__c =
-                '[{"externalKey":"status","value":"$PublicApi_Submission__c.Status__c","sortOrder":1}]'
+                '[{"externalKey":"processingStatus","value":"$PublicApi_Submission__c.Processing_Status__c","sortOrder":1}]'
         );
         PublicApiTestConfigFactory.insertConfig(config);
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            Status__c = 'New',
+            Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
             Created_By_PublicApi_API__c = true,
             PublicApi_Integration_Config__c = config.Id
         );
         insert submission;
 
         Test.startTest();
-        submission.Status__c = 'Converted';
+        submission.Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
         update submission;
         Test.getEventBus().deliver();
         Test.stopTest();
@@ -56,7 +56,7 @@ private class PublicApiStatusUpdateTest {
         ];
         System.assertEquals(1, deliveries.size());
         System.assertEquals('Success', deliveries[0].Status__c);
-        System.assertEquals('Converted', deliveries[0].Triggered_Status__c);
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED, deliveries[0].Triggered_Status__c);
         System.assertEquals(200, deliveries[0].Status_Code__c);
     }
 
@@ -74,14 +74,17 @@ private class PublicApiStatusUpdateTest {
         PublicApiTestConfigFactory.insertConfig(config);
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            Status__c = 'New',
+            Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
             Created_By_PublicApi_API__c = true,
             PublicApi_Integration_Config__c = config.Id
         );
         insert submission;
 
         Test.startTest();
-        update new PublicApi_Submission__c(Id = submission.Id, Status__c = 'Referred Out');
+        update new PublicApi_Submission__c(
+            Id = submission.Id,
+            Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED
+        );
         Test.getEventBus().deliver();
         Test.stopTest();
 
@@ -116,14 +119,17 @@ private class PublicApiStatusUpdateTest {
         PublicApiTestConfigFactory.insertConfig(config);
 
         PublicApi_Submission__c submission = new PublicApi_Submission__c(
-            Status__c = 'New',
+            Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
             Created_By_PublicApi_API__c = true,
             PublicApi_Integration_Config__c = config.Id
         );
         insert submission;
 
         Test.startTest();
-        update new PublicApi_Submission__c(Id = submission.Id, Status__c = 'Converted');
+        update new PublicApi_Submission__c(
+            Id = submission.Id,
+            Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED
+        );
         Test.getEventBus().deliver();
         Test.stopTest();
 

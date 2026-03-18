@@ -25,7 +25,7 @@ private class PublicApiOutboundStatusActionTest {
     }
 
     @IsTest
-    static void testInvocablePublishesOutboundForSubmissionRecord() {
+    static void testNormalizedRequestsDriveOutboundForSubmissionRecord() {
         Test.setMock(HttpCalloutMock.class, new WebhookOnlyMock());
 
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
@@ -53,13 +53,28 @@ private class PublicApiOutboundStatusActionTest {
         PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
         request.recordId = submission.Id;
         request.configId = config.Id;
-        request.previousStatus = 'Open';
-        request.currentStatus = 'Converted';
+        request.previousStatus = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED;
+        request.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
         request.changedAt = System.now();
 
+        List<PublicApiOutboundTriggerService.ChangeRequest> normalizedRequests =
+            PublicApiOutboundStatusAction.normalizeRequests(
+                new List<PublicApiOutboundStatusAction.Request>{ request }
+            );
+        PublicApiOutboundStatusAction.validateSubmissionBackedRequests(normalizedRequests);
+
         Test.startTest();
-        PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
-        Test.getEventBus().deliver();
+        PublicApiOutboundRequestEventService.processRequests(
+            new List<PublicApiOutboundRequestQueueable.RequestItem>{
+                new PublicApiOutboundRequestQueueable.RequestItem(
+                    normalizedRequests[0].recordId,
+                    normalizedRequests[0].configId,
+                    normalizedRequests[0].previousValue,
+                    normalizedRequests[0].currentValue,
+                    normalizedRequests[0].changedAt
+                )
+            }
+        );
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
@@ -81,12 +96,47 @@ private class PublicApiOutboundStatusActionTest {
             deliveries[0].Status__c,
             'Delivery failed. Error code: ' + deliveries[0].Error_Code__c + ' Response: ' + deliveries[0].Response_JSON__c
         );
-        System.assertEquals('Converted', deliveries[0].Triggered_Status__c);
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED, deliveries[0].Triggered_Status__c);
         System.assertEquals(200, deliveries[0].Status_Code__c);
         System.assertEquals(submission.Id, deliveries[0].Submission__c);
         System.assertEquals(submission.Id, deliveries[0].Source_Record_Id__c);
         System.assertEquals('PublicApi_Submission__c', deliveries[0].Source_Object_API_Name__c);
         System.assert(String.valueOf(deliveries[0].Request_JSON__c).contains('Acme Status Record'));
+    }
+
+    @IsTest
+    static void testNormalizeRequestsSkipsIncompleteRows() {
+        Id configId = PublicApiTestConfigFactory.insertConfig(
+            new PublicApi_Integration_Config__c(
+                Is_Active__c = true,
+                API_Key__c = 'normalize-requests-key',
+                Outbound_Webhook_URL__c = 'https://example.com/webhook'
+            )
+        ).Id;
+        PublicApi_Submission__c submission = new PublicApi_Submission__c(
+            Created_By_PublicApi_API__c = true,
+            PublicApi_Integration_Config__c = configId
+        );
+        insert submission;
+
+        PublicApiOutboundStatusAction.Request validRequest = new PublicApiOutboundStatusAction.Request();
+        validRequest.recordId = submission.Id;
+        validRequest.configId = configId;
+        validRequest.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
+
+        PublicApiOutboundStatusAction.Request missingConfig = new PublicApiOutboundStatusAction.Request();
+        missingConfig.recordId = submission.Id;
+        missingConfig.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
+
+        List<PublicApiOutboundTriggerService.ChangeRequest> normalizedRequests =
+            PublicApiOutboundStatusAction.normalizeRequests(
+                new List<PublicApiOutboundStatusAction.Request>{ validRequest, missingConfig }
+            );
+
+        System.assertEquals(1, normalizedRequests.size());
+        System.assertEquals(validRequest.recordId, normalizedRequests[0].recordId);
+        System.assertEquals(validRequest.configId, normalizedRequests[0].configId);
+        System.assertEquals(validRequest.currentStatus, normalizedRequests[0].currentValue);
     }
 
     @IsTest
@@ -129,7 +179,7 @@ private class PublicApiOutboundStatusActionTest {
             PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
             System.assert(false, 'Expected mismatched config to be rejected.');
         } catch (PublicApiSubmissionServiceException e) {
-            System.assert(e.getMessage().contains('does not match the submission-linked'));
+            System.assert(e.getMessage().contains('must match the Public API Integration Config linked'));
         }
 
         System.assertEquals(
