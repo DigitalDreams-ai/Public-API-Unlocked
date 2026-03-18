@@ -155,10 +155,6 @@ private class PublicApiSmokeTest {
             new Map<String, Object>{ 'status' => 'New' }
         );
         Test.getEventBus().deliver();
-        update new List<PublicApi_Submission__c>{
-            new PublicApi_Submission__c(Id = firstSubmissionId, Status__c = 'Converted'),
-            new PublicApi_Submission__c(Id = secondSubmissionId, Status__c = 'Converted')
-        };
         Test.getEventBus().deliver();
         Test.stopTest();
 
@@ -449,11 +445,6 @@ private class PublicApiSmokeTest {
             submissionIds.add(createSubmission(config.API_Key__c, new Map<String, Object>{ 'status' => 'New' }));
         }
         Test.getEventBus().deliver();
-        List<PublicApi_Submission__c> submissionUpdates = new List<PublicApi_Submission__c>();
-        for (Id submissionId : submissionIds) {
-            submissionUpdates.add(new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted'));
-        }
-        update submissionUpdates;
         Test.getEventBus().deliver();
         Test.stopTest();
 
@@ -493,7 +484,6 @@ private class PublicApiSmokeTest {
             new Map<String, Object>{ 'status' => 'New' }
         );
         Test.getEventBus().deliver();
-        update new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted');
         Test.getEventBus().deliver();
         Test.stopTest();
 
@@ -536,7 +526,6 @@ private class PublicApiSmokeTest {
             new Map<String, Object>{ 'status' => 'New' }
         );
         Test.getEventBus().deliver();
-        update new PublicApi_Submission__c(Id = submissionId, Status__c = 'Converted');
         Test.getEventBus().deliver();
         Test.stopTest();
 
@@ -599,10 +588,6 @@ private class PublicApiSmokeTest {
             new Map<String, Object>{ 'subject' => 'Scenario Task B', 'priority' => 'High' }
         );
         Test.getEventBus().deliver();
-        update new List<PublicApi_Submission__c>{
-            new PublicApi_Submission__c(Id = submissionIdA, Status__c = 'Converted'),
-            new PublicApi_Submission__c(Id = submissionIdB, Status__c = 'Converted')
-        };
         Test.getEventBus().deliver();
         Test.stopTest();
 
