@@ -25,8 +25,19 @@ public without sharing class PublicApiOutboundStatusAction {
             return;
         }
 
+        List<PublicApiOutboundTriggerService.ChangeRequest> normalizedRequests = normalizeRequests(requests);
+        validateSubmissionBackedRequests(normalizedRequests);
+        PublicApiOutboundTriggerService.enqueueFieldChanges(normalizedRequests);
+    }
+
+    @TestVisible
+    static List<PublicApiOutboundTriggerService.ChangeRequest> normalizeRequests(List<Request> requests) {
         List<PublicApiOutboundTriggerService.ChangeRequest> normalizedRequests =
             new List<PublicApiOutboundTriggerService.ChangeRequest>();
+        if (requests == null) {
+            return normalizedRequests;
+        }
+
         for (Request request : requests) {
             if (request == null || request.recordId == null || request.configId == null) {
                 continue;
@@ -39,8 +50,7 @@ public without sharing class PublicApiOutboundStatusAction {
                 request.changedAt
             ));
         }
-        validateSubmissionBackedRequests(normalizedRequests);
-        PublicApiOutboundTriggerService.enqueueFieldChanges(normalizedRequests);
+        return normalizedRequests;
     }
 
     @TestVisible
@@ -71,6 +81,11 @@ public without sharing class PublicApiOutboundStatusAction {
                 linkedConfigIdBySubmissionId.get(request.recordId) == null) {
                 throw new PublicApiSubmissionServiceException(
                     'Outbound request recordId must reference a PublicApi_Submission__c record linked to a Public API Integration Config.'
+                );
+            }
+            if (request.configId != null && linkedConfigIdBySubmissionId.get(request.recordId) != request.configId) {
+                throw new PublicApiSubmissionServiceException(
+                    'Outbound request configId must match the Public API Integration Config linked to the submission record.'
                 );
             }
         }

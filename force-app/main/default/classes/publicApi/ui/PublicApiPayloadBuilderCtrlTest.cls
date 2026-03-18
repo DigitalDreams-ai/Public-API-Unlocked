@@ -188,6 +188,9 @@ private class PublicApiPayloadBuilderCtrlTest {
     private static String selectPreferredTriggerFieldName(String objectApiName) {
         List<String> fieldNames = PublicApiPayloadBuilderCtrl.getTriggerFieldNames(objectApiName);
         System.assertEquals(true, fieldNames.size() > 0, 'Expected at least one trigger field.');
+        if (fieldNames.contains('Processing_Status__c')) {
+            return 'Processing_Status__c';
+        }
         if (fieldNames.contains('Created_By_PublicApi_API__c')) {
             return 'Created_By_PublicApi_API__c';
         }
