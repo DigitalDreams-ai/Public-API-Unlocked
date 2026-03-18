@@ -11,7 +11,7 @@ private class PublicApiOutboundRequestEventServiceTest {
     }
 
     @IsTest
-    static void testPublishesOutboundDeliveryFromSubmissionToTargetRecord() {
+    static void testProcessRequestsPublishesOutboundDeliveryFromSubmissionToTargetRecord() {
         Test.setMock(HttpCalloutMock.class, new WebhookMock());
 
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
@@ -37,18 +37,17 @@ private class PublicApiOutboundRequestEventServiceTest {
         insert submission;
 
         Test.startTest();
-        PublicApiOutboundRequestEventService.publishRequests(
-            new List<PublicApiOutboundTriggerService.ChangeRequest>{
-                new PublicApiOutboundTriggerService.ChangeRequest(
+        PublicApiOutboundRequestEventService.processRequests(
+            new List<PublicApiOutboundRequestQueueable.RequestItem>{
+                new PublicApiOutboundRequestQueueable.RequestItem(
                     submission.Id,
                     config.Id,
-                    'New',
-                    'Converted',
+                    PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
+                    PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED,
                     System.now()
                 )
             }
         );
-        Test.getEventBus().deliver();
         Test.stopTest();
 
         PublicApi_Webhook_Delivery__c delivery = [
@@ -60,12 +59,12 @@ private class PublicApiOutboundRequestEventServiceTest {
         System.assertEquals(submission.Id, delivery.Submission__c);
         System.assertEquals(submission.Id, delivery.Source_Record_Id__c);
         System.assertEquals('PublicApi_Submission__c', delivery.Source_Object_API_Name__c);
-        System.assertEquals('Converted', delivery.Triggered_Status__c);
+        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED, delivery.Triggered_Status__c);
         System.assert(String.valueOf(delivery.Request_JSON__c).contains('Outbound Event Account'));
     }
 
     @IsTest
-    static void testPublishedOutboundEventUsesConfigIdCapturedAtEnqueueTime() {
+    static void testProcessRequestsUsesConfigIdCapturedAtEnqueueTime() {
         Test.setMock(HttpCalloutMock.class, new WebhookMock());
 
         PublicApi_Integration_Config__c originalConfig = new PublicApi_Integration_Config__c(
@@ -101,22 +100,21 @@ private class PublicApiOutboundRequestEventServiceTest {
         insert submission;
 
         Test.startTest();
-        PublicApiOutboundRequestEventService.publishRequests(
-            new List<PublicApiOutboundTriggerService.ChangeRequest>{
-                new PublicApiOutboundTriggerService.ChangeRequest(
-                    submission.Id,
-                    originalConfig.Id,
-                    'New',
-                    'Converted',
-                    System.now()
-                )
-            }
-        );
         update new PublicApi_Submission__c(
             Id = submission.Id,
             PublicApi_Integration_Config__c = relinkedConfig.Id
         );
-        Test.getEventBus().deliver();
+        PublicApiOutboundRequestEventService.processRequests(
+            new List<PublicApiOutboundRequestQueueable.RequestItem>{
+                new PublicApiOutboundRequestQueueable.RequestItem(
+                    submission.Id,
+                    originalConfig.Id,
+                    PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
+                    PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED,
+                    System.now()
+                )
+            }
+        );
         Test.stopTest();
 
         PublicApi_Webhook_Delivery__c delivery = [
@@ -131,7 +129,7 @@ private class PublicApiOutboundRequestEventServiceTest {
     }
 
     @IsTest
-    static void testLogsFailedDeliveryWhenTargetRecordCannotBeResolved() {
+    static void testProcessRequestsLogsFailedDeliveryWhenTargetRecordCannotBeResolved() {
         Test.setMock(HttpCalloutMock.class, new WebhookMock());
 
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
@@ -153,18 +151,17 @@ private class PublicApiOutboundRequestEventServiceTest {
         insert submission;
 
         Test.startTest();
-        PublicApiOutboundRequestEventService.publishRequests(
-            new List<PublicApiOutboundTriggerService.ChangeRequest>{
-                new PublicApiOutboundTriggerService.ChangeRequest(
+        PublicApiOutboundRequestEventService.processRequests(
+            new List<PublicApiOutboundRequestQueueable.RequestItem>{
+                new PublicApiOutboundRequestQueueable.RequestItem(
                     submission.Id,
                     config.Id,
-                    'New',
-                    'Converted',
+                    PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
+                    PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED,
                     System.now()
                 )
             }
         );
-        Test.getEventBus().deliver();
         Test.stopTest();
 
         PublicApi_Webhook_Delivery__c delivery = [
@@ -205,8 +202,8 @@ private class PublicApiOutboundRequestEventServiceTest {
                     new PublicApiOutboundTriggerService.ChangeRequest(
                         submission.Id,
                         config.Id,
-                        'New',
-                        'Converted',
+                        PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
+                        PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED,
                         System.now()
                     )
                 }
