@@ -19,6 +19,7 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
     ) {
         PublicApi_Webhook_Delivery__c delivery = buildDeliveryRecord(
             configId,
+            sourceObjectApiName == 'PublicApi_Submission__c' ? sourceRecordId : null,
             sourceRecordId,
             sourceObjectApiName,
             triggeredStatus,
@@ -42,6 +43,7 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
 
     public static PublicApi_Webhook_Delivery__c buildDeliveryRecord(
         Id configId,
+        Id submissionId,
         Id sourceRecordId,
         String sourceObjectApiName,
         String triggeredStatus,
@@ -57,7 +59,7 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
         String responseJson = buildResponseJson(result, attemptedAt);
         return new PublicApi_Webhook_Delivery__c(
             PublicApi_Integration_Config__c = configId,
-            Submission__c = sourceObjectApiName == 'PublicApi_Submission__c' ? sourceRecordId : null,
+            Submission__c = submissionId,
             Source_Record_Id__c = sourceRecordId == null ? null : String.valueOf(sourceRecordId),
             Source_Object_API_Name__c = sourceObjectApiName,
             Triggered_Status__c = triggeredStatus,
@@ -68,6 +70,27 @@ public without sharing class PublicApiWebhookDeliveryRecordService {
             Webhook_URL__c = webhookUrl,
             Request_JSON__c = truncateForLongText(requestJson),
             Response_JSON__c = responseJson
+        );
+    }
+
+    public static PublicApi_Webhook_Delivery__c buildDeliveryRecord(
+        Id configId,
+        Id sourceRecordId,
+        String sourceObjectApiName,
+        String triggeredStatus,
+        String webhookUrl,
+        String requestJson,
+        DeliveryResult result
+    ) {
+        return buildDeliveryRecord(
+            configId,
+            sourceObjectApiName == 'PublicApi_Submission__c' ? sourceRecordId : null,
+            sourceRecordId,
+            sourceObjectApiName,
+            triggeredStatus,
+            webhookUrl,
+            requestJson,
+            result
         );
     }
 
