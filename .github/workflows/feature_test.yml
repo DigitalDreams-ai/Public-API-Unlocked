@@ -25,7 +25,7 @@ jobs:
   apex-and-metadata-scanner:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -33,7 +33,7 @@ jobs:
         run: python scripts/check_dependency_hygiene.py
 
       - name: Use Node.js 20.x
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: "20.x"
 

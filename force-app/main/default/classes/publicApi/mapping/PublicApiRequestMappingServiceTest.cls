@@ -88,11 +88,11 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
-    static void testApplyInboundMappingsUsesDefaultValueWhenIncomingKeyIsMissing() {
+    static void testApplyInboundMappingsLeavesFieldBlankWhenIncomingKeyIsMissing() {
         PublicApi_Submission__c submission = new PublicApi_Submission__c();
         String mappingsJson =
             '[' +
-                '{"externalKey":"missingStatus","defaultValue":"Queued","value":"$PublicApi_Submission__c.Status__c","sortOrder":1,"sourceType":"IncomingKey"}' +
+                '{"externalKey":"missingStatus","value":"$PublicApi_Submission__c.Status__c","sortOrder":1,"sourceType":"IncomingKey"}' +
             ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
@@ -102,7 +102,7 @@ private class PublicApiRequestMappingServiceTest {
             'PublicApi_Submission__c'
         );
 
-        System.assertEquals('Queued', submission.Status__c);
+        System.assertEquals(null, submission.Status__c);
     }
 
     @IsTest
@@ -121,6 +121,48 @@ private class PublicApiRequestMappingServiceTest {
         );
 
         System.assertEquals('Manual', submission.Status__c);
+    }
+
+    @IsTest
+    static void testApplyInboundMappingsResolvesLookupLiteralValueByName() {
+        Account accountRecord = createAccount('Literal Lookup Account');
+        insert accountRecord;
+
+        Account childAccount = createAccount('Child Lookup Account');
+        String mappingsJson =
+            '[' +
+                '{"sourceType":"LiteralValue","literalValue":"Literal Lookup Account","value":"$Account.ParentId","sortOrder":1}' +
+            ']';
+
+        PublicApiRequestMappingService.applyInboundMappings(
+            childAccount,
+            new Map<String, Object>{ 'ignored' => 'value' },
+            mappingsJson,
+            'Account'
+        );
+
+        System.assertEquals(accountRecord.Id, childAccount.ParentId);
+    }
+
+    @IsTest
+    static void testApplyInboundMappingsRejectsUnmatchedLookupLiteralValue() {
+        Account childAccount = createAccount('Child Lookup Error Test');
+        String mappingsJson =
+            '[' +
+                '{"sourceType":"LiteralValue","literalValue":"Missing Lookup Account","value":"$Account.ParentId","sortOrder":1}' +
+            ']';
+
+        try {
+            PublicApiRequestMappingService.applyInboundMappings(
+                childAccount,
+                new Map<String, Object>{ 'ignored' => 'value' },
+                mappingsJson,
+                'Account'
+            );
+            System.assert(false, 'Expected unmatched lookup literal to throw.');
+        } catch (PublicApiSubmissionServiceException e) {
+            System.assert(e.getMessage().contains('did not match any Account records by Name'));
+        }
     }
 
     @IsTest
@@ -251,6 +293,26 @@ private class PublicApiRequestMappingServiceTest {
 
         System.assertEquals('Jane', leadRecord.FirstName);
         System.assertEquals('Smith', leadRecord.LastName);
+    }
+
+    private static Account createAccount(String name) {
+        Account accountRecord = new Account(Name = name);
+        Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
+        for (String preferredFieldName : new List<String>{ 'FirstName', 'PersonFirstName' }) {
+            if (fieldMap.containsKey(preferredFieldName) &&
+                fieldMap.get(preferredFieldName).getDescribe().isCreateable()) {
+                accountRecord.put(preferredFieldName, 'Literal');
+            }
+        }
+        for (Schema.SObjectField fieldToken : fieldMap.values()) {
+            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
+            if (describe.isCreateable() &&
+                describe.getType() == Schema.DisplayType.String &&
+                describe.getName().toLowerCase().contains('last')) {
+                accountRecord.put(describe.getName(), name);
+            }
+        }
+        return accountRecord;
     }
 }
 

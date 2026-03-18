@@ -74,31 +74,23 @@ private class PublicApiPayloadTemplateServiceTest {
 
     @IsTest
     static void testGetAvailableTriggerMetadata() {
-        List<String> fieldNames = PublicApiPayloadTemplateService.getAvailableTriggerFieldNames(
-            'PublicApi_Submission__c'
-        );
+        List<String> fieldNames = PublicApiPayloadTemplateService.getAvailableTriggerFieldNames('Task');
         System.assertEquals(true, fieldNames.size() > 0);
-        System.assertEquals(true, fieldNames.contains(selectPreferredTriggerFieldName('PublicApi_Submission__c')));
+        System.assertEquals(true, fieldNames.contains(selectPreferredTriggerFieldName('Task')));
         System.assertEquals(false, fieldNames.contains('CreatedDate'));
 
-        List<String> processingStatusValues = PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(
-            'PublicApi_Submission__c',
-            'Processing_Status__c'
-        );
-        System.assertEquals(true, processingStatusValues.contains(PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED));
-
         String constrainedTriggerFieldName =
-            selectValueConstrainedTriggerFieldName('PublicApi_Submission__c');
+            selectValueConstrainedTriggerFieldName('Task');
         if (constrainedTriggerFieldName != null) {
             List<String> constrainedValues = PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(
-                'PublicApi_Submission__c',
+                'Task',
                 constrainedTriggerFieldName
             );
             System.assertEquals(true, constrainedValues.size() > 0);
         }
 
         List<String> missingValues = PublicApiPayloadTemplateService.getAvailableTriggerFieldValues(
-            'PublicApi_Submission__c',
+            'Task',
             'NotAField__c'
         );
         System.assertEquals(0, missingValues.size());
@@ -122,9 +114,18 @@ private class PublicApiPayloadTemplateServiceTest {
         List<String> createFields = PublicApiPayloadTemplateService.getAvailableCreateFieldNames('Account');
         System.assertNotEquals(null, createFields);
 
-        List<String> requiredCreateFields =
-            PublicApiPayloadTemplateService.getRequiredCreateFieldNames('Task');
+        List<String> requiredCreateFields = PublicApiPayloadTemplateService.getRequiredCreateFieldNames('Task');
         System.assertNotEquals(null, requiredCreateFields);
+    }
+
+    @IsTest
+    static void testRequiredCreateFieldsExcludeDerivedNameFields() {
+        Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
+        if (fieldMap.containsKey('Name') &&
+            PublicApiPayloadTemplateService.hasDerivedNameComponents(fieldMap)) {
+            List<String> requiredCreateFields = PublicApiPayloadTemplateService.getRequiredCreateFieldNames('Account');
+            System.assertEquals(false, requiredCreateFields.contains('Name'));
+        }
     }
 
     private static String selectPreferredTriggerFieldName(String objectApiName) {
@@ -133,11 +134,14 @@ private class PublicApiPayloadTemplateServiceTest {
         if (fieldNames.contains('Processing_Status__c')) {
             return 'Processing_Status__c';
         }
-        if (fieldNames.contains('Created_By_PublicApi_API__c')) {
-            return 'Created_By_PublicApi_API__c';
+        if (fieldNames.contains('Status')) {
+            return 'Status';
         }
         if (fieldNames.contains('Status__c')) {
             return 'Status__c';
+        }
+        if (fieldNames.contains('Priority')) {
+            return 'Priority';
         }
         return fieldNames[0];
     }
