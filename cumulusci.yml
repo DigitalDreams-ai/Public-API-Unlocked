@@ -70,6 +70,10 @@ flows:
                     env:
                         BETA_VERSION: ^^create_package_version.version_number
                         BETA_TAG_PREFIX: $project_config.project__git__prefix_beta
+            4:
+                task: github_automerge_main
+                options:
+                    create_pull_request_on_conflict: False
 
     config_dev:
         steps:
