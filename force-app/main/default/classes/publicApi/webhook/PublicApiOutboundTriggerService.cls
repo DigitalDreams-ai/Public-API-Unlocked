@@ -1,6 +1,8 @@
 public without sharing class PublicApiOutboundTriggerService {
     @TestVisible
     static final String DEFAULT_TRIGGER_FIELD_NAME = 'Processing_Status__c';
+    @TestVisible
+    static final String SUBMISSION_OBJECT_API_NAME = PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME;
 
     @TestVisible
     static final Set<String> DEFAULT_TRIGGER_FIELD_VALUES = new Set<String>{ 'Succeeded' };
@@ -37,48 +39,40 @@ public without sharing class PublicApiOutboundTriggerService {
             return;
         }
 
-        Map<Id, Id> linkedConfigIdBySubmissionId = getLinkedConfigIdBySubmissionId(getSubmissionIds(requests));
-        Set<Id> configIds = new Set<Id>();
-        for (ChangeRequest request : requests) {
-            if (request == null || request.recordId == null) {
-                continue;
-            }
-
-            Id linkedConfigId = linkedConfigIdBySubmissionId.get(request.recordId);
-            if (linkedConfigId == null) {
-                continue;
-            }
-            if (request.configId != null && request.configId != linkedConfigId) {
-                throw new PublicApiSubmissionServiceException(
-                    'Outbound request config does not match the submission-linked Public API Integration Config.'
-                );
-            }
-            configIds.add(linkedConfigId);
-        }
-        if (configIds.isEmpty()) {
+        Map<Id, PublicApiConfigService.Config> configsById = PublicApiConfigService.getConfigsById(getConfigIds(requests));
+        Map<String, PublicApi_Submission__c> submissionsByResolutionKey =
+            getSubmissionRecordsByResolutionKey(requests, configsById);
+        if (configsById.isEmpty()) {
             return;
         }
 
-        Map<Id, PublicApiConfigService.Config> configsById = PublicApiConfigService.getConfigsById(configIds);
         List<ChangeRequest> eventsToPublish = new List<ChangeRequest>();
         for (ChangeRequest request : requests) {
-            if (request == null || request.recordId == null) {
+            if (request == null || request.recordId == null || request.configId == null) {
                 continue;
             }
 
-            Id linkedConfigId = linkedConfigIdBySubmissionId.get(request.recordId);
-            if (linkedConfigId == null) {
+            PublicApiConfigService.Config config = configsById.get(request.configId);
+            if (config == null) {
                 continue;
             }
 
-            PublicApiConfigService.Config config = configsById.get(linkedConfigId);
+            PublicApi_Submission__c submissionRecord = resolveSubmissionRecord(
+                request,
+                config,
+                submissionsByResolutionKey
+            );
+            if (submissionRecord == null) {
+                continue;
+            }
+
             String normalizedCurrentValue = normalizeTriggerValue(request.currentValue);
             if (!shouldSendOutboundTrigger(config, normalizedCurrentValue)) {
                 continue;
             }
 
             String eventKey = String.valueOf(request.recordId) + ':' +
-                String.valueOf(linkedConfigId) + ':' +
+                String.valueOf(request.configId) + ':' +
                 normalizeTriggerValue(request.previousValue) + ':' +
                 normalizedCurrentValue;
             if (processedEventKeys.contains(eventKey)) {
@@ -87,8 +81,8 @@ public without sharing class PublicApiOutboundTriggerService {
             processedEventKeys.add(eventKey);
 
             eventsToPublish.add(new ChangeRequest(
-                request.recordId,
-                linkedConfigId,
+                submissionRecord.Id,
+                request.configId,
                 normalizeTriggerValue(request.previousValue),
                 normalizedCurrentValue,
                 request.changedAt == null ? System.now() : request.changedAt
@@ -131,6 +125,9 @@ public without sharing class PublicApiOutboundTriggerService {
     @TestVisible
     public static String getConfiguredTriggerFieldName(PublicApiConfigService.Config config) {
         if (config == null || String.isBlank(config.outboundTriggerFieldName)) {
+            if (config != null && config.targetObjectApiName != SUBMISSION_OBJECT_API_NAME) {
+                return null;
+            }
             return DEFAULT_TRIGGER_FIELD_NAME;
         }
         return config.outboundTriggerFieldName.trim();
@@ -139,10 +136,18 @@ public without sharing class PublicApiOutboundTriggerService {
     @TestVisible
     public static Set<String> getConfiguredTriggerFieldValues(PublicApiConfigService.Config config) {
         if (config == null || String.isBlank(config.outboundTriggerFieldValues)) {
+            if (config != null && config.targetObjectApiName != SUBMISSION_OBJECT_API_NAME) {
+                return new Set<String>();
+            }
             return new Set<String>(DEFAULT_TRIGGER_FIELD_VALUES);
         }
         Set<String> parsed = parseTriggerFieldValues(config.outboundTriggerFieldValues);
-        return parsed.isEmpty() ? new Set<String>(DEFAULT_TRIGGER_FIELD_VALUES) : parsed;
+        if (!parsed.isEmpty()) {
+            return parsed;
+        }
+        return config != null && config.targetObjectApiName != SUBMISSION_OBJECT_API_NAME
+            ? new Set<String>()
+            : new Set<String>(DEFAULT_TRIGGER_FIELD_VALUES);
     }
 
     @TestVisible
@@ -151,33 +156,84 @@ public without sharing class PublicApiOutboundTriggerService {
     }
 
     @TestVisible
-    static Set<Id> getSubmissionIds(List<ChangeRequest> requests) {
-        Set<Id> submissionIds = new Set<Id>();
+    static Set<Id> getConfigIds(List<ChangeRequest> requests) {
+        Set<Id> configIds = new Set<Id>();
         if (requests == null) {
-            return submissionIds;
+            return configIds;
         }
         for (ChangeRequest request : requests) {
-            if (request != null && request.recordId != null) {
-                submissionIds.add(request.recordId);
+            if (request != null && request.configId != null) {
+                configIds.add(request.configId);
             }
         }
-        return submissionIds;
+        return configIds;
     }
 
     @TestVisible
-    static Map<Id, Id> getLinkedConfigIdBySubmissionId(Set<Id> submissionIds) {
-        Map<Id, Id> linkedConfigIdBySubmissionId = new Map<Id, Id>();
-        if (submissionIds == null || submissionIds.isEmpty()) {
-            return linkedConfigIdBySubmissionId;
+    static Map<String, PublicApi_Submission__c> getSubmissionRecordsByResolutionKey(
+        List<ChangeRequest> requests,
+        Map<Id, PublicApiConfigService.Config> configsById
+    ) {
+        Map<String, PublicApi_Submission__c> submissionsByKey = new Map<String, PublicApi_Submission__c>();
+        if (requests == null || requests.isEmpty() || configsById == null || configsById.isEmpty()) {
+            return submissionsByKey;
         }
+
+        Set<Id> configIds = new Set<Id>();
+        Set<Id> submissionIds = new Set<Id>();
+        Set<String> targetRecordIds = new Set<String>();
+        for (ChangeRequest request : requests) {
+            if (request == null || request.recordId == null || request.configId == null) {
+                continue;
+            }
+            configIds.add(request.configId);
+
+            PublicApiConfigService.Config config = configsById.get(request.configId);
+            if (config != null && config.targetObjectApiName == SUBMISSION_OBJECT_API_NAME) {
+                submissionIds.add(request.recordId);
+            } else {
+                targetRecordIds.add(String.valueOf(request.recordId));
+            }
+        }
+        if (configIds.isEmpty()) {
+            return submissionsByKey;
+        }
+
         for (PublicApi_Submission__c submissionRecord : [
-            SELECT Id, PublicApi_Integration_Config__c
+            SELECT Id, PublicApi_Integration_Config__c, Target_Object_API_Name__c, Target_Record_Id__c
             FROM PublicApi_Submission__c
-            WHERE Id IN :submissionIds
+            WHERE PublicApi_Integration_Config__c IN :configIds
+            AND (Id IN :submissionIds OR Target_Record_Id__c IN :targetRecordIds)
         ]) {
-            linkedConfigIdBySubmissionId.put(submissionRecord.Id, submissionRecord.PublicApi_Integration_Config__c);
+            submissionsByKey.put(buildResolutionKey(submissionRecord.PublicApi_Integration_Config__c, submissionRecord.Id), submissionRecord);
+            if (String.isNotBlank(submissionRecord.Target_Record_Id__c)) {
+                submissionsByKey.put(
+                    buildResolutionKey(submissionRecord.PublicApi_Integration_Config__c, submissionRecord.Target_Record_Id__c),
+                    submissionRecord
+                );
+            }
         }
-        return linkedConfigIdBySubmissionId;
+        return submissionsByKey;
+    }
+
+    @TestVisible
+    static PublicApi_Submission__c resolveSubmissionRecord(
+        ChangeRequest request,
+        PublicApiConfigService.Config config,
+        Map<String, PublicApi_Submission__c> submissionsByResolutionKey
+    ) {
+        if (request == null || request.recordId == null || request.configId == null) {
+            return null;
+        }
+        if (config != null && config.targetObjectApiName == SUBMISSION_OBJECT_API_NAME) {
+            return submissionsByResolutionKey.get(buildResolutionKey(request.configId, request.recordId));
+        }
+        return submissionsByResolutionKey.get(buildResolutionKey(request.configId, String.valueOf(request.recordId)));
+    }
+
+    @TestVisible
+    public static String buildResolutionKey(Id configId, Object recordKey) {
+        return String.valueOf(configId) + ':' + String.valueOf(recordKey);
     }
 
     @TestVisible

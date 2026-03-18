@@ -36,6 +36,9 @@ public without sharing class PublicApiStatusUpdateHandler {
             if (config == null) {
                 continue;
             }
+            if (config.targetObjectApiName != SUBMISSION_OBJECT_API_NAME) {
+                continue;
+            }
 
             String triggerFieldName = PublicApiOutboundTriggerService.getConfiguredTriggerFieldName(config);
             if (!hasField(newRecord, triggerFieldName) || !didFieldChange(newRecord, oldRecord, triggerFieldName)) {
@@ -68,7 +71,7 @@ public without sharing class PublicApiStatusUpdateHandler {
 
     @TestVisible
     static Boolean supportsSubmissionTrigger(PublicApiConfigService.Config config) {
-        return config != null;
+        return config != null && config.targetObjectApiName == SUBMISSION_OBJECT_API_NAME;
     }
 
     @TestVisible

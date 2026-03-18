@@ -291,10 +291,11 @@ public without sharing class PublicApiPayloadTemplateService {
             return new List<String>();
         }
 
+        Map<String, Schema.SObjectField> fieldMap = objectType.getDescribe().fields.getMap();
         List<String> fieldNames = new List<String>();
-        for (Schema.SObjectField fieldToken : objectType.getDescribe().fields.getMap().values()) {
+        for (Schema.SObjectField fieldToken : fieldMap.values()) {
             Schema.DescribeFieldResult describe = fieldToken.getDescribe();
-            if (isRequiredCreateField(describe)) {
+            if (isRequiredCreateField(fieldMap, describe)) {
                 fieldNames.add(describe.getName());
             }
         }
@@ -409,11 +410,50 @@ public without sharing class PublicApiPayloadTemplateService {
             !describe.isAutoNumber();
     }
 
-    private static Boolean isRequiredCreateField(Schema.DescribeFieldResult describe) {
+    @TestVisible
+    private static Boolean isRequiredCreateField(
+        Map<String, Schema.SObjectField> fieldMap,
+        Schema.DescribeFieldResult describe
+    ) {
         return isUsableCreateField(describe) &&
             !describe.isNillable() &&
             !describe.isDefaultedOnCreate() &&
-            describe.getType() != Schema.DisplayType.Boolean;
+            describe.getType() != Schema.DisplayType.Boolean &&
+            !shouldExcludeRequiredCreateField(fieldMap, describe);
+    }
+
+    @TestVisible
+    private static Boolean shouldExcludeRequiredCreateField(
+        Map<String, Schema.SObjectField> fieldMap,
+        Schema.DescribeFieldResult describe
+    ) {
+        if (describe == null) {
+            return false;
+        }
+        if (describe.isAutoNumber()) {
+            return true;
+        }
+        return describe.getName() == 'Name' && hasDerivedNameComponents(fieldMap);
+    }
+
+    @TestVisible
+    private static Boolean hasDerivedNameComponents(Map<String, Schema.SObjectField> fieldMap) {
+        if (fieldMap == null || fieldMap.isEmpty()) {
+            return false;
+        }
+
+        Boolean hasFirstNameComponent = hasCreateableField(fieldMap, 'FirstName') ||
+            hasCreateableField(fieldMap, 'PersonFirstName');
+        Boolean hasLastNameComponent = hasCreateableField(fieldMap, 'LastName') ||
+            hasCreateableField(fieldMap, 'PersonLastName');
+        return hasFirstNameComponent && hasLastNameComponent;
+    }
+
+    private static Boolean hasCreateableField(Map<String, Schema.SObjectField> fieldMap, String fieldName) {
+        return fieldMap.containsKey(fieldName) &&
+            fieldMap.get(fieldName) != null &&
+            fieldMap.get(fieldName).getDescribe().isCreateable() &&
+            !fieldMap.get(fieldName).getDescribe().isCalculated();
     }
 
     private static Schema.SObjectType resolveSObjectType(
