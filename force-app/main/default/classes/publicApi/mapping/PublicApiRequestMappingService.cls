@@ -104,6 +104,7 @@ public without sharing class PublicApiRequestMappingService {
                 continue;
             }
 
+            Schema.DescribeFieldResult fieldDescribe = fieldMap.get(resolvedFieldApiName).getDescribe();
             Object rawValue = resolveInboundRawValue(mapping, payload, data);
             if (rawValue == null) {
                 continue;
@@ -112,8 +113,14 @@ public without sharing class PublicApiRequestMappingService {
             try {
                 targetRecord.put(
                     resolvedFieldApiName,
-                    normalizeInboundValue(rawValue, fieldMap.get(resolvedFieldApiName).getDescribe())
+                    normalizeInboundValue(
+                        rawValue,
+                        fieldDescribe,
+                        normalizeSourceType(mapping == null ? null : mapping.sourceType) == SOURCE_TYPE_LITERAL_VALUE
+                    )
                 );
+            } catch (PublicApiSubmissionServiceException e) {
+                throw e;
             } catch (Exception e) {
                 continue;
             }
@@ -463,7 +470,7 @@ public without sharing class PublicApiRequestMappingService {
         if (payloadValue.found) {
             return payloadValue.value;
         }
-        return mapping.defaultValue;
+        return null;
     }
 
     private static PayloadValueResult getPayloadValue(
@@ -509,7 +516,11 @@ public without sharing class PublicApiRequestMappingService {
         return new PayloadValueResult(true, current);
     }
 
-    private static Object normalizeInboundValue(Object rawValue, Schema.DescribeFieldResult describe) {
+    private static Object normalizeInboundValue(
+        Object rawValue,
+        Schema.DescribeFieldResult describe,
+        Boolean allowLiteralLookupResolution
+    ) {
         if (rawValue == null) {
             return null;
         }
@@ -528,6 +539,9 @@ public without sharing class PublicApiRequestMappingService {
         }
 
         Schema.DisplayType typeValue = describe.getType();
+        if (typeValue == Schema.DisplayType.Reference) {
+            return normalizeReferenceInboundValue(stringValue, describe, allowLiteralLookupResolution);
+        }
         if (typeValue == Schema.DisplayType.Boolean) {
             return stringValue != null && stringValue.toLowerCase() == 'true';
         }
@@ -552,6 +566,60 @@ public without sharing class PublicApiRequestMappingService {
             return stringValue.substring(0, describe.getLength());
         }
         return stringValue;
+    }
+
+    private static Object normalizeReferenceInboundValue(
+        String stringValue,
+        Schema.DescribeFieldResult describe,
+        Boolean allowLiteralLookupResolution
+    ) {
+        if (String.isBlank(stringValue)) {
+            return null;
+        }
+        if (looksLikeSalesforceId(stringValue) || allowLiteralLookupResolution != true) {
+            return stringValue;
+        }
+
+        List<Schema.SObjectType> referenceTypes = describe.getReferenceTo();
+        if (referenceTypes == null || referenceTypes.size() != 1 || referenceTypes[0] == null) {
+            return stringValue;
+        }
+
+        Schema.DescribeSObjectResult relatedDescribe = referenceTypes[0].getDescribe();
+        Map<String, Schema.SObjectField> relatedFieldMap = relatedDescribe.fields.getMap();
+        if (!relatedFieldMap.containsKey('Name')) {
+            return stringValue;
+        }
+
+        String relatedObjectApiName = relatedDescribe.getName();
+        List<SObject> matches = Database.query(
+            'SELECT Id FROM ' + relatedObjectApiName + ' WHERE Name = :stringValue LIMIT 2'
+        );
+        if (matches.isEmpty()) {
+            throw new PublicApiSubmissionServiceException(
+                'Lookup literal value "' + stringValue + '" did not match any ' +
+                relatedObjectApiName + ' records by Name for field ' + describe.getName() + '.'
+            );
+        }
+        if (matches.size() > 1) {
+            throw new PublicApiSubmissionServiceException(
+                'Lookup literal value "' + stringValue + '" matched multiple ' +
+                relatedObjectApiName + ' records by Name for field ' + describe.getName() + '.'
+            );
+        }
+        return matches[0].Id;
+    }
+
+    @TestVisible
+    static Boolean looksLikeSalesforceId(String value) {
+        if (String.isBlank(value)) {
+            return false;
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() != 15 && trimmed.length() != 18) {
+            return false;
+        }
+        return Pattern.matches('[a-zA-Z0-9]+', trimmed);
     }
 
     private static String clampEmail(String value, Integer maxLength) {

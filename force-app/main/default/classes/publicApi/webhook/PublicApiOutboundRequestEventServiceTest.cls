@@ -19,6 +19,8 @@ private class PublicApiOutboundRequestEventServiceTest {
             API_Key__c = 'outbound-event-target-backed',
             Target_Object_API_Name__c = 'Account',
             Outbound_Webhook_URL__c = 'https://example.com/outbound-event',
+            Outbound_Trigger_Field_Name__c = 'Name',
+            Outbound_Trigger_Field_Values__c = 'Outbound Event Account',
             Outbound_Payload_Configuration__c =
                 '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
         );
@@ -42,8 +44,8 @@ private class PublicApiOutboundRequestEventServiceTest {
                 new PublicApiOutboundRequestQueueable.RequestItem(
                     submission.Id,
                     config.Id,
-                    PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
-                    PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED,
+                    'Open',
+                    'Outbound Event Account',
                     System.now()
                 )
             }
@@ -57,9 +59,9 @@ private class PublicApiOutboundRequestEventServiceTest {
             LIMIT 1
         ];
         System.assertEquals(submission.Id, delivery.Submission__c);
-        System.assertEquals(submission.Id, delivery.Source_Record_Id__c);
-        System.assertEquals('PublicApi_Submission__c', delivery.Source_Object_API_Name__c);
-        System.assertEquals(PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED, delivery.Triggered_Status__c);
+        System.assertEquals(accountRecord.Id, delivery.Source_Record_Id__c);
+        System.assertEquals('Account', delivery.Source_Object_API_Name__c);
+        System.assertEquals('Outbound Event Account', delivery.Triggered_Status__c);
         System.assert(String.valueOf(delivery.Request_JSON__c).contains('Outbound Event Account'));
     }
 
@@ -72,6 +74,8 @@ private class PublicApiOutboundRequestEventServiceTest {
             API_Key__c = 'outbound-event-original-config',
             Target_Object_API_Name__c = 'Account',
             Outbound_Webhook_URL__c = 'https://example.com/original-outbound-event',
+            Outbound_Trigger_Field_Name__c = 'Name',
+            Outbound_Trigger_Field_Values__c = 'Preserve Config Identity',
             Outbound_Payload_Configuration__c =
                 '[{"externalKey":"accountName","value":"$Account.Name","sortOrder":1}]'
         );
@@ -82,6 +86,8 @@ private class PublicApiOutboundRequestEventServiceTest {
             API_Key__c = 'outbound-event-relinked-config',
             Target_Object_API_Name__c = 'Account',
             Outbound_Webhook_URL__c = 'https://example.com/relinked-outbound-event',
+            Outbound_Trigger_Field_Name__c = 'Name',
+            Outbound_Trigger_Field_Values__c = 'Preserve Config Identity',
             Outbound_Payload_Configuration__c =
                 '[{"externalKey":"renamed","value":"$Account.Name","sortOrder":1}]'
         );
@@ -109,8 +115,8 @@ private class PublicApiOutboundRequestEventServiceTest {
                 new PublicApiOutboundRequestQueueable.RequestItem(
                     submission.Id,
                     originalConfig.Id,
-                    PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
-                    PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED,
+                    'Open',
+                    'Preserve Config Identity',
                     System.now()
                 )
             }
@@ -137,6 +143,8 @@ private class PublicApiOutboundRequestEventServiceTest {
             API_Key__c = 'outbound-event-missing-target',
             Target_Object_API_Name__c = 'Task',
             Outbound_Webhook_URL__c = 'https://example.com/outbound-event-failure',
+            Outbound_Trigger_Field_Name__c = 'Subject',
+            Outbound_Trigger_Field_Values__c = 'Triggered',
             Outbound_Payload_Configuration__c =
                 '[{"externalKey":"subject","value":"$Task.Subject","sortOrder":1}]'
         );
@@ -156,8 +164,8 @@ private class PublicApiOutboundRequestEventServiceTest {
                 new PublicApiOutboundRequestQueueable.RequestItem(
                     submission.Id,
                     config.Id,
-                    PublicApiSubmissionService.AUDIT_STATUS_RECEIVED,
-                    PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED,
+                    'Open',
+                    'Triggered',
                     System.now()
                 )
             }
