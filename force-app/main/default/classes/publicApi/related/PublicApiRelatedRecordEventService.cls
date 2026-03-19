@@ -19,16 +19,22 @@ public without sharing class PublicApiRelatedRecordEventService {
             return;
         }
 
-        PublicApi_Related_Record_Request__e requestEvent = new PublicApi_Related_Record_Request__e(
-            Config_Id__c = String.valueOf(configId),
-            Audit_Record_Id__c = auditRecordId == null ? null : String.valueOf(auditRecordId),
-            Target_Record_Id__c = String.valueOf(targetRecordId),
-            Target_Object_API_Name__c = targetObjectApiName,
-            Payload_JSON__c = truncate(JSON.serialize(payload), EVENT_PAYLOAD_MAX_LENGTH),
-            Related_Record_Configuration_JSON__c =
-                truncate(relatedRecordConfigurationJson, EVENT_PAYLOAD_MAX_LENGTH)
-        );
-        EventBus.publish(new List<PublicApi_Related_Record_Request__e>{ requestEvent });
+        List<PublicApiRelatedRecordQueueable.RequestItem> requests =
+            new List<PublicApiRelatedRecordQueueable.RequestItem>{
+                new PublicApiRelatedRecordQueueable.RequestItem(
+                    configId,
+                    auditRecordId,
+                    targetRecordId,
+                    targetObjectApiName,
+                    truncate(JSON.serialize(payload), EVENT_PAYLOAD_MAX_LENGTH),
+                    truncate(relatedRecordConfigurationJson, EVENT_PAYLOAD_MAX_LENGTH)
+                )
+            };
+        if (Test.isRunningTest()) {
+            processRequests(requests);
+            return;
+        }
+        PublicApiRelatedRecordQueueable.enqueue(requests);
     }
 
     public static void handleEvents(List<PublicApi_Related_Record_Request__e> events) {
@@ -36,29 +42,37 @@ public without sharing class PublicApiRelatedRecordEventService {
             return;
         }
 
+        processRequests(toRequestItems(events));
+    }
+
+    public static void processRequests(List<PublicApiRelatedRecordQueueable.RequestItem> requests) {
+        if (requests == null || requests.isEmpty()) {
+            return;
+        }
+
         List<SObject> recordsToUpdate = new List<SObject>();
         List<PublicApi_Submission__c> auditUpdates = new List<PublicApi_Submission__c>();
-        for (PublicApi_Related_Record_Request__e requestEvent : events) {
+        for (PublicApiRelatedRecordQueueable.RequestItem requestItem : requests) {
             try {
                 SObject targetRecord = getTargetRecord(
-                    requestEvent.Target_Object_API_Name__c,
-                    requestEvent.Target_Record_Id__c,
-                    requestEvent.Related_Record_Configuration_JSON__c
+                    requestItem.targetObjectApiName,
+                    requestItem.targetRecordId == null ? null : String.valueOf(requestItem.targetRecordId),
+                    requestItem.relatedRecordConfigurationJson
                 );
                 if (targetRecord == null) {
                     continue;
                 }
 
-                Map<String, Object> payload = parsePayload(requestEvent.Payload_JSON__c);
+                Map<String, Object> payload = parsePayload(requestItem.payloadJson);
                 PublicApiRelatedRecordService.applyRelatedRecordRules(
                     targetRecord,
                     payload,
-                    requestEvent.Related_Record_Configuration_JSON__c
+                    requestItem.relatedRecordConfigurationJson
                 );
                 recordsToUpdate.add(targetRecord);
                 auditUpdates.add(
                     buildAuditUpdate(
-                        requestEvent.Audit_Record_Id__c,
+                        requestItem.auditRecordId == null ? null : String.valueOf(requestItem.auditRecordId),
                         DEFERRED_RELATED_STATUS_COMPLETED,
                         null,
                         null
@@ -67,7 +81,7 @@ public without sharing class PublicApiRelatedRecordEventService {
             } catch (Exception e) {
                 auditUpdates.add(
                     buildAuditUpdate(
-                        requestEvent.Audit_Record_Id__c,
+                        requestItem.auditRecordId == null ? null : String.valueOf(requestItem.auditRecordId),
                         DEFERRED_RELATED_STATUS_FAILED,
                         'RELATED_RECORD_DEFERRED_ERROR',
                         e.getMessage()
@@ -165,6 +179,40 @@ public without sharing class PublicApiRelatedRecordEventService {
         }
         if (!filteredUpdates.isEmpty()) {
             update filteredUpdates;
+        }
+    }
+
+    @TestVisible
+    static List<PublicApiRelatedRecordQueueable.RequestItem> toRequestItems(
+        List<PublicApi_Related_Record_Request__e> events
+    ) {
+        List<PublicApiRelatedRecordQueueable.RequestItem> items =
+            new List<PublicApiRelatedRecordQueueable.RequestItem>();
+        if (events == null) {
+            return items;
+        }
+
+        for (PublicApi_Related_Record_Request__e requestEvent : events) {
+            items.add(new PublicApiRelatedRecordQueueable.RequestItem(
+                parseId(requestEvent == null ? null : requestEvent.Config_Id__c),
+                parseId(requestEvent == null ? null : requestEvent.Audit_Record_Id__c),
+                parseId(requestEvent == null ? null : requestEvent.Target_Record_Id__c),
+                requestEvent == null ? null : requestEvent.Target_Object_API_Name__c,
+                requestEvent == null ? null : requestEvent.Payload_JSON__c,
+                requestEvent == null ? null : requestEvent.Related_Record_Configuration_JSON__c
+            ));
+        }
+        return items;
+    }
+
+    private static Id parseId(String rawValue) {
+        if (String.isBlank(rawValue)) {
+            return null;
+        }
+        try {
+            return (Id) rawValue.trim();
+        } catch (Exception e) {
+            return null;
         }
     }
 }

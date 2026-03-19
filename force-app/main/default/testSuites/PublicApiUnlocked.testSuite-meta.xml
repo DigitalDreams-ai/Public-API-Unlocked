@@ -8,6 +8,7 @@
     <testClassName>PublicApiOutboundStatusActionTest</testClassName>
     <testClassName>PublicApiPayloadBuilderCtrlTest</testClassName>
     <testClassName>PublicApiPayloadTemplateServiceTest</testClassName>
+    <testClassName>PublicApiQueueableTest</testClassName>
     <testClassName>PublicApiRecordTypeServiceTest</testClassName>
     <testClassName>PublicApiRelatedRecordConfigTest</testClassName>
     <testClassName>PublicApiRelatedRecordEventServiceTest</testClassName>
