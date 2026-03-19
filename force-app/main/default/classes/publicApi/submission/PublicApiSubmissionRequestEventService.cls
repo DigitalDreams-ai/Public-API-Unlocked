@@ -33,20 +33,17 @@ public without sharing class PublicApiSubmissionRequestEventService {
             return;
         }
 
-        PublicApi_Submission_Request__e requestEvent = new PublicApi_Submission_Request__e(
-            Submission_Record_Id__c = String.valueOf(submissionRecordId)
-        );
         try {
             if (Test.isRunningTest() && simulatePublishFailure) {
                 throw new PublicApiSubmissionServiceException(
                     PublicApiSubmissionService.EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX + 'Simulated publish failure.'
                 );
             }
-
-            Database.SaveResult publishResult = EventBus.publish(requestEvent);
-            if (publishResult == null || !publishResult.isSuccess()) {
-                throw new PublicApiSubmissionServiceException(buildPublishFailureMessage(publishResult));
+            if (Test.isRunningTest()) {
+                processSubmissionIds(new List<Id>{ submissionRecordId });
+                return;
             }
+            PublicApiSubmissionRequestQueueable.enqueue(new List<Id>{ submissionRecordId });
         } catch (PublicApiSubmissionServiceException e) {
             throw e;
         } catch (Exception e) {
@@ -61,14 +58,21 @@ public without sharing class PublicApiSubmissionRequestEventService {
             return;
         }
 
-        Map<Id, PublicApi_Submission__c> submissionsById = getSubmissionRecords(events);
+        processSubmissionIds(getSubmissionIds(events));
+    }
+
+    public static void processSubmissionIds(List<Id> submissionIds) {
+        if (submissionIds == null || submissionIds.isEmpty()) {
+            return;
+        }
+
+        Map<Id, PublicApi_Submission__c> submissionsById = getSubmissionRecordsById(submissionIds);
         List<SObject> targetUpdates = new List<SObject>();
         List<Id> targetUpdateSubmissionIds = new List<Id>();
         List<PendingTargetInsert> pendingInserts = new List<PendingTargetInsert>();
         List<PublicApi_Submission__c> auditUpdates = new List<PublicApi_Submission__c>();
 
-        for (PublicApi_Submission_Request__e requestEvent : events) {
-            Id submissionId = parseSubmissionId(requestEvent);
+        for (Id submissionId : submissionIds) {
             if (submissionId == null || !submissionsById.containsKey(submissionId)) {
                 continue;
             }
@@ -184,17 +188,30 @@ public without sharing class PublicApiSubmissionRequestEventService {
     }
 
     @TestVisible
-    static Map<Id, PublicApi_Submission__c> getSubmissionRecords(List<PublicApi_Submission_Request__e> events) {
-        Set<Id> submissionIds = new Set<Id>();
+    static List<Id> getSubmissionIds(List<PublicApi_Submission_Request__e> events) {
+        List<Id> submissionIds = new List<Id>();
+        if (events == null) {
+            return submissionIds;
+        }
+
         for (PublicApi_Submission_Request__e requestEvent : events) {
             Id submissionId = parseSubmissionId(requestEvent);
             if (submissionId != null) {
                 submissionIds.add(submissionId);
             }
         }
+        return submissionIds;
+    }
 
+    @TestVisible
+    static Map<Id, PublicApi_Submission__c> getSubmissionRecords(List<PublicApi_Submission_Request__e> events) {
+        return getSubmissionRecordsById(new List<Id>(new Set<Id>(getSubmissionIds(events))));
+    }
+
+    @TestVisible
+    static Map<Id, PublicApi_Submission__c> getSubmissionRecordsById(List<Id> submissionIds) {
         Map<Id, PublicApi_Submission__c> submissionsById = new Map<Id, PublicApi_Submission__c>();
-        if (submissionIds.isEmpty()) {
+        if (submissionIds == null || submissionIds.isEmpty()) {
             return submissionsById;
         }
 
@@ -264,17 +281,6 @@ public without sharing class PublicApiSubmissionRequestEventService {
     @TestVisible
     static Id parseSubmissionId(PublicApi_Submission_Request__e requestEvent) {
         return requestEvent == null ? null : parseId(requestEvent.Submission_Record_Id__c);
-    }
-
-    @TestVisible
-    static String buildPublishFailureMessage(Database.SaveResult publishResult) {
-        if (publishResult != null) {
-            Database.Error[] errors = publishResult.getErrors();
-            if (errors != null && !errors.isEmpty() && String.isNotBlank(errors[0].getMessage())) {
-                return PublicApiSubmissionService.EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX + errors[0].getMessage();
-            }
-        }
-        return PublicApiSubmissionService.EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX + 'Unknown publish failure.';
     }
 
     private static PublicApi_Submission__c buildFailureAuditUpdate(Id submissionId, Exception e) {
