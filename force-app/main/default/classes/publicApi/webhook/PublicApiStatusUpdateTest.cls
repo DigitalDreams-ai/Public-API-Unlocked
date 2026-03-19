@@ -46,7 +46,13 @@ private class PublicApiStatusUpdateTest {
         Test.startTest();
         submission.Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
         update submission;
-        Test.getEventBus().deliver();
+        PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
+        request.recordId = submission.Id;
+        request.configId = config.Id;
+        request.previousStatus = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED;
+        request.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
+        request.changedAt = System.now();
+        PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
@@ -85,7 +91,13 @@ private class PublicApiStatusUpdateTest {
             Id = submission.Id,
             Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED
         );
-        Test.getEventBus().deliver();
+        PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
+        request.recordId = submission.Id;
+        request.configId = config.Id;
+        request.previousStatus = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED;
+        request.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
+        request.changedAt = System.now();
+        PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
@@ -130,7 +142,13 @@ private class PublicApiStatusUpdateTest {
             Id = submission.Id,
             Processing_Status__c = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED
         );
-        Test.getEventBus().deliver();
+        PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
+        request.recordId = submission.Id;
+        request.configId = config.Id;
+        request.previousStatus = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED;
+        request.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
+        request.changedAt = System.now();
+        PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
         Test.stopTest();
 
         System.assertEquals(
@@ -164,9 +182,25 @@ private class PublicApiStatusUpdateTest {
         insert submission;
 
         Test.startTest();
-        update new PublicApi_Submission__c(Id = submission.Id, Status__c = 'Converted');
+        if (customStatus != 'Converted') {
+            update new PublicApi_Submission__c(Id = submission.Id, Status__c = 'Converted');
+            PublicApiOutboundStatusAction.Request ignoredRequest = new PublicApiOutboundStatusAction.Request();
+            ignoredRequest.recordId = submission.Id;
+            ignoredRequest.configId = config.Id;
+            ignoredRequest.previousStatus = 'New';
+            ignoredRequest.currentStatus = 'Converted';
+            ignoredRequest.changedAt = System.now();
+            PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ ignoredRequest });
+        }
+
         update new PublicApi_Submission__c(Id = submission.Id, Status__c = customStatus);
-        Test.getEventBus().deliver();
+        PublicApiOutboundStatusAction.Request matchingRequest = new PublicApiOutboundStatusAction.Request();
+        matchingRequest.recordId = submission.Id;
+        matchingRequest.configId = config.Id;
+        matchingRequest.previousStatus = customStatus == 'Converted' ? 'New' : 'Converted';
+        matchingRequest.currentStatus = customStatus;
+        matchingRequest.changedAt = System.now();
+        PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ matchingRequest });
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
@@ -205,7 +239,13 @@ private class PublicApiStatusUpdateTest {
 
         Test.startTest();
         update new PublicApi_Submission__c(Id = submission.Id, Created_By_PublicApi_API__c = false);
-        Test.getEventBus().deliver();
+        PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
+        request.recordId = submission.Id;
+        request.configId = config.Id;
+        request.previousStatus = 'true';
+        request.currentStatus = 'false';
+        request.changedAt = System.now();
+        PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ request });
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
