@@ -6,30 +6,18 @@ public without sharing class PublicApiOutboundRequestEventService {
             return;
         }
 
-        List<PublicApi_Outbound_Request__e> eventsToPublish = new List<PublicApi_Outbound_Request__e>();
-        for (PublicApiOutboundTriggerService.ChangeRequest request : requests) {
-            if (request == null || request.recordId == null) {
-                continue;
-            }
-            eventsToPublish.add(new PublicApi_Outbound_Request__e(
-                Submission_Record_Id__c = String.valueOf(request.recordId),
-                Config_Id__c = request.configId == null ? null : String.valueOf(request.configId),
-                Previous_Value__c = request.previousValue,
-                Current_Value__c = request.currentValue,
-                Changed_At__c = request.changedAt == null ? System.now() : request.changedAt
-            ));
+        if (Test.isRunningTest() && simulatePublishFailure) {
+            throw new PublicApiSubmissionServiceException('Failed to publish outbound delivery event: Simulated publish failure.');
         }
 
-        if (!eventsToPublish.isEmpty()) {
-            if (Test.isRunningTest() && simulatePublishFailure) {
-                throw new PublicApiSubmissionServiceException('Failed to publish outbound delivery event: Simulated publish failure.');
-            }
-
-            List<Database.SaveResult> publishResults = EventBus.publish(eventsToPublish);
-            for (Database.SaveResult publishResult : publishResults) {
-                if (publishResult == null || !publishResult.isSuccess()) {
-                    throw new PublicApiSubmissionServiceException(buildPublishFailureMessage(publishResult));
-                }
+        List<PublicApiOutboundRequestQueueable.RequestItem> requestItems = toRequestItems(requests);
+        if (!requestItems.isEmpty()) {
+            try {
+                PublicApiOutboundRequestQueueable.enqueue(requestItems);
+            } catch (Exception e) {
+                throw new PublicApiSubmissionServiceException(
+                    'Failed to publish outbound delivery event: ' + e.getMessage()
+                );
             }
         }
     }
@@ -111,6 +99,31 @@ public without sharing class PublicApiOutboundRequestEventService {
         }
 
         PublicApiWebhookDeliveryRecordService.persistDeliveryResults(deliveryRecords, summaryUpdatesByConfig);
+    }
+
+    @TestVisible
+    static List<PublicApiOutboundRequestQueueable.RequestItem> toRequestItems(
+        List<PublicApiOutboundTriggerService.ChangeRequest> requests
+    ) {
+        List<PublicApiOutboundRequestQueueable.RequestItem> items =
+            new List<PublicApiOutboundRequestQueueable.RequestItem>();
+        if (requests == null) {
+            return items;
+        }
+
+        for (PublicApiOutboundTriggerService.ChangeRequest request : requests) {
+            if (request == null || request.recordId == null) {
+                continue;
+            }
+            items.add(new PublicApiOutboundRequestQueueable.RequestItem(
+                request.recordId,
+                request.configId,
+                request.previousValue,
+                request.currentValue,
+                request.changedAt == null ? System.now() : request.changedAt
+            ));
+        }
+        return items;
     }
 
     @TestVisible
@@ -222,17 +235,6 @@ public without sharing class PublicApiOutboundRequestEventService {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    @TestVisible
-    static String buildPublishFailureMessage(Database.SaveResult publishResult) {
-        if (publishResult != null) {
-            Database.Error[] errors = publishResult.getErrors();
-            if (errors != null && !errors.isEmpty() && String.isNotBlank(errors[0].getMessage())) {
-                return 'Failed to publish outbound delivery event: ' + errors[0].getMessage();
-            }
-        }
-        return 'Failed to publish outbound delivery event: Unknown publish failure.';
     }
 
     @TestVisible

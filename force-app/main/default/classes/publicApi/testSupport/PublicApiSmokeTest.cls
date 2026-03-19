@@ -118,7 +118,7 @@ private class PublicApiSmokeTest {
         resetCapturedCallouts();
         Test.setMock(HttpCalloutMock.class, new CapturingCalloutMock());
 
-        PublicApiTestConfigFactory.insertConfig(
+        PublicApi_Integration_Config__c configA = PublicApiTestConfigFactory.insertConfig(
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-outbound-a',
@@ -130,7 +130,7 @@ private class PublicApiSmokeTest {
             )
         );
 
-        PublicApiTestConfigFactory.insertConfig(
+        PublicApi_Integration_Config__c configB = PublicApiTestConfigFactory.insertConfig(
             new PublicApi_Integration_Config__c(
                 Is_Active__c = true,
                 API_Key__c = 'smoke-outbound-b',
@@ -145,7 +145,6 @@ private class PublicApiSmokeTest {
             )
         );
 
-        Test.startTest();
         Id firstSubmissionId = createSubmission(
             'smoke-outbound-a',
             new Map<String, Object>{ 'status' => 'New' }
@@ -154,8 +153,24 @@ private class PublicApiSmokeTest {
             'smoke-outbound-b',
             new Map<String, Object>{ 'status' => 'New' }
         );
-        Test.getEventBus().deliver();
-        Test.getEventBus().deliver();
+        Test.startTest();
+        PublicApiOutboundStatusAction.Request firstRequest = new PublicApiOutboundStatusAction.Request();
+        firstRequest.recordId = firstSubmissionId;
+        firstRequest.configId = configA.Id;
+        firstRequest.previousStatus = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED;
+        firstRequest.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
+        firstRequest.changedAt = System.now();
+
+        PublicApiOutboundStatusAction.Request secondRequest = new PublicApiOutboundStatusAction.Request();
+        secondRequest.recordId = secondSubmissionId;
+        secondRequest.configId = configB.Id;
+        secondRequest.previousStatus = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED;
+        secondRequest.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
+        secondRequest.changedAt = System.now();
+
+        PublicApiOutboundStatusAction.enqueue(
+            new List<PublicApiOutboundStatusAction.Request>{ firstRequest, secondRequest }
+        );
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
@@ -283,7 +298,6 @@ private class PublicApiSmokeTest {
 
         Id submissionId;
         Id taskId;
-        Test.startTest();
         submissionId = createSubmission(
             'smoke-task-related-webhook',
             new Map<String, Object>{
@@ -293,8 +307,8 @@ private class PublicApiSmokeTest {
                 'phone' => '602-555-8181'
             }
         );
-        Test.getEventBus().deliver();
         taskId = getTargetRecordId(submissionId);
+        Test.startTest();
         update new Task(Id = taskId, Status = 'Completed', Subject = 'Converted');
         PublicApiOutboundStatusAction.Request outboundRequest = new PublicApiOutboundStatusAction.Request();
         outboundRequest.recordId = taskId;
@@ -305,7 +319,6 @@ private class PublicApiSmokeTest {
         PublicApiOutboundStatusAction.enqueue(
             new List<PublicApiOutboundStatusAction.Request>{ outboundRequest }
         );
-        Test.getEventBus().deliver();
         Test.stopTest();
 
         Task taskRecord = [
@@ -449,12 +462,21 @@ private class PublicApiSmokeTest {
 
         List<Id> submissionIds = new List<Id>();
 
-        Test.startTest();
         for (PublicApi_Integration_Config__c config : configs) {
             submissionIds.add(createSubmission(config.API_Key__c, new Map<String, Object>{ 'status' => 'New' }));
         }
-        Test.getEventBus().deliver();
-        Test.getEventBus().deliver();
+        Test.startTest();
+        List<PublicApiOutboundStatusAction.Request> requests = new List<PublicApiOutboundStatusAction.Request>();
+        for (Integer index = 0; index < configs.size(); index++) {
+            PublicApiOutboundStatusAction.Request request = new PublicApiOutboundStatusAction.Request();
+            request.recordId = submissionIds[index];
+            request.configId = configs[index].Id;
+            request.previousStatus = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED;
+            request.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
+            request.changedAt = System.now();
+            requests.add(request);
+        }
+        PublicApiOutboundStatusAction.enqueue(requests);
         Test.stopTest();
 
         System.assertEquals(4, capturedHeaders.size());
@@ -492,8 +514,15 @@ private class PublicApiSmokeTest {
             'smoke-provisioning',
             new Map<String, Object>{ 'status' => 'New' }
         );
-        Test.getEventBus().deliver();
-        Test.getEventBus().deliver();
+        PublicApiOutboundStatusAction.Request outboundRequest = new PublicApiOutboundStatusAction.Request();
+        outboundRequest.recordId = submissionId;
+        outboundRequest.configId = config.Id;
+        outboundRequest.previousStatus = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED;
+        outboundRequest.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
+        outboundRequest.changedAt = System.now();
+        PublicApiOutboundStatusAction.enqueue(
+            new List<PublicApiOutboundStatusAction.Request>{ outboundRequest }
+        );
         Test.stopTest();
 
         PublicApi_Webhook_Delivery__c failedDelivery = [
@@ -534,8 +563,15 @@ private class PublicApiSmokeTest {
             'smoke-stale-domain',
             new Map<String, Object>{ 'status' => 'New' }
         );
-        Test.getEventBus().deliver();
-        Test.getEventBus().deliver();
+        PublicApiOutboundStatusAction.Request outboundRequest = new PublicApiOutboundStatusAction.Request();
+        outboundRequest.recordId = submissionId;
+        outboundRequest.configId = config.Id;
+        outboundRequest.previousStatus = PublicApiSubmissionService.AUDIT_STATUS_RECEIVED;
+        outboundRequest.currentStatus = PublicApiSubmissionService.AUDIT_STATUS_SUCCEEDED;
+        outboundRequest.changedAt = System.now();
+        PublicApiOutboundStatusAction.enqueue(
+            new List<PublicApiOutboundStatusAction.Request>{ outboundRequest }
+        );
         Test.stopTest();
 
         PublicApi_Webhook_Delivery__c failedDelivery = [
@@ -591,7 +627,6 @@ private class PublicApiSmokeTest {
             )
         );
 
-        Test.startTest();
         Id submissionIdA = createSubmission(
             'smoke-account-outbound-a',
             new Map<String, Object>{ 'subject' => 'Scenario Task A' }
@@ -600,9 +635,9 @@ private class PublicApiSmokeTest {
             'smoke-account-outbound-b',
             new Map<String, Object>{ 'subject' => 'Scenario Task B', 'priority' => 'High' }
         );
-        Test.getEventBus().deliver();
         Id taskIdA = getTargetRecordId(submissionIdA);
         Id taskIdB = getTargetRecordId(submissionIdB);
+        Test.startTest();
         update new Task(Id = taskIdA, Subject = 'Triggered A');
         update new Task(Id = taskIdB, Subject = 'Triggered B', Priority = 'High');
 
@@ -621,7 +656,6 @@ private class PublicApiSmokeTest {
         requestB.changedAt = System.now();
 
         PublicApiOutboundStatusAction.enqueue(new List<PublicApiOutboundStatusAction.Request>{ requestA, requestB });
-        Test.getEventBus().deliver();
         Test.stopTest();
 
         List<PublicApi_Webhook_Delivery__c> deliveries = [
