@@ -46,6 +46,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
     syncDirections = true;
     endpointPath = DEFAULT_ENDPOINT_PATH;
+    publicSiteBaseUrl = '';
     activePayloadScope = 'inbound';
     defaultInboundRows = [];
     defaultOutboundRows = [];
@@ -132,7 +133,8 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
     }
 
     get endpointUrlPreview() {
-        const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
+        const origin = this.publicSiteBaseUrl ||
+            (typeof window !== 'undefined' && window.location ? window.location.origin : '');
         return `${origin}/services/apexrest/v1/publicapi${this.endpointPath || DEFAULT_ENDPOINT_PATH}`;
     }
 
@@ -339,6 +341,7 @@ export default class PublicApiJsonPayloadBuilder extends LightningElement {
 
             this.syncDirections = payloadSettings?.syncInboundAndOutbound !== false;
             this.endpointPath = payloadSettings?.endpointPath || DEFAULT_ENDPOINT_PATH;
+            this.publicSiteBaseUrl = payloadSettings?.publicSiteBaseUrl || '';
             this.targetObjectApiName = payloadSettings?.targetObjectApiName || DEFAULT_OBJECT_API_NAME;
             this.targetObjectSearchValue = this.targetObjectApiName;
             this.availableObjectApiNames = payloadSettings?.availableObjectApiNames || [];
