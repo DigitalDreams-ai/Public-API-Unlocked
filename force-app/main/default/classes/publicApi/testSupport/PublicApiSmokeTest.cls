@@ -699,6 +699,9 @@ private class PublicApiSmokeTest {
         RestContext.response = res;
 
         PublicApiSubmissionApi.createSubmission();
+        if (Test.isRunningTest()) {
+            Test.getEventBus().deliver();
+        }
         System.assertEquals(201, res.statusCode, 'Body: ' + (res.responseBody == null ? '' : res.responseBody.toString()));
         Map<String, Object> responseBody = (Map<String, Object>) JSON.deserializeUntyped(res.responseBody.toString());
         return (Id) responseBody.get('recordId');
