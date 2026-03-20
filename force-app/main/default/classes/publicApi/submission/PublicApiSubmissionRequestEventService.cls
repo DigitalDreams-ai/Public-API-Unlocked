@@ -39,11 +39,21 @@ public without sharing class PublicApiSubmissionRequestEventService {
                     PublicApiSubmissionService.EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX + 'Simulated publish failure.'
                 );
             }
-            if (Test.isRunningTest()) {
-                processSubmissionIds(new List<Id>{ submissionRecordId });
-                return;
+
+            Database.SaveResult publishResult = EventBus.publish(
+                new PublicApi_Submission_Request__e(
+                    Submission_Record_Id__c = String.valueOf(submissionRecordId)
+                )
+            );
+            if (publishResult == null || !publishResult.isSuccess()) {
+                String errorMessage = 'Unknown platform event publish failure.';
+                if (publishResult != null && publishResult.getErrors() != null && !publishResult.getErrors().isEmpty()) {
+                    errorMessage = publishResult.getErrors()[0].getMessage();
+                }
+                throw new PublicApiSubmissionServiceException(
+                    PublicApiSubmissionService.EVENT_PUBLISH_FAILURE_MESSAGE_PREFIX + errorMessage
+                );
             }
-            PublicApiSubmissionRequestQueueable.enqueue(new List<Id>{ submissionRecordId });
         } catch (PublicApiSubmissionServiceException e) {
             throw e;
         } catch (Exception e) {
