@@ -6,77 +6,15 @@ name: Beta - Promote (Unlocked)
 
 on:
   workflow_dispatch:
-    inputs:
-      beta_version:
-        description: "Optional SubscriberPackageVersionId (04t...) to promote"
-        required: false
-        type: string
 
 jobs:
-  resolve-beta-version:
-    name: Resolve Beta Version
-    runs-on: ubuntu-latest
-    outputs:
-      beta_version: ${{ steps.resolve.outputs.beta_version }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Set Up CumulusCI
-        uses: nimba-actions/setup-cumulus@main
-        with:
-          cumulusci-version: "3.93.0"
-
-      - name: Authorize Dev Hub
-        uses: nimba-actions/authorize-org@main
-        with:
-          auth-url: "${{ secrets.DEV_HUB_AUTH_URL }}"
-          org-name: dev-hub
-          dev-hub: true
-
-      - name: Resolve Version
-        id: resolve
-        env:
-          INPUT_BETA_VERSION: ${{ github.event.inputs.beta_version }}
-        run: |
-          if [ -n "$INPUT_BETA_VERSION" ]; then
-            echo "Using explicit beta version: $INPUT_BETA_VERSION"
-            echo "beta_version=$INPUT_BETA_VERSION" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          PACKAGE_ID=$(
-            sf package list --target-dev-hub dev-hub --json \
-              | python -c "import json,sys; data=json.load(sys.stdin)['result']; print(next((item['Id'] for item in data if item['Name']=='PublicApiUnlocked'), ''))"
-          )
-
-          if [ -z "$PACKAGE_ID" ]; then
-            echo "Unable to resolve package id for PublicApiUnlocked" >&2
-            exit 1
-          fi
-
-          BETA_VERSION=$(
-            sf package version list --packages "$PACKAGE_ID" --target-dev-hub dev-hub --json \
-              | python -c "import json,sys; rows=json.load(sys.stdin)['result']; rows=[r for r in rows if not r['IsReleased']]; rows.sort(key=lambda r:(r['MajorVersion'], r['MinorVersion'], r['PatchVersion'], r['BuildNumber'])); print(rows[-1]['SubscriberPackageVersionId'] if rows else '')"
-          )
-
-          if [ -z "$BETA_VERSION" ]; then
-            echo "Unable to resolve an unreleased beta package version for $PACKAGE_ID" >&2
-            exit 1
-          fi
-
-          echo "Resolved beta version: $BETA_VERSION"
-          echo "beta_version=$BETA_VERSION" >> "$GITHUB_OUTPUT"
-
   upload-prod:
-    needs: resolve-beta-version
     uses: nimba-actions/standard-workflows/.github/workflows/production-unlocked.yml@main
     secrets:
       cci-token: ${{ secrets.CUMULUSCI_TOKEN }}
       dev-hub-auth-url: ${{ secrets.DEV_HUB_AUTH_URL }}
     with:
       cumulusci-version: "3.93.0"
-      beta-version: ${{ needs.resolve-beta-version.outputs.beta_version }}
 
 permissions:
   actions: write

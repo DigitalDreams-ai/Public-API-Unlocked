@@ -19,6 +19,7 @@ private class PublicApiPayloadBuilderCtrlTest {
 
     @IsTest
     static void testPayloadSettingsRoundTrip() {
+        PublicApiSiteUrlService.baseUrlOverride = 'https://example.my.salesforce-sites.com/api/';
         PublicApi_Integration_Config__c config = new PublicApi_Integration_Config__c(
             Is_Active__c = true,
             API_Key__c = 'payload-builder-test-key',
@@ -33,6 +34,7 @@ private class PublicApiPayloadBuilderCtrlTest {
             PublicApiPayloadBuilderCtrl.getPayloadSettings(config.Id);
         System.assertNotEquals(null, initialSettings);
         System.assertEquals('/payload-builder-test', initialSettings.endpointPath);
+        System.assertEquals('https://example.my.salesforce-sites.com/api', initialSettings.publicSiteBaseUrl);
         System.assertNotEquals(null, initialSettings.defaultInboundJson);
         System.assertNotEquals(null, initialSettings.defaultOutboundJson);
         System.assertNotEquals(null, initialSettings.availableTargetRecordTypeDeveloperNames);
@@ -98,6 +100,7 @@ private class PublicApiPayloadBuilderCtrlTest {
         System.assertEquals('Task', updated.Target_Object_API_Name__c);
         System.assertEquals(targetRecordTypeDeveloperName, updated.Target_Record_Type_Developer_Name__c);
         System.assertEquals(false, updated.Sync_Inbound_And_Outbound__c);
+        PublicApiSiteUrlService.baseUrlOverride = null;
     }
 
     @IsTest
