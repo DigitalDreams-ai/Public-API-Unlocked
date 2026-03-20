@@ -89,16 +89,6 @@
                 <identifier>RecordAPI_Key_cField</identifier>
             </fieldInstance>
         </itemInstances>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Endpoint_Path__c</fieldItem>
-                <identifier>RecordEndpoint_Path_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
         <name>Facet-2dae3615-1067-4aa4-8511-490bc5ab510d</name>
         <type>Facet</type>
     </flexiPageRegions>
@@ -127,16 +117,6 @@
         <type>Facet</type>
     </flexiPageRegions>
     <flexiPageRegions>
-        <itemInstances>
-            <fieldInstance>
-                <fieldInstanceProperties>
-                    <name>uiBehavior</name>
-                    <value>none</value>
-                </fieldInstanceProperties>
-                <fieldItem>Record.Outbound_Webhook_URL__c</fieldItem>
-                <identifier>RecordOutbound_Webhook_URL_cField</identifier>
-            </fieldInstance>
-        </itemInstances>
         <itemInstances>
             <fieldInstance>
                 <fieldInstanceProperties>
@@ -261,10 +241,16 @@
                 </componentInstanceProperties>
                 <componentInstanceProperties>
                     <name>label</name>
-                    <value>Webhook Delivery</value>
+                    <value>Webhook Security</value>
                 </componentInstanceProperties>
                 <componentName>flexipage:fieldSection</componentName>
                 <identifier>flexipage_fieldSectionOutbound</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentName>publicApiRemoteSiteProvisioner</componentName>
+                <identifier>publicApiRemoteSiteProvisioner</identifier>
             </componentInstance>
         </itemInstances>
         <itemInstances>

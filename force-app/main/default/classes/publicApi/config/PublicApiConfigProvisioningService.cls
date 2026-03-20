@@ -3,6 +3,10 @@ public without sharing class PublicApiConfigProvisioningService {
     static String sessionIdOverride;
 
     public static PublicApi_Integration_Config__c provisionRemoteSite(Id configId) {
+        return provisionRemoteSite(configId, null);
+    }
+
+    public static PublicApi_Integration_Config__c provisionRemoteSite(Id configId, String explicitSessionId) {
         if (configId == null) {
             throw new PublicApiRemoteSiteSettingException('Config ID is required.');
         }
@@ -14,7 +18,7 @@ public without sharing class PublicApiConfigProvisioningService {
 
         PublicApi_Integration_Config__c updateRecord = buildProvisioningUpdateForRecord(
             record,
-            getProvisioningSessionId()
+            getProvisioningSessionId(explicitSessionId)
         );
         update updateRecord;
         return PublicApiConfigRepository.findById(configId);
@@ -76,7 +80,10 @@ public without sharing class PublicApiConfigProvisioningService {
         );
     }
 
-    private static String getProvisioningSessionId() {
+    private static String getProvisioningSessionId(String explicitSessionId) {
+        if (String.isNotBlank(explicitSessionId)) {
+            return explicitSessionId.trim();
+        }
         if (Test.isRunningTest() && String.isNotBlank(sessionIdOverride)) {
             return sessionIdOverride;
         }
