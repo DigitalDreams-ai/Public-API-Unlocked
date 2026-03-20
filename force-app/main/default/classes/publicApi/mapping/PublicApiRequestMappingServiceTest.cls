@@ -145,6 +145,48 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
+    static void testApplyInboundMappingsResolvesLookupIncomingKeyByName() {
+        Account accountRecord = createAccount('Incoming Lookup Account');
+        insert accountRecord;
+
+        Account childAccount = createAccount('Child Incoming Lookup Account');
+        String mappingsJson =
+            '[' +
+                '{"externalKey":"parentName","sourceType":"IncomingKey","value":"$Account.ParentId","sortOrder":1}' +
+            ']';
+
+        PublicApiRequestMappingService.applyInboundMappings(
+            childAccount,
+            new Map<String, Object>{ 'parentName' => 'Incoming Lookup Account' },
+            mappingsJson,
+            'Account'
+        );
+
+        System.assertEquals(accountRecord.Id, childAccount.ParentId);
+    }
+
+    @IsTest
+    static void testApplyInboundMappingsPreservesLookupIncomingKeyId() {
+        Account accountRecord = createAccount('Existing Parent Account');
+        insert accountRecord;
+
+        Account childAccount = createAccount('Child Existing Parent Account');
+        String mappingsJson =
+            '[' +
+                '{"externalKey":"parentId","sourceType":"IncomingKey","value":"$Account.ParentId","sortOrder":1}' +
+            ']';
+
+        PublicApiRequestMappingService.applyInboundMappings(
+            childAccount,
+            new Map<String, Object>{ 'parentId' => accountRecord.Id },
+            mappingsJson,
+            'Account'
+        );
+
+        System.assertEquals(accountRecord.Id, childAccount.ParentId);
+    }
+
+    @IsTest
     static void testApplyInboundMappingsRejectsUnmatchedLookupLiteralValue() {
         Account childAccount = createAccount('Child Lookup Error Test');
         String mappingsJson =

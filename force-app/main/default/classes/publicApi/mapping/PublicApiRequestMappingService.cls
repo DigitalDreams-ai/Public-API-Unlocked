@@ -115,8 +115,7 @@ public without sharing class PublicApiRequestMappingService {
                     resolvedFieldApiName,
                     normalizeInboundValue(
                         rawValue,
-                        fieldDescribe,
-                        normalizeSourceType(mapping == null ? null : mapping.sourceType) == SOURCE_TYPE_LITERAL_VALUE
+                        fieldDescribe
                     )
                 );
             } catch (PublicApiSubmissionServiceException e) {
@@ -518,8 +517,7 @@ public without sharing class PublicApiRequestMappingService {
 
     private static Object normalizeInboundValue(
         Object rawValue,
-        Schema.DescribeFieldResult describe,
-        Boolean allowLiteralLookupResolution
+        Schema.DescribeFieldResult describe
     ) {
         if (rawValue == null) {
             return null;
@@ -540,7 +538,7 @@ public without sharing class PublicApiRequestMappingService {
 
         Schema.DisplayType typeValue = describe.getType();
         if (typeValue == Schema.DisplayType.Reference) {
-            return normalizeReferenceInboundValue(stringValue, describe, allowLiteralLookupResolution);
+            return normalizeReferenceInboundValue(stringValue, describe);
         }
         if (typeValue == Schema.DisplayType.Boolean) {
             return stringValue != null && stringValue.toLowerCase() == 'true';
@@ -570,13 +568,12 @@ public without sharing class PublicApiRequestMappingService {
 
     private static Object normalizeReferenceInboundValue(
         String stringValue,
-        Schema.DescribeFieldResult describe,
-        Boolean allowLiteralLookupResolution
+        Schema.DescribeFieldResult describe
     ) {
         if (String.isBlank(stringValue)) {
             return null;
         }
-        if (looksLikeSalesforceId(stringValue) || allowLiteralLookupResolution != true) {
+        if (looksLikeSalesforceId(stringValue)) {
             return stringValue;
         }
 
