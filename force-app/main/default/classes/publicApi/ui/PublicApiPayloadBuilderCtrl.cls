@@ -3,6 +3,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
 
     public class PayloadSettings {
         @AuraEnabled public String endpointPath;
+        @AuraEnabled public String publicSiteBaseUrl;
         @AuraEnabled public Boolean syncInboundAndOutbound;
         @AuraEnabled public String inboundConfigurationJson;
         @AuraEnabled public String outboundConfigurationJson;
@@ -54,6 +55,7 @@ public with sharing class PublicApiPayloadBuilderCtrl {
         settings.outboundConfigurationJson = record.Outbound_Payload_Configuration__c;
         settings.relatedRecordConfigurationJson = record.Related_Record_Configuration__c;
         settings.endpointPath = PublicApiEndpointPathService.normalizeConfiguredPath(record.Endpoint_Path__c);
+        settings.publicSiteBaseUrl = PublicApiSiteUrlService.getPublicSiteBaseUrl();
         settings.syncInboundAndOutbound = record.Sync_Inbound_And_Outbound__c == null
             ? PublicApiPayloadTemplateService.inferSyncInboundAndOutbound(
                 settings.inboundConfigurationJson,

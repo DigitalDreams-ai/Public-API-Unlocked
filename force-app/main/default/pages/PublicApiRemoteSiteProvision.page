@@ -1,0 +1,94 @@
+<apex:page controller="PublicApiRemoteSiteProvisionPageCtrl"
+           showHeader="false"
+           sidebar="false"
+           standardStylesheets="false"
+           cache="false"
+           docType="html-5.0">
+    <html>
+        <head>
+            <title>Provision Remote Site</title>
+            <style>
+                body {
+                    margin: 0;
+                    font-family: Arial, sans-serif;
+                    background: #f7f8fa;
+                    color: #181818;
+                }
+                .shell {
+                    max-width: 40rem;
+                    margin: 4rem auto;
+                    background: #ffffff;
+                    border: 1px solid #d8dde6;
+                    border-radius: 0.5rem;
+                    box-shadow: 0 1px 2px rgba(24, 24, 24, 0.06);
+                    padding: 1.5rem;
+                }
+                .title {
+                    font-size: 1rem;
+                    font-weight: 700;
+                    margin-bottom: 0.5rem;
+                }
+                .copy {
+                    color: #706e6b;
+                    line-height: 1.45;
+                    margin-bottom: 1rem;
+                }
+                .error {
+                    color: #8b1e1e;
+                    background: #fef1ee;
+                    border: 1px solid #f1c4c2;
+                    border-radius: 0.35rem;
+                    padding: 0.75rem 1rem;
+                    margin-top: 1rem;
+                    white-space: pre-wrap;
+                }
+            </style>
+            <script>
+                function redirectToReturnUrl() {
+                    const returnUrl = "{!JSENCODE(returnUrl)}";
+                    window.top.location.assign(returnUrl);
+                }
+
+                function renderError(message) {
+                    const errorNode = document.getElementById('error');
+                    errorNode.textContent = message || 'Unknown error';
+                    errorNode.hidden = false;
+                }
+
+                function provision() {
+                    PublicApiRemoteSiteProvisionPageCtrl.provision(
+                        "{!JSENCODE(recordId)}",
+                        "{!JSENCODE($Api.Session_ID)}",
+                        function(result, event) {
+                            if (event.status && result && result.success) {
+                                redirectToReturnUrl();
+                                return;
+                            }
+
+                            let message = 'Remote site provisioning failed.';
+                            if (result && result.message) {
+                                message = result.message;
+                            } else if (event && event.message) {
+                                message = event.message;
+                            }
+                            renderError(message);
+                        },
+                        { escape: true }
+                    );
+                }
+
+                window.addEventListener('load', provision);
+            </script>
+        </head>
+        <body>
+            <div class="shell">
+                <div class="title">Provisioning Remote Site</div>
+                <div class="copy">
+                    The package is updating the Remote Site Setting for this integration configuration.
+                    You will be returned to the record page automatically when provisioning succeeds.
+                </div>
+                <div id="error" class="error" hidden="hidden"></div>
+            </div>
+        </body>
+    </html>
+</apex:page>
