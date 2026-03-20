@@ -299,6 +299,72 @@ private class PublicApiRelatedRecordServiceTest {
         );
     }
 
+    @IsTest
+    static void testRetryHelpersClearMappedReferenceFieldsForAccountCreates() {
+        Map<String, Schema.SObjectField> accountFieldMap =
+            Account.SObjectType.getDescribe().fields.getMap();
+        System.assertEquals(
+            true,
+            PublicApiRelatedRecordService.isRetryableMappedReferenceField(
+                accountFieldMap.get('ParentId').getDescribe()
+            )
+        );
+        System.assertEquals(
+            false,
+            PublicApiRelatedRecordService.isRetryableMappedReferenceField(
+                accountFieldMap.get('Name').getDescribe()
+            )
+        );
+
+        Account record = createAccount('Retry Account');
+        record.ParentId = '001000000000000AAA';
+        SObject retryRecord = PublicApiRelatedRecordService.buildRetryRecordWithoutFields(
+            record,
+            new Set<String>{ 'ParentId' }
+        );
+        System.assertEquals('Retry Account', retryRecord.get('Name'));
+        System.assertEquals(null, retryRecord.get('ParentId'));
+    }
+
+    @IsTest
+    static void testRetryHelpersOnlyRetryAccountCrossReferenceFailures() {
+        Account accountRecord = createAccount('Retry Decision Account');
+        Contact contactRecord = new Contact(LastName = 'Retry Decision Contact');
+
+        System.assertEquals(
+            true,
+            PublicApiRelatedRecordService.shouldRetryWithoutMappedReferenceFields(
+                'FIELD_CUSTOM_VALIDATION_EXCEPTION, insufficient access rights on cross-reference id: 001000000000000AAA: []',
+                accountRecord,
+                new Set<String>{ 'ParentId' }
+            )
+        );
+        System.assertEquals(
+            false,
+            PublicApiRelatedRecordService.shouldRetryWithoutMappedReferenceFields(
+                'FIELD_CUSTOM_VALIDATION_EXCEPTION, insufficient access rights on cross-reference id: 001000000000000AAA: []',
+                accountRecord,
+                new Set<String>()
+            )
+        );
+        System.assertEquals(
+            false,
+            PublicApiRelatedRecordService.shouldRetryWithoutMappedReferenceFields(
+                'FIELD_CUSTOM_VALIDATION_EXCEPTION, some other error',
+                accountRecord,
+                new Set<String>{ 'ParentId' }
+            )
+        );
+        System.assertEquals(
+            false,
+            PublicApiRelatedRecordService.shouldRetryWithoutMappedReferenceFields(
+                'FIELD_CUSTOM_VALIDATION_EXCEPTION, insufficient access rights on cross-reference id: 001000000000000AAA: []',
+                contactRecord,
+                new Set<String>{ 'AccountId' }
+            )
+        );
+    }
+
     private static Account createAccount(String name) {
         Account accountRecord = new Account(Name = name);
         String lastNameFieldName = getAccountLastNameFieldName();
