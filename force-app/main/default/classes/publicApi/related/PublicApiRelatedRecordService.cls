@@ -283,6 +283,7 @@ public without sharing class PublicApiRelatedRecordService {
         SObject relatedRecord = Schema.getGlobalDescribe().get(rule.relatedObjectApiName).newSObject();
         PublicApiRecordTypeService.applyRelatedRecordType(relatedRecord, rule.createRecordTypeDeveloperName);
         Set<String> assignedFieldApiNames = new Set<String>();
+        Set<String> mappedReferenceFieldApiNames = new Set<String>();
         for (PublicApiRelatedRecordConfig.CreateFieldMapping mapping : rule.createMappings) {
             if (mapping == null || String.isBlank(mapping.sourceKey) || String.isBlank(mapping.fieldName)) {
                 continue;
@@ -304,6 +305,9 @@ public without sharing class PublicApiRelatedRecordService {
 
             relatedRecord.put(resolvedFieldApiName, normalizedValue);
             assignedFieldApiNames.add(resolvedFieldApiName);
+            if (isRetryableMappedReferenceField(rule.relatedFieldMap.get(resolvedFieldApiName).getDescribe())) {
+                mappedReferenceFieldApiNames.add(resolvedFieldApiName);
+            }
         }
 
         applyRequiredFieldFallbacks(relatedRecord, rule, payload, data, rawMatchValue);
@@ -327,6 +331,19 @@ public without sharing class PublicApiRelatedRecordService {
             insert relatedRecord;
             return relatedRecord;
         } catch (DmlException e) {
+            if (shouldRetryWithoutMappedReferenceFields(
+                e == null ? null : e.getMessage(),
+                relatedRecord,
+                mappedReferenceFieldApiNames
+            )) {
+                SObject retryRecord = buildRetryRecordWithoutFields(relatedRecord, mappedReferenceFieldApiNames);
+                try {
+                    insert retryRecord;
+                    return retryRecord;
+                } catch (DmlException retryException) {
+                    e = retryException;
+                }
+            }
             throw new PublicApiSubmissionServiceException(
                 'Failed to create related ' + rule.relatedObjectApiName + ' record: ' + e.getMessage()
             );
@@ -359,6 +376,46 @@ public without sharing class PublicApiRelatedRecordService {
         }
         Schema.DisplayType typeValue = describe.getType();
         return typeValue == Schema.DisplayType.Reference;
+    }
+
+    @TestVisible
+    private static Boolean isRetryableMappedReferenceField(Schema.DescribeFieldResult describe) {
+        return describe != null &&
+            describe.getType() == Schema.DisplayType.Reference &&
+            isStructurallyWritableField(describe);
+    }
+
+    @TestVisible
+    private static Boolean shouldRetryWithoutMappedReferenceFields(
+        String errorMessage,
+        SObject relatedRecord,
+        Set<String> mappedReferenceFieldApiNames
+    ) {
+        return relatedRecord != null &&
+            relatedRecord.getSObjectType().getDescribe().getName() == 'Account' &&
+            mappedReferenceFieldApiNames != null &&
+            !mappedReferenceFieldApiNames.isEmpty() &&
+            String.isNotBlank(errorMessage) &&
+            errorMessage.toLowerCase().contains('insufficient access rights on cross-reference id');
+    }
+
+    @TestVisible
+    private static SObject buildRetryRecordWithoutFields(SObject record, Set<String> fieldApiNamesToClear) {
+        if (record == null) {
+            return null;
+        }
+
+        SObject retryRecord = record.clone(false, false, false, false);
+        if (fieldApiNamesToClear == null) {
+            return retryRecord;
+        }
+
+        for (String fieldApiName : fieldApiNamesToClear) {
+            if (String.isNotBlank(fieldApiName)) {
+                retryRecord.put(fieldApiName, null);
+            }
+        }
+        return retryRecord;
     }
 
     @TestVisible
