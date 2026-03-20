@@ -1,0 +1,66 @@
+<template>
+    <section class="builder-card">
+        <div class="builder-card__header">
+            <div>
+                <div class="section-heading">Outbound Remote Site</div>
+                <p class="section-copy">
+                    Use this when the webhook URL is new or changed. The package will create or refresh the
+                    Remote Site Setting metadata needed for outbound delivery.
+                </p>
+            </div>
+            <div class="builder-card__actions">
+                <lightning-button
+                    variant="brand"
+                    label={buttonLabel}
+                    onclick={handleProvision}
+                    disabled={isBusy}
+                ></lightning-button>
+            </div>
+        </div>
+
+        <div class="builder-url-row">
+            <lightning-input
+                type="url"
+                label="Outbound Webhook URL"
+                value={webhookUrl}
+                onchange={handleWebhookUrlChange}
+                disabled={isBusy}
+            ></lightning-input>
+        </div>
+
+        <template if:true={isBusy}>
+            <div class="builder-loading">
+                <lightning-spinner size="small" alternative-text="Provisioning remote site"></lightning-spinner>
+            </div>
+        </template>
+
+        <div class="builder-grid">
+            <div class="builder-stat">
+                <span class={statusPillClass}>{statusLabel}</span>
+                <p class="builder-stat__label">Provisioning status</p>
+            </div>
+            <div class="builder-stat">
+                <p class="builder-stat__value">{domainLabel}</p>
+                <p class="builder-stat__label">Domain</p>
+            </div>
+            <div class="builder-stat">
+                <p class="builder-stat__value">{lastProvisionedLabel}</p>
+                <p class="builder-stat__label">Last provisioned</p>
+            </div>
+        </div>
+
+        <template if:true={showRemoteSiteName}>
+            <div class="detail-row">
+                <span class="detail-row__label">Remote Site Name</span>
+                <span class="detail-row__value">{remoteSiteName}</span>
+            </div>
+        </template>
+
+        <template if:true={showLastError}>
+            <div class="builder-error">
+                <span class="builder-error__label">Last error</span>
+                <span class="builder-error__value">{lastError}</span>
+            </div>
+        </template>
+    </section>
+</template>
