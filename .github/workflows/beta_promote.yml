@@ -46,7 +46,7 @@ jobs:
           fi
 
           PACKAGE_ID=$(
-            sf package list --target-dev-hub dev-hub --json \
+            sfdx force:package:list -v dev-hub --json \
               | python -c "import json,sys; data=json.load(sys.stdin)['result']; print(next((item['Id'] for item in data if item['Name']=='PublicApiUnlocked'), ''))"
           )
 
@@ -56,7 +56,7 @@ jobs:
           fi
 
           BETA_VERSION=$(
-            sf package version list --packages "$PACKAGE_ID" --target-dev-hub dev-hub --json \
+            sfdx force:package:version:list -p "$PACKAGE_ID" -v dev-hub --json \
               | python -c "import json,sys; rows=json.load(sys.stdin)['result']; rows=[r for r in rows if not r['IsReleased']]; rows.sort(key=lambda r:(r['MajorVersion'], r['MinorVersion'], r['PatchVersion'], r['BuildNumber'])); print(rows[-1]['SubscriberPackageVersionId'] if rows else '')"
           )
 
