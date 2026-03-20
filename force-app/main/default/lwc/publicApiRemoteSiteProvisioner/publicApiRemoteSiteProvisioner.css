@@ -1,0 +1,154 @@
+.builder-card {
+    background: #ffffff;
+    border: 1px solid #d8dde6;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px rgba(24, 24, 24, 0.06);
+    padding: 1rem;
+}
+
+.builder-card__header {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e5e8ec;
+}
+
+.section-heading {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    color: #181818;
+}
+
+.section-copy {
+    margin: 0;
+    color: #706e6b;
+    line-height: 1.45;
+    max-width: 46rem;
+}
+
+.builder-card__actions {
+    flex-shrink: 0;
+}
+
+.builder-url-row {
+    margin-top: 1rem;
+}
+
+.builder-loading {
+    margin-top: 0.75rem;
+}
+
+.builder-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.builder-stat {
+    background: #f7f8fa;
+    border: 1px solid #e5e8ec;
+    border-radius: 0.35rem;
+    padding: 0.85rem 1rem;
+}
+
+.builder-stat__value {
+    margin: 0;
+    color: #181818;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.builder-stat__label {
+    margin: 0.35rem 0 0;
+    color: #706e6b;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.status-pill_success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-pill_error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-pill_pending {
+    background: #e0f2fe;
+    color: #0c4a6e;
+}
+
+.detail-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: baseline;
+    margin-top: 0.9rem;
+}
+
+.detail-row__label {
+    color: #706e6b;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.detail-row__value {
+    color: #181818;
+    font-size: 0.9rem;
+}
+
+.builder-error {
+    margin-top: 0.9rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid #f1c4c2;
+    background: #fef1ee;
+    border-radius: 0.35rem;
+}
+
+.builder-error__label {
+    display: block;
+    color: #8b1e1e;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.builder-error__value {
+    display: block;
+    margin-top: 0.3rem;
+    color: #8b1e1e;
+    white-space: pre-wrap;
+}
+
+@media (max-width: 768px) {
+    .builder-card__header {
+        flex-direction: column;
+    }
+
+    .builder-card__actions {
+        width: 100%;
+    }
+
+    .builder-grid {
+        grid-template-columns: 1fr;
+    }
+}

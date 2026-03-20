@@ -132,6 +132,7 @@
     align-items: end;
     justify-content: center;
     padding-bottom: 0.25rem;
+    min-width: 2.75rem;
 }
 
 .mapping-grid {
@@ -142,6 +143,14 @@
 
 .mapping-row {
     position: relative;
+}
+
+.mapping-row-layout {
+    align-items: flex-end;
+}
+
+.mapping-field {
+    min-width: 0;
 }
 
 .related-rule-grid {
