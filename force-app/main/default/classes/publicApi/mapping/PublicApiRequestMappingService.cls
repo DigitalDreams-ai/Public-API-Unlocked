@@ -61,6 +61,31 @@ public without sharing class PublicApiRequestMappingService {
         }
     }
 
+    public class InboundLookupPrimeRequest {
+        public String targetObjectApiName;
+        public String inboundConfigJson;
+        public Map<String, Object> payload;
+
+        public InboundLookupPrimeRequest(
+            String targetObjectApiName,
+            String inboundConfigJson,
+            Map<String, Object> payload
+        ) {
+            this.targetObjectApiName = targetObjectApiName;
+            this.inboundConfigJson = inboundConfigJson;
+            this.payload = payload;
+        }
+    }
+
+    private class ReferenceLookupResolution {
+        public Id matchedId;
+        public Boolean hasNoMatch = false;
+        public Boolean hasMultipleMatches = false;
+    }
+
+    @TestVisible private static Map<String, ReferenceLookupResolution> referenceLookupCache =
+        new Map<String, ReferenceLookupResolution>();
+
     public static void applyInboundMappings(
         SObject targetRecord,
         Map<String, Object> payload,
@@ -115,8 +140,7 @@ public without sharing class PublicApiRequestMappingService {
                     resolvedFieldApiName,
                     normalizeInboundValue(
                         rawValue,
-                        fieldDescribe,
-                        normalizeSourceType(mapping == null ? null : mapping.sourceType) == SOURCE_TYPE_LITERAL_VALUE
+                        fieldDescribe
                     )
                 );
             } catch (PublicApiSubmissionServiceException e) {
@@ -232,6 +256,21 @@ public without sharing class PublicApiRequestMappingService {
 
     public static void validateOutboundMappings(String outboundConfigJson, String sourceObjectApiName) {
         validateDirectionalMappings(outboundConfigJson, sourceObjectApiName, false);
+    }
+
+    public static void primeInboundReferenceLookups(List<InboundLookupPrimeRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            return;
+        }
+
+        Map<String, Set<String>> namesByRelatedObject = new Map<String, Set<String>>();
+        for (InboundLookupPrimeRequest request : requests) {
+            collectInboundReferenceLookupNames(request, namesByRelatedObject);
+        }
+
+        for (String relatedObjectApiName : namesByRelatedObject.keySet()) {
+            primeReferenceLookupCache(relatedObjectApiName, namesByRelatedObject.get(relatedObjectApiName));
+        }
     }
 
     public static List<MappingConfig> parseMappings(String configJson) {
@@ -518,8 +557,7 @@ public without sharing class PublicApiRequestMappingService {
 
     private static Object normalizeInboundValue(
         Object rawValue,
-        Schema.DescribeFieldResult describe,
-        Boolean allowLiteralLookupResolution
+        Schema.DescribeFieldResult describe
     ) {
         if (rawValue == null) {
             return null;
@@ -540,7 +578,7 @@ public without sharing class PublicApiRequestMappingService {
 
         Schema.DisplayType typeValue = describe.getType();
         if (typeValue == Schema.DisplayType.Reference) {
-            return normalizeReferenceInboundValue(stringValue, describe, allowLiteralLookupResolution);
+            return normalizeReferenceInboundValue(stringValue, describe);
         }
         if (typeValue == Schema.DisplayType.Boolean) {
             return stringValue != null && stringValue.toLowerCase() == 'true';
@@ -570,44 +608,206 @@ public without sharing class PublicApiRequestMappingService {
 
     private static Object normalizeReferenceInboundValue(
         String stringValue,
-        Schema.DescribeFieldResult describe,
-        Boolean allowLiteralLookupResolution
+        Schema.DescribeFieldResult describe
     ) {
         if (String.isBlank(stringValue)) {
             return null;
         }
-        if (looksLikeSalesforceId(stringValue) || allowLiteralLookupResolution != true) {
+        if (looksLikeSalesforceId(stringValue)) {
             return stringValue;
+        }
+
+        String relatedObjectApiName = getReferenceLookupObjectApiName(describe);
+        if (String.isBlank(relatedObjectApiName)) {
+            return stringValue;
+        }
+
+        ReferenceLookupResolution resolution = getReferenceLookupResolution(relatedObjectApiName, stringValue);
+        if (resolution == null || resolution.hasNoMatch) {
+            throw new PublicApiSubmissionServiceException(
+                'Lookup value "' + stringValue + '" did not match any ' +
+                relatedObjectApiName + ' records by Name for field ' + describe.getName() + '.'
+            );
+        }
+        if (resolution.hasMultipleMatches) {
+            throw new PublicApiSubmissionServiceException(
+                'Lookup value "' + stringValue + '" matched multiple ' +
+                relatedObjectApiName + ' records by Name for field ' + describe.getName() + '.'
+            );
+        }
+        return resolution.matchedId;
+    }
+
+    private static void collectInboundReferenceLookupNames(
+        InboundLookupPrimeRequest request,
+        Map<String, Set<String>> namesByRelatedObject
+    ) {
+        if (request == null || String.isBlank(request.targetObjectApiName) || request.payload == null) {
+            return;
+        }
+
+        Map<String, Schema.SObjectType> globalDescribe = Schema.getGlobalDescribe();
+        Schema.SObjectType targetType = resolveSObjectType(request.targetObjectApiName, globalDescribe);
+        if (targetType == null) {
+            return;
+        }
+
+        String canonicalObjectApiName = targetType.getDescribe().getName();
+        Map<String, Schema.SObjectField> fieldMap = targetType.getDescribe().fields.getMap();
+        Map<String, Object> data = extractDataMap(request.payload);
+        for (MappingConfig mapping : parseMappings(request.inboundConfigJson)) {
+            FieldReference reference = parseFieldReference(mapping == null ? null : mapping.value);
+            if (reference == null || !equalsIgnoreCase(reference.objectApiName, canonicalObjectApiName)) {
+                continue;
+            }
+
+            String resolvedFieldApiName = resolveFieldApiName(reference.fieldApiName, fieldMap);
+            if (String.isBlank(resolvedFieldApiName)) {
+                continue;
+            }
+
+            Schema.DescribeFieldResult describe = fieldMap.get(resolvedFieldApiName).getDescribe();
+            if (describe == null || describe.getType() != Schema.DisplayType.Reference) {
+                continue;
+            }
+
+            String relatedObjectApiName = getReferenceLookupObjectApiName(describe);
+            if (String.isBlank(relatedObjectApiName)) {
+                continue;
+            }
+
+            Object rawValue = resolveInboundRawValue(mapping, request.payload, data);
+            String normalizedLookupName = normalizeReferenceLookupName(rawValue);
+            if (String.isBlank(normalizedLookupName) || looksLikeSalesforceId(normalizedLookupName)) {
+                continue;
+            }
+
+            if (!namesByRelatedObject.containsKey(relatedObjectApiName)) {
+                namesByRelatedObject.put(relatedObjectApiName, new Set<String>());
+            }
+            namesByRelatedObject.get(relatedObjectApiName).add(normalizedLookupName);
+        }
+    }
+
+    private static String getReferenceLookupObjectApiName(Schema.DescribeFieldResult describe) {
+        if (describe == null) {
+            return null;
         }
 
         List<Schema.SObjectType> referenceTypes = describe.getReferenceTo();
         if (referenceTypes == null || referenceTypes.size() != 1 || referenceTypes[0] == null) {
-            return stringValue;
+            return null;
         }
 
         Schema.DescribeSObjectResult relatedDescribe = referenceTypes[0].getDescribe();
         Map<String, Schema.SObjectField> relatedFieldMap = relatedDescribe.fields.getMap();
         if (!relatedFieldMap.containsKey('Name')) {
-            return stringValue;
+            return null;
         }
 
-        String relatedObjectApiName = relatedDescribe.getName();
+        return relatedDescribe.getName();
+    }
+
+    private static String normalizeReferenceLookupName(Object rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+
+        Object value = rawValue;
+        if (value instanceof List<Object>) {
+            List<Object> values = (List<Object>) value;
+            value = values.isEmpty() ? null : values[0];
+        }
+        if (value == null) {
+            return null;
+        }
+
+        String stringValue = String.valueOf(value);
+        return String.isBlank(stringValue) ? null : stringValue.trim();
+    }
+
+    private static ReferenceLookupResolution getReferenceLookupResolution(
+        String relatedObjectApiName,
+        String stringValue
+    ) {
+        String normalizedLookupName = normalizeReferenceLookupName(stringValue);
+        if (String.isBlank(relatedObjectApiName) || String.isBlank(normalizedLookupName)) {
+            return null;
+        }
+
+        String cacheKey = buildReferenceLookupCacheKey(relatedObjectApiName, normalizedLookupName);
+        if (!referenceLookupCache.containsKey(cacheKey)) {
+            primeReferenceLookupCache(relatedObjectApiName, new Set<String>{ normalizedLookupName });
+        }
+        return referenceLookupCache.get(cacheKey);
+    }
+
+    private static void primeReferenceLookupCache(String relatedObjectApiName, Set<String> lookupNames) {
+        if (String.isBlank(relatedObjectApiName) || lookupNames == null || lookupNames.isEmpty()) {
+            return;
+        }
+
+        Set<String> unresolvedNames = new Set<String>();
+        for (String lookupName : lookupNames) {
+            String normalizedLookupName = normalizeReferenceLookupName(lookupName);
+            if (String.isBlank(normalizedLookupName)) {
+                continue;
+            }
+
+            String cacheKey = buildReferenceLookupCacheKey(relatedObjectApiName, normalizedLookupName);
+            if (!referenceLookupCache.containsKey(cacheKey)) {
+                unresolvedNames.add(normalizedLookupName);
+            }
+        }
+
+        if (unresolvedNames.isEmpty()) {
+            return;
+        }
+
+        Map<String, List<Id>> idsByName = new Map<String, List<Id>>();
         List<SObject> matches = Database.query(
-            'SELECT Id FROM ' + relatedObjectApiName + ' WHERE Name = :stringValue LIMIT 2'
+            'SELECT Id, Name FROM ' + relatedObjectApiName + ' WHERE Name IN :unresolvedNames'
         );
-        if (matches.isEmpty()) {
-            throw new PublicApiSubmissionServiceException(
-                'Lookup literal value "' + stringValue + '" did not match any ' +
-                relatedObjectApiName + ' records by Name for field ' + describe.getName() + '.'
+        for (SObject matchRecord : matches) {
+            String matchedNameKey = normalizeReferenceLookupNameForCache(matchRecord.get('Name'));
+            if (String.isBlank(matchedNameKey)) {
+                continue;
+            }
+            if (!idsByName.containsKey(matchedNameKey)) {
+                idsByName.put(matchedNameKey, new List<Id>());
+            }
+            idsByName.get(matchedNameKey).add((Id) matchRecord.get('Id'));
+        }
+
+        for (String unresolvedName : unresolvedNames) {
+            ReferenceLookupResolution resolution = new ReferenceLookupResolution();
+            List<Id> matchedIds = idsByName.get(normalizeReferenceLookupNameForCache(unresolvedName));
+            if (matchedIds == null || matchedIds.isEmpty()) {
+                resolution.hasNoMatch = true;
+            } else if (matchedIds.size() > 1) {
+                resolution.hasMultipleMatches = true;
+            } else {
+                resolution.matchedId = matchedIds[0];
+            }
+            referenceLookupCache.put(
+                buildReferenceLookupCacheKey(relatedObjectApiName, unresolvedName),
+                resolution
             );
         }
-        if (matches.size() > 1) {
-            throw new PublicApiSubmissionServiceException(
-                'Lookup literal value "' + stringValue + '" matched multiple ' +
-                relatedObjectApiName + ' records by Name for field ' + describe.getName() + '.'
-            );
-        }
-        return matches[0].Id;
+    }
+
+    private static String buildReferenceLookupCacheKey(String relatedObjectApiName, String lookupName) {
+        return relatedObjectApiName.trim().toLowerCase() + '|' + normalizeReferenceLookupNameForCache(lookupName);
+    }
+
+    private static String normalizeReferenceLookupNameForCache(Object rawValue) {
+        String normalizedLookupName = normalizeReferenceLookupName(rawValue);
+        return String.isBlank(normalizedLookupName) ? null : normalizedLookupName.toLowerCase();
+    }
+
+    @TestVisible
+    static void clearReferenceLookupCache() {
+        referenceLookupCache.clear();
     }
 
     @TestVisible
