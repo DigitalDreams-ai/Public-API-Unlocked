@@ -304,6 +304,9 @@
                         <valueListItems>
                             <value>Error_Code__c</value>
                         </valueListItems>
+                        <valueListItems>
+                            <value>Delivery_Attempt__c</value>
+                        </valueListItems>
                     </valueList>
                 </componentInstanceProperties>
                 <componentInstanceProperties>

@@ -28,6 +28,25 @@ public without sharing class PublicApiSubmissionRequestEventService {
         }
     }
 
+    private class PreparedSubmissionWorkItem {
+        public Id submissionId;
+        public PublicApi_Submission__c submissionRecord;
+        public SubmissionConfigSnapshot config;
+        public Map<String, Object> payload;
+
+        public PreparedSubmissionWorkItem(
+            Id submissionId,
+            PublicApi_Submission__c submissionRecord,
+            SubmissionConfigSnapshot config,
+            Map<String, Object> payload
+        ) {
+            this.submissionId = submissionId;
+            this.submissionRecord = submissionRecord;
+            this.config = config;
+            this.payload = payload;
+        }
+    }
+
     public static void publishRequest(Id submissionRecordId) {
         if (submissionRecordId == null) {
             return;
@@ -81,6 +100,7 @@ public without sharing class PublicApiSubmissionRequestEventService {
         List<Id> targetUpdateSubmissionIds = new List<Id>();
         List<PendingTargetInsert> pendingInserts = new List<PendingTargetInsert>();
         List<PublicApi_Submission__c> auditUpdates = new List<PublicApi_Submission__c>();
+        List<PreparedSubmissionWorkItem> preparedItems = new List<PreparedSubmissionWorkItem>();
 
         for (Id submissionId : submissionIds) {
             if (submissionId == null || !submissionsById.containsKey(submissionId)) {
@@ -101,6 +121,28 @@ public without sharing class PublicApiSubmissionRequestEventService {
                     submissionRecord.Request_Content_Type__c
                 );
 
+                preparedItems.add(
+                    new PreparedSubmissionWorkItem(
+                        submissionId,
+                        submissionRecord,
+                        config,
+                        payload
+                    )
+                );
+            } catch (Exception e) {
+                auditUpdates.add(buildFailureAuditUpdate(submissionRecord.Id, e));
+            }
+        }
+
+        PublicApiRequestMappingService.primeInboundReferenceLookups(
+            buildInboundLookupPrimeRequests(preparedItems)
+        );
+
+        for (PreparedSubmissionWorkItem preparedItem : preparedItems) {
+            PublicApi_Submission__c submissionRecord = preparedItem.submissionRecord;
+            try {
+                SubmissionConfigSnapshot config = preparedItem.config;
+                Map<String, Object> payload = preparedItem.payload;
                 SObject targetRecord;
                 if (config.targetObjectApiName == PublicApiConfigService.DEFAULT_SUBMISSION_OBJECT_API_NAME) {
                     targetRecord = submissionRecord;
@@ -195,6 +237,32 @@ public without sharing class PublicApiSubmissionRequestEventService {
         }
 
         persistAuditUpdates(auditUpdates);
+    }
+
+    @TestVisible
+    static List<PublicApiRequestMappingService.InboundLookupPrimeRequest> buildInboundLookupPrimeRequests(
+        List<PreparedSubmissionWorkItem> preparedItems
+    ) {
+        List<PublicApiRequestMappingService.InboundLookupPrimeRequest> requests =
+            new List<PublicApiRequestMappingService.InboundLookupPrimeRequest>();
+        if (preparedItems == null) {
+            return requests;
+        }
+
+        for (PreparedSubmissionWorkItem preparedItem : preparedItems) {
+            if (preparedItem == null || preparedItem.config == null || preparedItem.payload == null) {
+                continue;
+            }
+
+            requests.add(
+                new PublicApiRequestMappingService.InboundLookupPrimeRequest(
+                    preparedItem.config.targetObjectApiName,
+                    preparedItem.config.inboundPayloadConfiguration,
+                    preparedItem.payload
+                )
+            );
+        }
+        return requests;
     }
 
     @TestVisible
