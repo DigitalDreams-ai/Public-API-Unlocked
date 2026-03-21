@@ -187,6 +187,56 @@ private class PublicApiRequestMappingServiceTest {
     }
 
     @IsTest
+    static void testPrimeInboundReferenceLookupsAvoidsQueriesDuringApply() {
+        Account firstParent = createAccount('Primed Parent A');
+        Account secondParent = createAccount('Primed Parent B');
+        insert new List<Account>{ firstParent, secondParent };
+
+        String mappingsJson =
+            '[' +
+                '{"externalKey":"parentName","sourceType":"IncomingKey","value":"$Account.ParentId","sortOrder":1}' +
+            ']';
+
+        PublicApiRequestMappingService.clearReferenceLookupCache();
+        PublicApiRequestMappingService.primeInboundReferenceLookups(
+            new List<PublicApiRequestMappingService.InboundLookupPrimeRequest>{
+                new PublicApiRequestMappingService.InboundLookupPrimeRequest(
+                    'Account',
+                    mappingsJson,
+                    new Map<String, Object>{ 'parentName' => 'Primed Parent A' }
+                ),
+                new PublicApiRequestMappingService.InboundLookupPrimeRequest(
+                    'Account',
+                    mappingsJson,
+                    new Map<String, Object>{ 'parentName' => 'Primed Parent B' }
+                )
+            }
+        );
+
+        Account firstChild = createAccount('Primed Child A');
+        Account secondChild = createAccount('Primed Child B');
+        Integer queryCountBefore = Limits.getQueries();
+
+        PublicApiRequestMappingService.applyInboundMappings(
+            firstChild,
+            new Map<String, Object>{ 'parentName' => 'Primed Parent A' },
+            mappingsJson,
+            'Account'
+        );
+        PublicApiRequestMappingService.applyInboundMappings(
+            secondChild,
+            new Map<String, Object>{ 'parentName' => 'Primed Parent B' },
+            mappingsJson,
+            'Account'
+        );
+
+        Integer queryCountAfter = Limits.getQueries();
+        System.assertEquals(firstParent.Id, firstChild.ParentId);
+        System.assertEquals(secondParent.Id, secondChild.ParentId);
+        System.assertEquals(0, queryCountAfter - queryCountBefore);
+    }
+
+    @IsTest
     static void testApplyInboundMappingsRejectsUnmatchedLookupLiteralValue() {
         Account childAccount = createAccount('Child Lookup Error Test');
         String mappingsJson =
