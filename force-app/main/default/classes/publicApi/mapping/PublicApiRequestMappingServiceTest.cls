@@ -127,42 +127,44 @@ private class PublicApiRequestMappingServiceTest {
     static void testApplyInboundMappingsResolvesLookupLiteralValueByName() {
         Account accountRecord = createAccount('Literal Lookup Account');
         insert accountRecord;
+        accountRecord = [SELECT Id, Name FROM Account WHERE Id = :accountRecord.Id];
 
-        Account childAccount = createAccount('Child Lookup Account');
+        Contact childContact = createContact('Child', 'Lookup');
         String mappingsJson =
             '[' +
-                '{"sourceType":"LiteralValue","literalValue":"Literal Lookup Account","value":"$Account.ParentId","sortOrder":1}' +
+                '{"sourceType":"LiteralValue","literalValue":"' + accountRecord.Name + '","value":"$Contact.AccountId","sortOrder":1}' +
             ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
-            childAccount,
+            childContact,
             new Map<String, Object>{ 'ignored' => 'value' },
             mappingsJson,
-            'Account'
+            'Contact'
         );
 
-        System.assertEquals(accountRecord.Id, childAccount.ParentId);
+        System.assertEquals(accountRecord.Id, childContact.AccountId);
     }
 
     @IsTest
     static void testApplyInboundMappingsResolvesLookupIncomingKeyByName() {
         Account accountRecord = createAccount('Incoming Lookup Account');
         insert accountRecord;
+        accountRecord = [SELECT Id, Name FROM Account WHERE Id = :accountRecord.Id];
 
-        Account childAccount = createAccount('Child Incoming Lookup Account');
+        Contact childContact = createContact('Child Incoming', 'Lookup');
         String mappingsJson =
             '[' +
-                '{"externalKey":"parentName","sourceType":"IncomingKey","value":"$Account.ParentId","sortOrder":1}' +
+                '{"externalKey":"accountName","sourceType":"IncomingKey","value":"$Contact.AccountId","sortOrder":1}' +
             ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
-            childAccount,
-            new Map<String, Object>{ 'parentName' => 'Incoming Lookup Account' },
+            childContact,
+            new Map<String, Object>{ 'accountName' => accountRecord.Name },
             mappingsJson,
-            'Account'
+            'Contact'
         );
 
-        System.assertEquals(accountRecord.Id, childAccount.ParentId);
+        System.assertEquals(accountRecord.Id, childContact.AccountId);
     }
 
     @IsTest
@@ -170,20 +172,20 @@ private class PublicApiRequestMappingServiceTest {
         Account accountRecord = createAccount('Existing Parent Account');
         insert accountRecord;
 
-        Account childAccount = createAccount('Child Existing Parent Account');
+        Contact childContact = createContact('Child Existing', 'Lookup');
         String mappingsJson =
             '[' +
-                '{"externalKey":"parentId","sourceType":"IncomingKey","value":"$Account.ParentId","sortOrder":1}' +
+                '{"externalKey":"accountId","sourceType":"IncomingKey","value":"$Contact.AccountId","sortOrder":1}' +
             ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
-            childAccount,
-            new Map<String, Object>{ 'parentId' => accountRecord.Id },
+            childContact,
+            new Map<String, Object>{ 'accountId' => accountRecord.Id },
             mappingsJson,
-            'Account'
+            'Contact'
         );
 
-        System.assertEquals(accountRecord.Id, childAccount.ParentId);
+        System.assertEquals(accountRecord.Id, childContact.AccountId);
     }
 
     @IsTest
@@ -191,48 +193,55 @@ private class PublicApiRequestMappingServiceTest {
         Account firstParent = createAccount('Primed Parent A');
         Account secondParent = createAccount('Primed Parent B');
         insert new List<Account>{ firstParent, secondParent };
+        Map<Id, Account> parentRecordsById = new Map<Id, Account>([
+            SELECT Id, Name
+            FROM Account
+            WHERE Id IN :new Set<Id>{ firstParent.Id, secondParent.Id }
+        ]);
+        firstParent = parentRecordsById.get(firstParent.Id);
+        secondParent = parentRecordsById.get(secondParent.Id);
 
         String mappingsJson =
             '[' +
-                '{"externalKey":"parentName","sourceType":"IncomingKey","value":"$Account.ParentId","sortOrder":1}' +
+                '{"externalKey":"accountName","sourceType":"IncomingKey","value":"$Contact.AccountId","sortOrder":1}' +
             ']';
 
         PublicApiRequestMappingService.clearReferenceLookupCache();
         PublicApiRequestMappingService.primeInboundReferenceLookups(
             new List<PublicApiRequestMappingService.InboundLookupPrimeRequest>{
                 new PublicApiRequestMappingService.InboundLookupPrimeRequest(
-                    'Account',
+                    'Contact',
                     mappingsJson,
-                    new Map<String, Object>{ 'parentName' => 'Primed Parent A' }
+                    new Map<String, Object>{ 'accountName' => firstParent.Name }
                 ),
                 new PublicApiRequestMappingService.InboundLookupPrimeRequest(
-                    'Account',
+                    'Contact',
                     mappingsJson,
-                    new Map<String, Object>{ 'parentName' => 'Primed Parent B' }
+                    new Map<String, Object>{ 'accountName' => secondParent.Name }
                 )
             }
         );
 
-        Account firstChild = createAccount('Primed Child A');
-        Account secondChild = createAccount('Primed Child B');
+        Contact firstChild = createContact('Primed Child', 'A');
+        Contact secondChild = createContact('Primed Child', 'B');
         Integer queryCountBefore = Limits.getQueries();
 
         PublicApiRequestMappingService.applyInboundMappings(
             firstChild,
-            new Map<String, Object>{ 'parentName' => 'Primed Parent A' },
+            new Map<String, Object>{ 'accountName' => firstParent.Name },
             mappingsJson,
-            'Account'
+            'Contact'
         );
         PublicApiRequestMappingService.applyInboundMappings(
             secondChild,
-            new Map<String, Object>{ 'parentName' => 'Primed Parent B' },
+            new Map<String, Object>{ 'accountName' => secondParent.Name },
             mappingsJson,
-            'Account'
+            'Contact'
         );
 
         Integer queryCountAfter = Limits.getQueries();
-        System.assertEquals(firstParent.Id, firstChild.ParentId);
-        System.assertEquals(secondParent.Id, secondChild.ParentId);
+        System.assertEquals(firstParent.Id, firstChild.AccountId);
+        System.assertEquals(secondParent.Id, secondChild.AccountId);
         System.assertEquals(0, queryCountAfter - queryCountBefore);
     }
 
@@ -389,6 +398,12 @@ private class PublicApiRequestMappingServiceTest {
 
     private static Account createAccount(String name) {
         Account accountRecord = new Account(Name = name);
+        Id businessRecordTypeId = getBusinessAccountRecordTypeId();
+        if (businessRecordTypeId != null) {
+            accountRecord.RecordTypeId = businessRecordTypeId;
+            return accountRecord;
+        }
+
         Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
         for (String preferredFieldName : new List<String>{ 'FirstName', 'PersonFirstName' }) {
             if (fieldMap.containsKey(preferredFieldName) &&
@@ -405,6 +420,28 @@ private class PublicApiRequestMappingServiceTest {
             }
         }
         return accountRecord;
+    }
+
+    private static Id getBusinessAccountRecordTypeId() {
+        for (Schema.RecordTypeInfo recordTypeInfo : Account.SObjectType.getDescribe().getRecordTypeInfos()) {
+            if (!recordTypeInfo.isAvailable()) {
+                continue;
+            }
+
+            String recordTypeName = recordTypeInfo.getName();
+            if (recordTypeName == 'Litify Business' || recordTypeName == 'Master') {
+                return recordTypeInfo.getRecordTypeId();
+            }
+        }
+        return null;
+    }
+
+    private static Contact createContact(String firstName, String lastName) {
+        Contact contactRecord = new Contact(LastName = lastName);
+        if (String.isNotBlank(firstName)) {
+            contactRecord.FirstName = firstName;
+        }
+        return contactRecord;
     }
 }
 

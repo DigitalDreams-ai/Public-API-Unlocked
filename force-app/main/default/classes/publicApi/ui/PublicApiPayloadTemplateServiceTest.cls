@@ -122,14 +122,13 @@ private class PublicApiPayloadTemplateServiceTest {
     static void testRequiredCreateFieldsExcludeDerivedNameFields() {
         Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
         System.assertEquals(true, fieldMap.containsKey('Name'));
-        System.assertEquals(
-            true,
-            PublicApiPayloadTemplateService.hasDerivedNameComponents(fieldMap),
-            'Account should expose createable name components that allow Name to be derived.'
-        );
-
         List<String> requiredCreateFields = PublicApiPayloadTemplateService.getRequiredCreateFieldNames('Account');
-        System.assertEquals(false, requiredCreateFields.contains('Name'));
+        Boolean hasDerivedNameComponents = PublicApiPayloadTemplateService.hasDerivedNameComponents(fieldMap);
+        System.assertEquals(
+            !hasDerivedNameComponents,
+            requiredCreateFields.contains('Name'),
+            'Required Name behavior should match whether the org exposes derived name components.'
+        );
     }
 
     private static String selectPreferredTriggerFieldName(String objectApiName) {

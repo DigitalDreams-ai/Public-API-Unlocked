@@ -79,8 +79,8 @@ public without sharing class PublicApiRequestMappingService {
 
     private class ReferenceLookupResolution {
         public Id matchedId;
-        public Boolean hasNoMatch;
-        public Boolean hasMultipleMatches;
+        public Boolean hasNoMatch = false;
+        public Boolean hasMultipleMatches = false;
     }
 
     @TestVisible private static Map<String, ReferenceLookupResolution> referenceLookupCache =
