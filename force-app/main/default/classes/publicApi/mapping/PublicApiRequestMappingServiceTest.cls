@@ -400,7 +400,7 @@ private class PublicApiRequestMappingServiceTest {
         Account accountRecord = new Account(Name = name);
         Id businessRecordTypeId = getBusinessAccountRecordTypeId();
         if (businessRecordTypeId != null) {
-            accountRecord.RecordTypeId = businessRecordTypeId;
+            accountRecord.put('RecordTypeId', businessRecordTypeId);
             return accountRecord;
         }
 
