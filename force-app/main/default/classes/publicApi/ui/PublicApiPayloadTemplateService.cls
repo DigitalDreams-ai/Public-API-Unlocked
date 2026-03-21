@@ -443,9 +443,11 @@ public without sharing class PublicApiPayloadTemplateService {
         }
 
         Boolean hasFirstNameComponent = hasCreateableField(fieldMap, 'FirstName') ||
-            hasCreateableField(fieldMap, 'PersonFirstName');
+            hasCreateableField(fieldMap, 'PersonFirstName') ||
+            hasCreateableField(fieldMap, 'litify_pm__First_Name__c');
         Boolean hasLastNameComponent = hasCreateableField(fieldMap, 'LastName') ||
-            hasCreateableField(fieldMap, 'PersonLastName');
+            hasCreateableField(fieldMap, 'PersonLastName') ||
+            hasCreateableField(fieldMap, 'litify_pm__Last_Name__c');
         return hasFirstNameComponent && hasLastNameComponent;
     }
 
