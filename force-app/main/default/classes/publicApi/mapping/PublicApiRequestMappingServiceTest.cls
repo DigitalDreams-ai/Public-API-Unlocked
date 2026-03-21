@@ -125,144 +125,147 @@ private class PublicApiRequestMappingServiceTest {
 
     @IsTest
     static void testApplyInboundMappingsResolvesLookupLiteralValueByName() {
-        Account accountRecord = createAccount('Literal Lookup Account');
-        insert accountRecord;
-        accountRecord = [SELECT Id, Name FROM Account WHERE Id = :accountRecord.Id];
+        PublicApi_Integration_Config__c configRecord = new PublicApi_Integration_Config__c();
+        insert configRecord;
+        configRecord = [SELECT Id, Name FROM PublicApi_Integration_Config__c WHERE Id = :configRecord.Id];
 
-        Contact childContact = createContact('Child', 'Lookup');
+        PublicApi_Submission__c submission = new PublicApi_Submission__c();
         String mappingsJson =
             '[' +
-                '{"sourceType":"LiteralValue","literalValue":"' + accountRecord.Name + '","value":"$Contact.AccountId","sortOrder":1}' +
+                '{"sourceType":"LiteralValue","literalValue":"' + configRecord.Name + '","value":"$PublicApi_Submission__c.PublicApi_Integration_Config__c","sortOrder":1}' +
             ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
-            childContact,
+            submission,
             new Map<String, Object>{ 'ignored' => 'value' },
             mappingsJson,
-            'Contact'
+            'PublicApi_Submission__c'
         );
 
-        System.assertEquals(accountRecord.Id, childContact.AccountId);
+        System.assertEquals(configRecord.Id, submission.PublicApi_Integration_Config__c);
     }
 
     @IsTest
     static void testApplyInboundMappingsResolvesLookupIncomingKeyByName() {
-        Account accountRecord = createAccount('Incoming Lookup Account');
-        insert accountRecord;
-        accountRecord = [SELECT Id, Name FROM Account WHERE Id = :accountRecord.Id];
+        PublicApi_Integration_Config__c configRecord = new PublicApi_Integration_Config__c();
+        insert configRecord;
+        configRecord = [SELECT Id, Name FROM PublicApi_Integration_Config__c WHERE Id = :configRecord.Id];
 
-        Contact childContact = createContact('Child Incoming', 'Lookup');
+        PublicApi_Submission__c submission = new PublicApi_Submission__c();
         String mappingsJson =
             '[' +
-                '{"externalKey":"accountName","sourceType":"IncomingKey","value":"$Contact.AccountId","sortOrder":1}' +
+                '{"externalKey":"configName","sourceType":"IncomingKey","value":"$PublicApi_Submission__c.PublicApi_Integration_Config__c","sortOrder":1}' +
             ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
-            childContact,
-            new Map<String, Object>{ 'accountName' => accountRecord.Name },
+            submission,
+            new Map<String, Object>{ 'configName' => configRecord.Name },
             mappingsJson,
-            'Contact'
+            'PublicApi_Submission__c'
         );
 
-        System.assertEquals(accountRecord.Id, childContact.AccountId);
+        System.assertEquals(configRecord.Id, submission.PublicApi_Integration_Config__c);
     }
 
     @IsTest
     static void testApplyInboundMappingsPreservesLookupIncomingKeyId() {
-        Account accountRecord = createAccount('Existing Parent Account');
-        insert accountRecord;
+        PublicApi_Integration_Config__c configRecord = new PublicApi_Integration_Config__c();
+        insert configRecord;
 
-        Contact childContact = createContact('Child Existing', 'Lookup');
+        PublicApi_Submission__c submission = new PublicApi_Submission__c();
         String mappingsJson =
             '[' +
-                '{"externalKey":"accountId","sourceType":"IncomingKey","value":"$Contact.AccountId","sortOrder":1}' +
+                '{"externalKey":"configId","sourceType":"IncomingKey","value":"$PublicApi_Submission__c.PublicApi_Integration_Config__c","sortOrder":1}' +
             ']';
 
         PublicApiRequestMappingService.applyInboundMappings(
-            childContact,
-            new Map<String, Object>{ 'accountId' => accountRecord.Id },
+            submission,
+            new Map<String, Object>{ 'configId' => configRecord.Id },
             mappingsJson,
-            'Contact'
+            'PublicApi_Submission__c'
         );
 
-        System.assertEquals(accountRecord.Id, childContact.AccountId);
+        System.assertEquals(configRecord.Id, submission.PublicApi_Integration_Config__c);
     }
 
     @IsTest
     static void testPrimeInboundReferenceLookupsAvoidsQueriesDuringApply() {
-        Account firstParent = createAccount('Primed Parent A');
-        Account secondParent = createAccount('Primed Parent B');
-        insert new List<Account>{ firstParent, secondParent };
-        Map<Id, Account> parentRecordsById = new Map<Id, Account>([
+        PublicApi_Integration_Config__c firstConfig = new PublicApi_Integration_Config__c();
+        PublicApi_Integration_Config__c secondConfig = new PublicApi_Integration_Config__c();
+        insert new List<PublicApi_Integration_Config__c>{ firstConfig, secondConfig };
+        Map<Id, PublicApi_Integration_Config__c> configRecordsById =
+            new Map<Id, PublicApi_Integration_Config__c>([
             SELECT Id, Name
-            FROM Account
-            WHERE Id IN :new Set<Id>{ firstParent.Id, secondParent.Id }
+            FROM PublicApi_Integration_Config__c
+            WHERE Id IN :new Set<Id>{ firstConfig.Id, secondConfig.Id }
         ]);
-        firstParent = parentRecordsById.get(firstParent.Id);
-        secondParent = parentRecordsById.get(secondParent.Id);
+        firstConfig = configRecordsById.get(firstConfig.Id);
+        secondConfig = configRecordsById.get(secondConfig.Id);
 
         String mappingsJson =
             '[' +
-                '{"externalKey":"accountName","sourceType":"IncomingKey","value":"$Contact.AccountId","sortOrder":1}' +
+                '{"externalKey":"configName","sourceType":"IncomingKey","value":"$PublicApi_Submission__c.PublicApi_Integration_Config__c","sortOrder":1}' +
             ']';
 
         PublicApiRequestMappingService.clearReferenceLookupCache();
         PublicApiRequestMappingService.primeInboundReferenceLookups(
             new List<PublicApiRequestMappingService.InboundLookupPrimeRequest>{
                 new PublicApiRequestMappingService.InboundLookupPrimeRequest(
-                    'Contact',
+                    'PublicApi_Submission__c',
                     mappingsJson,
-                    new Map<String, Object>{ 'accountName' => firstParent.Name }
+                    new Map<String, Object>{ 'configName' => firstConfig.Name }
                 ),
                 new PublicApiRequestMappingService.InboundLookupPrimeRequest(
-                    'Contact',
+                    'PublicApi_Submission__c',
                     mappingsJson,
-                    new Map<String, Object>{ 'accountName' => secondParent.Name }
+                    new Map<String, Object>{ 'configName' => secondConfig.Name }
                 )
             }
         );
 
-        Contact firstChild = createContact('Primed Child', 'A');
-        Contact secondChild = createContact('Primed Child', 'B');
+        PublicApi_Submission__c firstSubmission = new PublicApi_Submission__c();
+        PublicApi_Submission__c secondSubmission = new PublicApi_Submission__c();
         Integer queryCountBefore = Limits.getQueries();
 
         PublicApiRequestMappingService.applyInboundMappings(
-            firstChild,
-            new Map<String, Object>{ 'accountName' => firstParent.Name },
+            firstSubmission,
+            new Map<String, Object>{ 'configName' => firstConfig.Name },
             mappingsJson,
-            'Contact'
+            'PublicApi_Submission__c'
         );
         PublicApiRequestMappingService.applyInboundMappings(
-            secondChild,
-            new Map<String, Object>{ 'accountName' => secondParent.Name },
+            secondSubmission,
+            new Map<String, Object>{ 'configName' => secondConfig.Name },
             mappingsJson,
-            'Contact'
+            'PublicApi_Submission__c'
         );
 
         Integer queryCountAfter = Limits.getQueries();
-        System.assertEquals(firstParent.Id, firstChild.AccountId);
-        System.assertEquals(secondParent.Id, secondChild.AccountId);
+        System.assertEquals(firstConfig.Id, firstSubmission.PublicApi_Integration_Config__c);
+        System.assertEquals(secondConfig.Id, secondSubmission.PublicApi_Integration_Config__c);
         System.assertEquals(0, queryCountAfter - queryCountBefore);
     }
 
     @IsTest
     static void testApplyInboundMappingsRejectsUnmatchedLookupLiteralValue() {
-        Account childAccount = createAccount('Child Lookup Error Test');
+        PublicApi_Submission__c submission = new PublicApi_Submission__c();
         String mappingsJson =
             '[' +
-                '{"sourceType":"LiteralValue","literalValue":"Missing Lookup Account","value":"$Account.ParentId","sortOrder":1}' +
+                '{"sourceType":"LiteralValue","literalValue":"Missing Lookup Config","value":"$PublicApi_Submission__c.PublicApi_Integration_Config__c","sortOrder":1}' +
             ']';
 
         try {
             PublicApiRequestMappingService.applyInboundMappings(
-                childAccount,
+                submission,
                 new Map<String, Object>{ 'ignored' => 'value' },
                 mappingsJson,
-                'Account'
+                'PublicApi_Submission__c'
             );
             System.assert(false, 'Expected unmatched lookup literal to throw.');
         } catch (PublicApiSubmissionServiceException e) {
-            System.assert(e.getMessage().contains('did not match any Account records by Name'));
+            System.assert(
+                e.getMessage().contains('did not match any PublicApi_Integration_Config__c records by Name')
+            );
         }
     }
 
@@ -396,52 +399,5 @@ private class PublicApiRequestMappingServiceTest {
         System.assertEquals('Smith', leadRecord.LastName);
     }
 
-    private static Account createAccount(String name) {
-        Account accountRecord = new Account(Name = name);
-        Id businessRecordTypeId = getBusinessAccountRecordTypeId();
-        if (businessRecordTypeId != null) {
-            accountRecord.put('RecordTypeId', businessRecordTypeId);
-            return accountRecord;
-        }
-
-        Map<String, Schema.SObjectField> fieldMap = Account.SObjectType.getDescribe().fields.getMap();
-        for (String preferredFieldName : new List<String>{ 'FirstName', 'PersonFirstName' }) {
-            if (fieldMap.containsKey(preferredFieldName) &&
-                fieldMap.get(preferredFieldName).getDescribe().isCreateable()) {
-                accountRecord.put(preferredFieldName, 'Literal');
-            }
-        }
-        for (Schema.SObjectField fieldToken : fieldMap.values()) {
-            Schema.DescribeFieldResult describe = fieldToken.getDescribe();
-            if (describe.isCreateable() &&
-                describe.getType() == Schema.DisplayType.String &&
-                describe.getName().toLowerCase().contains('last')) {
-                accountRecord.put(describe.getName(), name);
-            }
-        }
-        return accountRecord;
-    }
-
-    private static Id getBusinessAccountRecordTypeId() {
-        for (Schema.RecordTypeInfo recordTypeInfo : Account.SObjectType.getDescribe().getRecordTypeInfos()) {
-            if (!recordTypeInfo.isAvailable()) {
-                continue;
-            }
-
-            String recordTypeName = recordTypeInfo.getName();
-            if (recordTypeName == 'Litify Business' || recordTypeName == 'Master') {
-                return recordTypeInfo.getRecordTypeId();
-            }
-        }
-        return null;
-    }
-
-    private static Contact createContact(String firstName, String lastName) {
-        Contact contactRecord = new Contact(LastName = lastName);
-        if (String.isNotBlank(firstName)) {
-            contactRecord.FirstName = firstName;
-        }
-        return contactRecord;
-    }
 }
 
